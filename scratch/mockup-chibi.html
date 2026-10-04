@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chibi Reshape Mockup</title>
+<style>
+  :root { --bg:#fbf1e8; --card:#fff8ef; --ink:#5b4b57; --soft:#8a7a86; --acc:#ffb5a7; --floor:#e9d6c4; }
+  :root.night { --bg:#2e3157; --card:#3b3d68; --ink:#ece2f2; --soft:#b9afd0; --floor:#6f6a8e; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--ink); font:15px/1.45 ui-rounded,"Nunito","Quicksand","Segoe UI",system-ui,sans-serif; overflow-x:hidden; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:18px 0 6px; }
+  p.lead { margin:0 0 12px; color:var(--soft); max-width:760px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+  button { font:inherit; padding:10px 16px; min-height:44px; border:0; border-radius:999px; background:#f3dfd4; color:#5b4b57; cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--acc); }
+  button:focus-visible { outline:3px solid #8e78b8; outline-offset:2px; }
+  .card { background:var(--card); border-radius:18px; padding:10px; box-shadow:0 6px 18px rgba(122,82,118,.14); margin-bottom:14px; overflow-x:auto; }
+  canvas { display:block; }
+  .note { color:var(--soft); font-size:13px; margin:4px 2px 0; }
+</style>
+</head>
+<body>
+<h1>Polish C2: reshaped characters</h1>
+<p class="lead">Scratch page, not part of the game. Both painters run through the game's sprite path (5px per unit, then drawn at PERSON_SCALE 1.7). Columns: front, back, sitting front, sitting back, walk A, walk B, and an extra pose (chef turned at the stove and stirring, waiter and helper carrying a plate, guest eating).</p>
+<div class="bar" role="group" aria-label="View options">
+  <button id="bNew" aria-pressed="true">New shapes</button>
+  <button id="bOld" aria-pressed="false">Current (C1)</button>
+  <button id="bDay" aria-pressed="true">Day</button>
+  <button id="bNight" aria-pressed="false">Night</button>
+</div>
+<h2>Real size (as in the room at zoom 1)</h2>
+<div class="card"><canvas id="real" aria-label="Characters at real size"></canvas></div>
+<h2>Moving (walk in place, stirring, eating)</h2>
+<div class="card"><canvas id="anim" aria-label="Animated characters"></canvas></div>
+<h2>Close-up ×6</h2>
+<div class="bar" id="pick" role="group" aria-label="Close-up character"></div>
+<div class="card"><canvas id="close" aria-label="One character close up"></canvas></div>
+<h2>Zoomed ×2.6</h2>
+<div class="card"><canvas id="zoom" aria-label="Characters zoomed"></canvas></div>
+<p class="note">Rows: chef messy, chef twin, waiter bun, waiter long, helper twin, helper buzz, guest bob, guest curly, guest fluffy, guest long.</p>
+
+<script>
+  'use strict';
+  const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const light = { amb: [1, 1, 1] };
+  function lit(c, f, a) {
+    const r = clamp(c[0] * light.amb[0] * f, 0, 255) | 0;
+    const g = clamp(c[1] * light.amb[1] * f, 0, 255) | 0;
+    const b = clamp(c[2] * light.amb[2] * f, 0, 255) | 0;
+    return a === undefined ? 'rgb(' + r + ',' + g + ',' + b + ')' : 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+  const EYE_COLS = ['#4a3340', '#5a3e2e', '#3f3b5c'];
+</script>
+<script src="chibi-old.js"></script>
+<script src="chibi2.js"></script>
+<script>
+  (function () {
+    const SKINS = ['#ffdcc4', '#f1c3a0', '#d9a07c', '#b57a5a'].map(rgb);
+    const HAIRS = ['#7a5a6e', '#a9785c', '#5e5a7a', '#e2b38a', '#c97b7b', '#e8a5b4', '#a99bc4'].map(rgb);
+    const UNI = { chef: { shirt: rgb('#fff1e2'), pants: rgb('#a98f80') }, waiter: { shirt: rgb('#cdb4db'), pants: rgb('#6f6a8a') }, helper: { shirt: rgb('#b8e0d2'), pants: rgb('#7a9cc6') } };
+    const PS = 1.7, RES = 5, SW = 34, SH = 48, OX = 17, OY = 44;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const staff = (role, skin, hairI, hairStyle, eye, face, acc) => {
+      const look = { role, skin, hair: hairI, hairStyle, eye, face, acc };
+      return { role, shirt: UNI[role].shirt, pants: UNI[role].pants, skin: SKINS[skin], hair: HAIRS[hairI], look, ph: 0 };
+    };
+    const guest = (shirt, pants, skin, hairI, hairStyle, eye, face, acc, ph) => ({ shirt: rgb(shirt), pants: rgb(pants), skin: SKINS[skin], hair: HAIRS[hairI], hairStyle, eye, face, acc, ph });
+    const CAST = [
+      staff('chef', 1, 0, 'messy', 0, 'grin', 'none'),
+      staff('chef', 2, 3, 'twin', 2, 'smile', 'freckles'),
+      staff('waiter', 0, 5, 'bun', 1, 'smile', 'star'),
+      staff('waiter', 3, 2, 'long', 0, 'cat', 'glasses'),
+      staff('helper', 0, 4, 'twin', 1, 'happy', 'flower'),
+      staff('helper', 2, 1, 'buzz', 0, 'grin', 'none'),
+      guest('#ff9fb2', '#8e7cc3', 0, 1, 'bob', 0, 'smile', 'none', 0.1),
+      guest('#7fb8e6', '#a98f80', 3, 0, 'curly', 2, 'grin', 'none', 0.35),
+      guest('#f6d27a', '#7a9cc6', 1, 6, 'fluffy', 1, 'cat', 'star', 0.6),
+      guest('#a8d58f', '#6f9e95', 0, 3, 'long', 0, 'happy', 'flower', 0.8)
+    ];
+    let useNew = true;
+    const cache = new Map();
+    function sprite(b, sitting, pose) {
+      const scarf = b.role ? 0 : Math.floor(b.ph * 7) % 5;
+      const key = [useNew ? 'n' : 'o', CAST.indexOf(b), sitting ? 1 : 0, pose.back ? 1 : 0, pose.turn ? 1 : 0, pose.stir ? 1 : 0, pose.st, pose.eat, pose.blink ? 1 : 0, light.amb.join()].join('|');
+      let s = cache.get(key);
+      if (!s) {
+        s = document.createElement('canvas');
+        s.width = SW * RES; s.height = SH * RES;
+        const g = s.getContext('2d');
+        g.scale(RES, RES); g.translate(OX, OY);
+        (useNew ? paintChibi : paintOld)(g, b, sitting, pose, scarf);
+        cache.set(key, s);
+      }
+      return s;
+    }
+    // the plate and the stirring hand, as drawStaffBits in the game (unscaled units around the head centre)
+    function bits(ctx, b, x, base, sitting, faceR, kind, now) {
+      const hc = base - headRise(sitting);
+      ctx.save();
+      ctx.translate(x, base); ctx.scale(faceR ? 1 : -1, 1); ctx.translate(-x, -base);
+      if (kind === 'stir') {
+        const a = reduced ? 0 : now * 0.008;
+        const hx2 = x + 8.4 + Math.cos(a) * 0.8, hy2 = hc + 7.5 + Math.sin(a) * 0.5;
+        ctx.strokeStyle = lit(rgb('#a07a5e'), 1); ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(hx2, hy2); ctx.lineTo(hx2 + 1.6 + Math.cos(a) * 1.2, hy2 - 6.5); ctx.stroke();
+        ctx.fillStyle = lit(b.skin, 1);
+        ctx.beginPath(); ctx.ellipse(hx2, hy2, 1.35, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+      } else if (kind === 'carry') {
+        const sx = x + 6.5, sy = hc + 7;
+        ctx.save(); ctx.translate(sx, sy); ctx.scale(0.6, 0.6);
+        ctx.fillStyle = lit(rgb('#eadccd'), 1); ctx.beginPath(); ctx.ellipse(0, 0, 5.4, 2.7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lit(rgb('#fff8ef'), 1.02); ctx.beginPath(); ctx.ellipse(0, -0.3, 4, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lit(rgb('#f6c27a'), 1); ctx.beginPath(); ctx.ellipse(0, -1.4, 3.2, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lit(rgb('#f4978e'), 1); ctx.beginPath(); ctx.arc(-0.8, -2.4, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = lit(b.skin, 1);
+        ctx.beginPath(); ctx.arc(sx - 2.4, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // a little stove behind the cooking chef and a chair back plus table edge for sitters, so poses read in context
+    function props(ctx, x, base, kind, sitting) {
+      if (kind === 'stir') {
+        ctx.fillStyle = lit(rgb('#d9c7e6'), 1); ctx.beginPath(); ctx.roundRect(x - 1, base - 20, 16, 13, 2); ctx.fill();
+        ctx.fillStyle = lit(rgb('#b9a3cc'), 1); ctx.fillRect(x - 1, base - 20, 16, 2.4);
+      }
+    }
+    function drawFig(ctx, b, x, base, sitting, pose, faceR, kind, now) {
+      ctx.save();
+      if (!sitting) { ctx.fillStyle = 'rgba(122,82,118,0.18)'; ctx.beginPath(); ctx.ellipse(x, base, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); }
+      if (!faceR) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); }
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(sprite(b, sitting, pose), x - OX, base - OY, SW, SH);
+      ctx.restore();
+      if (sitting) {
+        // the table edge in front of a sitter
+        ctx.fillStyle = lit(rgb('#f7ede2'), 1); ctx.beginPath(); ctx.roundRect(x - 13, base - 2, 26, 7, 3); ctx.fill();
+        ctx.fillStyle = lit(rgb('#e7d3bf'), 1); ctx.fillRect(x - 13, base + 3, 26, 2);
+      }
+      if (kind) bits(ctx, b, x, base, sitting, faceR, kind, now);
+    }
+    const COLS = 7, CW = 30, RH = 44;
+    function cells(b, i, now) {
+      const extra = b.role === 'chef' ? 'stir' : b.role ? 'carry' : 'eat';
+      return [
+        { s: false, p: { back: false, st: 0, eat: -1 }, r: true },
+        { s: false, p: { back: true, st: 0, eat: -1 }, r: false },
+        { s: true, p: { back: false, st: 0, eat: -1 }, r: true },
+        { s: true, p: { back: true, st: 0, eat: -1 }, r: false },
+        { s: false, p: { back: false, st: 1, eat: -1 }, r: true },
+        { s: false, p: { back: true, st: -1, eat: -1 }, r: true },
+        extra === 'stir' ? { s: false, p: { back: false, turn: true, stir: true, st: 0, eat: -1 }, r: true, k: 'stir' }
+          : extra === 'carry' ? { s: false, p: { back: i % 2 === 1, st: 0.5, eat: -1 }, r: i % 2 === 0, k: 'carry' }
+          : { s: true, p: { back: false, st: 0, eat: 3 }, r: true }
+      ];
+    }
+    function sheet(cv, unit) {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const w = COLS * CW * unit, h = CAST.length * RH * unit;
+      cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr * unit, 0, 0, dpr * unit, 0, 0);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--floor');
+      ctx.fillRect(0, 0, COLS * CW, CAST.length * RH);
+      CAST.forEach((b, i) => cells(b, i, 0).forEach((c, j) => {
+        const x = j * CW + CW / 2, base = i * RH + RH - 4 - (c.s ? 6 : 0);
+        drawFig(ctx, b, x, base, c.s, c.p, c.r, c.k, 0);
+      }));
+    }
+    const anim = document.getElementById('anim');
+    function frame(now) {
+      const unit = PS * 1.5, dpr = Math.min(2, devicePixelRatio || 1), n = CAST.length, cw = 30;
+      const w = n * cw * unit, h = 44 * unit;
+      if (anim.width !== Math.round(w * dpr)) { anim.width = w * dpr; anim.height = h * dpr; anim.style.width = w + 'px'; anim.style.height = h + 'px'; }
+      const ctx = anim.getContext('2d');
+      ctx.setTransform(dpr * unit, 0, 0, dpr * unit, 0, 0);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--floor');
+      ctx.fillRect(0, 0, n * cw, 44);
+      CAST.forEach((b, i) => {
+        const x = i * cw + cw / 2, ph = now * 0.01 + i;
+        const blink = !reduced && ((now * 0.001 + i * 3) % 4.6) > 4.42;
+        if (i === 0) { props(ctx, x, 40, 'stir'); drawFig(ctx, b, x, 40, false, { back: false, turn: true, stir: true, st: 0, eat: -1, blink }, true, 'stir', now); return; }
+        if (i === CAST.length - 1) { drawFig(ctx, b, x, 34, true, { back: false, st: 0, eat: reduced ? -1 : Math.round(Math.abs(Math.sin(now * 0.007)) * 3), blink }, true, null, now); return; }
+        const st = reduced ? 0 : Math.round(Math.sin(ph) * 2) / 2, bob = reduced ? 0 : Math.abs(Math.sin(ph)) * 1.2;
+        drawFig(ctx, b, x, 40 - bob, false, { back: i % 3 === 2, st, eat: -1, blink }, i % 2 === 0, i === 2 ? 'carry' : null, now);
+      });
+      if (!reduced && !document.hidden) requestAnimationFrame(frame);
+    }
+    let closeI = 0;
+    const NAMES = ['Chef messy', 'Chef twin', 'Waiter bun', 'Waiter long', 'Helper twin', 'Helper buzz', 'Guest bob', 'Guest curly', 'Guest fluffy', 'Guest long'];
+    function closeUp() {
+      const cv = document.getElementById('close'), unit = 6, dpr = Math.min(2, devicePixelRatio || 1), b = CAST[closeI];
+      const cs = cells(b, closeI, 0), per = 4, w = per * CW * unit, h = 2 * RH * unit;
+      cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr * unit, 0, 0, dpr * unit, 0, 0);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--floor');
+      ctx.fillRect(0, 0, per * CW, 2 * RH);
+      cs.forEach((c, j) => drawFig(ctx, b, (j % per) * CW + CW / 2, Math.floor(j / per) * RH + RH - 4 - (c.s ? 6 : 0), c.s, c.p, c.r, c.k, 0));
+    }
+    NAMES.forEach((n, i) => {
+      const bt = document.createElement('button');
+      bt.textContent = n; bt.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+      bt.onclick = () => { closeI = i; for (const o of pick.children) o.setAttribute('aria-pressed', o === bt ? 'true' : 'false'); closeUp(); };
+      pick.appendChild(bt);
+    });
+    window.showClose = (i) => { closeI = i; closeUp(); document.getElementById('close').scrollIntoView(); };
+    function redraw() {
+      cache.clear();
+      closeUp();
+      sheet(document.getElementById('real'), PS);
+      sheet(document.getElementById('zoom'), PS * 2.6);
+      if (reduced) frame(0);
+    }
+    const press = (on, off) => { on.setAttribute('aria-pressed', 'true'); off.setAttribute('aria-pressed', 'false'); };
+    bNew.onclick = () => { useNew = true; press(bNew, bOld); redraw(); };
+    bOld.onclick = () => { useNew = false; press(bOld, bNew); redraw(); };
+    bDay.onclick = () => { light.amb = [1, 1, 1]; document.documentElement.classList.remove('night'); press(bDay, bNight); redraw(); };
+    bNight.onclick = () => { light.amb = [0.7, 0.66, 0.9]; document.documentElement.classList.add('night'); press(bNight, bDay); redraw(); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !reduced) requestAnimationFrame(frame); });
+    redraw();
+    requestAnimationFrame(frame);
+  })();
+</script>
+</body>
+</html>
