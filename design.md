@@ -79,6 +79,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 
 - Customer cycle: arrive, walk to a free seat, order, wait, eat, pay (coin pop), leave.
 - Staff cycle: take order, cook, serve, idle.
+- Staff wear role uniforms (chef cream with a tall hat, waiter lavender with a bow, helper mint with a headband). Chefs stir at their counter; waiters carry the plate in hand to the table and clear dirty plates when free.
 - Little emote bubbles above heads (heart, coin, hungry).
 - Characters walk along tile paths; sort by depth with other objects.
 

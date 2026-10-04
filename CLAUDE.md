@@ -8,7 +8,7 @@ Cozy pastel isometric restaurant-decorating game (working title TBD). Repo: http
 
 The game is `index.html`, a single HTML file opened directly in a browser. There is no build, lint, or test tooling. Phases 1 (decorate sandbox) and 2 (customers and money) are done. Furniture, wallpaper and floor are bought with coins (see project.md section 8.4); `DEV_MODE` in index.html, or `?free` in the URL, makes everything free. Opening the page with `?debug` (or `?debug=1`) shows the Lv −/+ buttons and exposes a read-only `window.cozyDebug` (state snapshot and tile-to-screen mapping) for browser tests. Saves are versioned (`v` in the payload, currently 4: v3 stores floor and wall decor per tile and per wall segment, v4 adds the staff roster and gives older saves the free starter crew); add a step to `migrate()` when the format changes so older saves keep loading.
 
-Staff (Phase 3a, `===== STAFF =====`): each person stores only role, tier, name and look; speed and wage come from the `ROLES` and `TIERS` tables, so retuning applies to everyone. Chefs cook at counters, waiters and helpers carry plates, and `economy()` takes capacity as the smallest of seats, kitchen and service (project.md 7.1 and the 8.1 staff rule). Phase 3b (staff drawn walking) and 3c (trash and dirt) are next.
+Staff (Phase 3a, `===== STAFF =====`): each person stores only role, tier, name and look; speed and wage come from the `ROLES` and `TIERS` tables, so retuning applies to everyone. Chefs cook at counters, waiters and helpers carry plates, and `economy()` takes capacity as the smallest of seats, kitchen and service (project.md 7.1 and the 8.1 staff rule). Since 3b, staff are drawn and walk the grid: per-person runtime state (`p.body`, `p.home`, `p.counter`, `p.job`) is never saved, `assignStations()` re-plans work spots on every layout or team change, and waiters carry plates in hand (there are no flying plates).
 
 Sections in `index.html` are marked `// ===== NAME =====` (CONFIG, STATE, SAVE, SIM, ACTIONS, INPUT, ...; grep `===== ` for the list). Keep new code inside the matching section and add a marker for any new one. Progression: each happy guest gives XP (`addXp` in SIM, `xpNeed(level)` = 15 + 10 per level); levels drive room size, dish unlocks and menu slots. `xp` is saved beside `level`.
 
@@ -19,6 +19,8 @@ Sections in `index.html` are marked `// ===== NAME =====` (CONFIG, STATE, SAVE, 
 3. **Everything must be original.** Names, characters, items, art and copy must be our own. Never copy from Restaurant City or any other game. All visuals are drawn by code (Canvas, CSS, inline SVG).
 4. **Work one phase at a time, in order. Never skip a phase.** Phases are listed in `project.md` section 12 (Phase 1 is the decorate sandbox: isometric interior, place/move/remove, level-based grid size, real-time day/night, localStorage).
 5. **Commit every time a sub-phase is finished.**
+6. **Report every time a phase or sub-phase is finished.** Follow `project.md` section 12.2 (phase done, what changed, save version, how it was checked, commit, known gaps, next step and model). Update the status table in section 12.1 in the same commit. Then stop and wait for the user before starting the next phase.
+7. Write all docs and code comments in English.
 
 ## Reference files (do not copy from them)
 

@@ -142,13 +142,20 @@ Each customer ends their visit satisfied or unsatisfied. This feeds the shop rat
 - Staff can be dressed in uniforms (cosmetic items).
 - Staff cap depends on shop size.
 
+**Work spots (chef and waiter behavior).**
+- Every counter has one **work spot**: the floor tile in front of it. A chef walks there with A*, faces the counter, and plays a cooking animation (arm moving, steam or smoke from the pan, a soft sizzle sound) while a dish is being made. When it finishes, the plate appears at the counter's **pickup spot**.
+- One chef per counter. A chef without a free counter waits politely off to the side or helps with dishes. The UI hint says "Add a stove" when chefs outnumber counters.
+- A waiter walks to the pickup spot, takes the plate, and carries it to the customer's table.
+- With no chef, a counter still cooks but slower, so a new player is never blocked. Chef speed multiplies the counter's cook time.
+- Different stove types per dish (wok, pot, grill) are a later option, not part of Phase 3.
+
 **Staff model (Phase 3a).** These rules are in use from Phase 3a on.
 
 | Role | Job | Work power |
 |---|---|---|
 | **Chef** | Cooks at a counter. One chef per counter; extra chefs wait for a free counter. | speed |
 | **Waiter** | Carries plates from the kitchen to the table. | speed |
-| **Helper** | Lends a hand with plates at half pace. From Phase 3c, helpers clean first. | 0.5 × speed |
+| **Helper** | Lends a hand with plates at half pace. From Phase 3d, helpers clean first. | 0.5 × speed |
 
 Each person has a **speed tier** (shown as stars). Speed and wage come from role and tier, so they are never stored per person and retuning applies to everyone:
 
@@ -169,7 +176,17 @@ Wages are coins per minute. Faster staff cost a little more per unit of work but
 - **No fail state:** wages are paid in whole coins as they add up (once a coin is owed). If the shop cannot pay, coins stop at 0, the unpaid part is forgiven, and staff keep working.
 - `DEV_MODE` (or `?free`) waives hire fees and wages.
 
-Phase 3a is the model, hire list and economy. Staff drawn walking on the floor is Phase 3b; trash, dirt and cleaning are Phase 3c (section 12).
+Phase 3a is the model, hire list and economy. Staff drawn walking on the floor is Phase 3b; trash and dirt are Phase 3c, and cleaning is 3d (section 12).
+
+**Staff on the floor (Phase 3b).** Every team member is drawn in the room and walks the grid with A*, like guests, at `2.2 × speed` tiles per second.
+
+- **Looks:** the same rounded body as guests, in a role uniform: chef in cream with a tall hat, waiter in lavender with a peach bow, helper in mint with a butter-yellow headband. Skin and hair come from the saved look.
+- **Stations:** each chef takes a free floor tile beside their counter (fastest chef to the first counter, as in the 8.1 staff rule). Waiters and helpers wait on the next free tiles beside a counter, or the nearest free tile to it. Stations are recomputed when the layout or the team changes, and idle staff walk to the new spot.
+- **Chef:** cooks only while standing at their station (a stirring hand and the counter's steam show it). After a layout change the chef walks back first, so cooking pauses for those few seconds.
+- **Waiter and helper:** when a plate is ready and they are free, they walk to the counter, pick the plate up, carry it to the guest's table, and set it down. The plate no longer flies on its own. A delivery keeps them busy for `60 / (SERVES_PER_WAITER × power)` seconds or the walk, whichever is longer, so in a big room the live shop can be slightly slower than the estimate.
+- **Clearing tables:** a free waiter or helper with no plate to carry walks to a dirty plate on an empty seat and clears it (table section 6.1, "dirty plate"). The player can still tap a table to clear it at once.
+- **Hiring and letting go:** a new hire walks in through the door to their station; someone let go walks out and fades. A plate they were carrying goes back to the counter for the next waiter.
+- Guests and staff can pass through each other; only furniture blocks the way.
 
 ### 7.2 Dirt and Trash
 - Trash and spills spawn over time, proportional to number of customers served.
@@ -230,7 +247,7 @@ wagesPerMin  = sum of every staff member's wage
 income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 ```
 
-- In the live sim, each chef is assigned to one counter (fastest chefs first) and cooks a dish in `cookTime / speed` seconds. A finished plate waits until a waiter or helper is free; each delivery keeps that person busy for `60 / (SERVES_PER_WAITER * power)` seconds. This matches `kitchenCap` and `serviceCap`.
+- In the live sim, each chef is assigned to one counter (fastest chefs first) and cooks a dish in `cookTime / speed` seconds. A finished plate waits until a waiter or helper is free; each delivery keeps that person busy for `60 / (SERVES_PER_WAITER * power)` seconds (or the walk, if longer; see "Staff on the floor" in 7.1). This matches `kitchenCap` and `serviceCap`.
 - Guests still wait with the same patience, so a slow kitchen or too few waiters shows up as "waited too long" (clock bubble).
 - The breakdown shows Seats, Kitchen and Service as separate rows and the hint names the bottleneck: "Not enough seats", "Kitchen is busy: hire a chef" or "add a counter", "Waiters are busy: hire a waiter or helper", "Hire a chef so the kitchen can cook", "Hire a waiter to carry plates", or "A chef has no counter" when a chef is idle.
 - Wage check (8.2): a Brisk waiter fully busy carries 6 guests a minute; even at the cheapest dish and lowest price (margin 5) that is 30 coins/min against a wage of 2. Staff only cost more than they earn when they are idle, and the hint says so.
@@ -355,11 +372,94 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | **3** | Staff and cleanliness | Hiring, trash system, tap-to-clean, idle staff cleaning |
 | 3a | Staff model | Roles, tiers, wages, hire list, staff cap, wages in income/min, save v4 |
 | 3b | Staff on the floor | Staff drawn and walking (A*), waiters carry plates and clear tables |
-| 3c | Trash and dirt | Trash spawns, dirt level, tap-to-clean, idle staff and helpers clean |
+| 3c | Trash and dirt | Trash spawns, dirt level, `cleanFactor` in income, trash sprites and bubbles |
+| 3d | Cleaning | Tap-to-clean for the player, idle staff and helpers clean |
 | **4** | Storefront | 2D facade scene, sign and exterior decor, curb appeal |
 | **5** | Offline earnings | Server time, welcome-back popup, cap and efficiency settings |
 | **6** | Social | Firebase login, friend code, visit shops, likes, guestbook, help-friend cleaning, daily gift, achievements |
 | **7** | Polish and live ops | Sound, tutorial, events, leaderboard, photo mode |
+
+### 12.1 Status
+
+| Phase | Status |
+|---|---|
+| 1 Decorate sandbox (incl. polish 1 to 7) | Done |
+| 2 Customers and money | Done |
+| 3 Staff and cleanliness | In progress: 3a and 3b done, 3c next |
+| 4 Storefront | Planned |
+| 5 Offline earnings | Planned |
+| 7a Playable polish | Planned |
+| 6 Social (online) | Planned, separate milestone |
+
+Milestones:
+- **M1, Playable solo:** Phases 3, 4, 5 and 7a. A complete single-player loop that can be handed to friends.
+- **M2, Online:** Phase 6 and 7b. Firebase, friends, visits, server-time money.
+
+### 12.2 Phase completion report (mandatory)
+
+When a phase or sub-phase is finished, Claude must stop and report to the user before starting the next one. The report states:
+
+1. **Phase done:** the phase name and the sub-phase letter (for example "Phase 3b done").
+2. **What changed:** a short list of features added or changed.
+3. **Save format:** the save version bump and the `migrate()` step, if any.
+4. **How it was checked:** what was played or tested (`?debug`, console clean, 360px width).
+5. **Commit:** the commit hash and message.
+6. **Known gaps:** anything left out or deferred.
+7. **Next:** the next sub-phase and the suggested model.
+
+Claude never starts the next phase until the user replies. Update the table in 12.1 in the same commit.
+
+### 12.3 Detailed plan, Phase 3 to M1
+
+Model key: **Opus** for design and cross-cutting work, **Sonnet** for feature work from a written spec, **Haiku** for mechanical edits, **Fable** for one-off deep reviews.
+
+**Before Phase 3 (housekeeping)**
+- Check that serving customers gives XP and that levels unlock grid size, dishes and menu slots. Add it if missing. (Sonnet)
+- Add or ignore `.claude/` in git. Section `index.html` with banner comments (`// ===== STAFF =====`). Tag `phase2-done`. (Haiku)
+
+**Phase 3: Staff and cleanliness**
+| Step | Work | Model |
+|---|---|---|
+| 3a | Design the staff model: data, hire list UI, staff cap by shop size, wages in income/min, work spots (see 7.1), save v4 and `migrate()`. Write the decisions into this file first. | Opus |
+| 3b | Staff entities: waiter, chef, helper. They reuse A* and depth sorting. Chefs stand at counter work spots and cook. Waiters carry dishes from the pickup spot to tables. | Sonnet |
+| 3c | Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles. | Sonnet |
+| 3d | Tap-to-clean for the player and idle cleaning for staff. | Sonnet |
+| 3e | Bottleneck hint in the income panel (staff, seats, appeal, stoves). | Haiku |
+| 3f | Balance pass with fast-forward runs through `cozyDebug`. Wages must stay below the income they enable. | Opus |
+
+Done when: hiring raises income, ignoring dirt hurts income, old saves load, no console errors.
+
+**Phase 4: Storefront**
+| Step | Work | Model |
+|---|---|---|
+| 4a | Scene switcher with shared camera and lighting, street path to the door. | Opus |
+| 4b | Facade drawn in code: building, door, windows, sign with the shop name. | Sonnet |
+| 4c | Exterior decor slots, build-mode shop for them, save v5. | Sonnet |
+| 4d | `curbAppeal` and `nightBonus` feed the appeal formula. | Haiku |
+| 4e | Customers walk in from the street to the door. | Sonnet |
+
+Done when: it looks right at 360px, exterior decor measurably raises arrivals, day and night work in both scenes.
+
+**Phase 5: Offline earnings** (local clock for M1, server time in Phase 6)
+| Step | Work | Model |
+|---|---|---|
+| 5a | Store `lastSeen`, pay `min(elapsed, OFFLINE_CAP) * incomePerMin * EFFICIENCY` on load. | Sonnet |
+| 5b | Welcome-back popup with a collect button and coin burst (respect reduced motion). | Sonnet |
+| 5c | Clock guard: clamp negative elapsed time, mark the clock untrusted. | Opus |
+
+Done when: 10 minutes away pays correctly, a clock moved backwards pays nothing, a day away pays only the cap.
+
+**Phase 7a: Playable polish**
+- Tutorial for the first 3 minutes: place, serve, collect. (Sonnet)
+- Sound: WebAudio synthesized effects, mute toggle, start only after a user gesture. (Sonnet)
+- Photo mode. (Haiku)
+- Final title and shop copy (open decision in section 15). (Haiku)
+- Accessibility, 360px and performance sweep. (Sonnet)
+- Whole-file code review, then fixes. (Fable or Opus)
+
+M1 is reached when a new player can play 30 minutes with no console errors, old saves load, and it works on mobile.
+
+**Phase 6 and 7b: Social (M2)**: backend and security rules (Fable/Opus), auth and cloud save (Opus), friends and visits (Sonnet), likes and guestbook (Sonnet), help-friend and daily gift with server-side caps (Opus), achievements (Haiku/Sonnet), server-time offline earnings (Opus), leaderboard and events (Sonnet). `CLAUDE.md` must be updated first to allow the Firebase SDK as the one external library.
 
 ## 13. Suggested Additions (optional ideas)
 

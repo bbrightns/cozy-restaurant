@@ -2202,7 +2202,6 @@
   let customers = [];
   let orders = [];          // customers whose order waits for a free counter
   let ready = [];           // cooked plates waiting for a waiter: { cust, dish, fx, fy }
-  const flights = [];       // plates floating from a counter to a table
   const pops = [];          // "+coins" pops
   let coins = 0;
   let shownCoins = 0;       // HUD value, catches up as flying coins land
@@ -2232,11 +2231,11 @@
     return true;
   }
   /* moves along the path; true once the last point is reached */
-  function stepPath(c, dt) {
+  function stepPath(c, dt, speed) {
     if (!c.path.length) { c.moving = false; return true; }
     const [tx, ty] = c.path[0];
     const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
-    const s = WALK_SPEED * dt;
+    const s = (speed || WALK_SPEED) * dt;
     c.moving = true;
     c.ph += dt * 10;
     if (d <= s) {
@@ -2286,7 +2285,7 @@
     orders = orders.filter((o) => o !== c);
     ready = ready.filter((r) => r.cust !== c);
     for (const it of items) if (it.cook && it.cook.cust === c) it.cook = null;
-    for (const f of flights) if (f.cust === c) f.cust = null;
+    for (const p of staff) if (p.job && p.job.cust === c) p.job.cust = null;
     if (outcome) {
       recordOutcome(outcome);
       bubble(c, outcome === 'happy' ? 'heart' : outcome, 2.4);
@@ -2458,17 +2457,16 @@
     }
   }
 
+  /* each counter is cooked at by the chef stationed beside it (assignStations), only while that chef stands there */
   function updateKitchen(dt) {
-    // fastest chefs take the counters in layout order; a counter with no chef stands idle
-    const crew = staffOf('chef').sort((a, b) => speedOf(b) - speedOf(a));
-    let k = 0;
     for (const it of items) {
       if (it.id !== 'counter_01') continue;
-      const chef = crew[k++];
+      const chef = staff.find((p) => p.role === 'chef' && p.counter === it);
       if (!chef) {
         if (it.cook) { if (it.cook.cust && it.cook.cust.state === 'waitFood') orders.unshift(it.cook.cust); it.cook = null; }
         continue;
       }
+      if (!atStation(chef)) continue;
       if (!it.cook && orders.length) {
         const cust = orders.shift();
         it.cook = { cust, t: 0, dur: cust.dish.cook };
@@ -2478,34 +2476,16 @@
       if (it.cook.t < it.cook.dur) continue;
       const cust = it.cook.cust;
       it.cook = null;
-      if (cust && cust.state === 'waitFood' && cust.seat) {
-        const [w, d] = dims(it.id, it.rot);
-        ready.push({ cust, dish: cust.dish, fx: it.x + w / 2, fy: it.y + d / 2 });
-      }
+      if (cust && cust.state === 'waitFood' && cust.seat) ready.push({ cust, dish: cust.dish, counter: it });
     }
-    // each delivery keeps one waiter or helper busy for 60 / (SERVES_PER_WAITER * power) seconds
-    for (const p of staff) {
-      if (p.role === 'chef') continue;
-      p.busy = Math.max(0, (p.busy || 0) - dt);
-      if (p.busy > 0 || !ready.length) continue;
-      const r = ready.shift();
-      if (!r.cust || r.cust.state !== 'waitFood' || !r.cust.seat) continue;
-      flights.push({ cust: r.cust, dish: r.dish, fx: r.fx, fy: r.fy, t: 0 });
-      r.cust.state = 'served';
-      p.busy = 60 / (SERVES_PER_WAITER * powerOf(p));
-    }
-    for (let q = flights.length - 1; q >= 0; q--) {
-      const f = flights[q];
-      f.t += dt / (reduced ? 0.4 : 0.8);
-      if (f.t < 1) continue;
-      flights.splice(q, 1);
-      const c = f.cust;
-      if (c && c.state === 'served' && c.seat && seatTable(c.seat)) {
-        c.seat.plate = { dish: f.dish, state: 'full', eaten: 0, table: seatTable(c.seat) };
-        c.state = 'eating';
-        c.t = 0;
-      }
-    }
+  }
+  /* a guest whose plate is set down starts eating */
+  function servePlate(c, dish) {
+    if (!c || c.state !== 'served' || !c.seat || !seatTable(c.seat)) return false;
+    c.seat.plate = { dish, state: 'full', eaten: 0, table: seatTable(c.seat) };
+    c.state = 'eating';
+    c.t = 0;
+    return true;
   }
 
   function simUpdate(dt) {
@@ -2520,6 +2500,7 @@
     for (const c of customers.slice()) updateCustomer(c, dt);
     customers = customers.filter((c) => !(c.state === 'exit' && c.alpha <= 0));
     updateKitchen(dt);
+    updateStaff(dt);
     payWages(dt);
     for (let q = pops.length - 1; q >= 0; q--) { pops[q].t += dt; if (pops[q].t > 1.3) pops.splice(q, 1); }
     for (let q = coinFlights.length - 1; q >= 0; q--) {
@@ -2533,7 +2514,7 @@
       void coinIcon.getBoundingClientRect();
       coinIcon.classList.add('bump');
     }
-    const near = customers.some((c) => Math.hypot(c.x - DOOR_IN.x, c.y - DOOR_IN.y) < 0.7);
+    const near = customers.concat(staffBodies()).some((c) => Math.hypot(c.x - DOOR_IN.x, c.y - DOOR_IN.y) < 0.7);
     doorOpen = reduced ? (near ? 1 : 0) : clamp(doorOpen + (near ? dt : -dt) * 4, 0, 1);
   }
 
@@ -2551,6 +2532,7 @@
     for (const c of customers) {
       if (c.state === 'waitFood' && !orders.includes(c) && !ready.some((r) => r.cust === c) && !items.some((it) => it.cook && it.cook.cust === c)) orders.unshift(c);
     }
+    staffOnLayout();
   }
 
   /* coins arcing from a guest up into the HUD counter (screen space) */
@@ -2676,21 +2658,44 @@
     ctx.fillStyle = lit(dish.cols[2], 1);
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
-  function drawFlights() {
-    for (const f of flights) {
-      if (!f.cust || !f.cust.seat) continue;
-      const [tx, ty] = plateSpot(f.cust.seat);
-      const e = f.t * f.t * (3 - 2 * f.t);
-      const x = lerp(f.fx, tx, e), y = lerp(f.fy, ty, e), z = lerp(32, 18.3, e) + Math.sin(f.t * Math.PI) * 26;
-      const sx = PX(x, y), sy = PY(x, y, z);
-      ctx.fillStyle = 'rgba(122,82,118,0.12)';
-      ctx.beginPath(); ctx.ellipse(PX(x, y), PY(x, y, lerp(31, 18, e)), 5, 2.4, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = lit(PLATE, 1);
-      ctx.beginPath(); ctx.ellipse(sx, sy, 6.4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = lit(P.cream, 1.02);
-      ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 4.8, 2.3, 0, 0, Math.PI * 2); ctx.fill();
-      drawFood(sx, sy - 0.3, f.dish, 1);
+  /* uniform details drawn over a staff body; b.hx, b.hy were set by drawPerson (head centre is 7px below hy) */
+  const UNIFORM = { hat: rgb('#fff6ea'), hatBand: rgb('#eadccd'), bow: rgb('#ffb5a7'), band: rgb('#f6d27a') };
+  function drawStaffBits(b, now) {
+    const hx = b.hx, hc = b.hy + 7;
+    ctx.save();
+    ctx.globalAlpha *= clamp(b.alpha, 0, 1);
+    if (b.role === 'chef') {
+      ctx.fillStyle = lit(UNIFORM.hat, 1.02);
+      ctx.beginPath(); ctx.ellipse(hx, hc - 9.4, 5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+      rrect(hx - 3.8, hc - 8.6, 7.6, 4.4, 1.2); ctx.fill();
+      ctx.fillStyle = lit(UNIFORM.hatBand, 1);
+      rrect(hx - 4, hc - 5.4, 8, 1.6, 0.7); ctx.fill();
+    } else if (b.role === 'waiter') {
+      ctx.fillStyle = lit(UNIFORM.bow, 1);
+      const y = hc + 5.6;
+      ctx.beginPath(); ctx.moveTo(hx, y); ctx.lineTo(hx - 3, y - 1.6); ctx.lineTo(hx - 3, y + 1.6); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(hx, y); ctx.lineTo(hx + 3, y - 1.6); ctx.lineTo(hx + 3, y + 1.6); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.fillStyle = lit(UNIFORM.band, 1);
+      rrect(hx - 4.7, hc - 3.2, 9.4, 1.8, 0.9); ctx.fill();
     }
+    if (b.cooking) {
+      // a hand stirring at the counter
+      const a = reduced ? 0 : now * 0.008;
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.arc(hx + 4.8 + Math.cos(a) * 1.4, hc + 9 + Math.sin(a) * 0.7, 1.7, 0, Math.PI * 2); ctx.fill();
+    }
+    if (b.carry) {
+      const sx = hx + 6, sy = hc + 8;
+      ctx.fillStyle = lit(PLATE, 1);
+      ctx.beginPath(); ctx.ellipse(sx, sy, 5.4, 2.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(P.cream, 1.02);
+      ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 4, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+      drawFood(sx, sy - 0.3, b.carry, 0.85);
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.arc(sx - 3.6, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   }
 
   const BUBBLE_ICON = {
@@ -2871,6 +2876,215 @@
     coins -= paid;
     shownCoins = Math.max(0, Math.min(coins, shownCoins - paid));
     saveSoon();
+  }
+
+  /* ---------------- staff on the floor (project.md 7.1, Phase 3b) ----------------
+     Runtime only, never saved: p.body (position, path, look), p.home (station tile),
+     p.counter (a chef's counter), p.job, p.busy. */
+  const STAFF_WALK = 2.2;             // tiles per second at speed 1
+  const HANDOFF = 0.4;                // seconds spent picking up or setting down a plate
+  const UNIFORMS = {
+    chef: { shirt: rgb('#fff1e2'), pants: rgb('#a98f80') },
+    waiter: { shirt: rgb('#cdb4db'), pants: rgb('#6f6a8a') },
+    helper: { shirt: rgb('#b8e0d2'), pants: rgb('#7a9cc6') }
+  };
+  const leavers = [];                 // bodies of staff who were let go, walking out
+  function bodyOf(p) {
+    if (!p.body) {
+      const h = p.home || [DOOR.x, DOOR.y];
+      p.body = {
+        x: h[0] + 0.5, y: h[1] + 0.5, path: [], alpha: 1, moving: false, ph: Math.random() * 6, state: '',
+        role: p.role, shirt: UNIFORMS[p.role].shirt, pants: UNIFORMS[p.role].pants, skin: SKINS[p.skin], hair: HAIRS[p.hair],
+        carry: null, cooking: false, hx: 0, hy: 0
+      };
+    }
+    return p.body;
+  }
+  const staffBodies = () => staff.map(bodyOf).concat(leavers);
+  const atStation = (p) => {
+    const b = bodyOf(p);
+    return !!p.home && !b.path.length && Math.floor(b.x) === p.home[0] && Math.floor(b.y) === p.home[1];
+  };
+  function goHome(p) {
+    const b = bodyOf(p), h = p.home;
+    if (!h) return;
+    const [tx, ty] = tileOf(b);
+    if (tx === h[0] && ty === h[1]) { b.path = [[h[0] + 0.5, h[1] + 0.5]]; return; }
+    if (!walkTo(b, h[0], h[1])) { b.x = h[0] + 0.5; b.y = h[1] + 0.5; b.path = []; }
+  }
+  /* walks to a floor tile beside an item (the nearest of its cells), not onto it */
+  function walkNear(b, it) {
+    const [sx, sy] = tileOf(b), blocked = blockedGrid();
+    let best = null;
+    for (const [cx, cy] of cells(it)) {
+      const route = inside(cx, cy) && astar(sx, sy, cx, cy, blocked);
+      if (route && (!best || route.length < best.length)) best = route;
+    }
+    if (!best) return false;
+    best.pop();
+    b.path = best.slice(1).map(([x, y]) => [x + 0.5, y + 0.5]);
+    if (!b.path.length) b.path = [[sx + 0.5, sy + 0.5]];
+    return true;
+  }
+
+  /* Stations: chefs get a free tile beside their counter (fastest chef to the first
+     counter), then waiters and helpers take the next free tiles beside a counter, or
+     the nearest free tile to one. Only tiles reachable from the door count. */
+  function assignStations() {
+    const blocked = blockedGrid();
+    const seen = new Uint8Array(N * N);
+    const start = DOOR.x + DOOR.y * N, queue = [start];
+    seen[start] = 1;
+    for (let q = 0; q < queue.length; q++) {
+      const k = queue[q], x = k % N, y = (k / N) | 0;
+      for (const [sx, sy] of STEPS) {
+        const nx = x + sx, ny = y + sy, nk = nx + ny * N;
+        if (inside(nx, ny) && !blocked[nk] && !seen[nk]) { seen[nk] = 1; queue.push(nk); }
+      }
+    }
+    const taken = new Set([start]);
+    const free = (x, y) => inside(x, y) && seen[x + y * N] && !taken.has(x + y * N);
+    const counters = items.filter((it) => it.id === 'counter_01');
+    // the side the counter faces first, then any other side
+    function beside(it) {
+      for (const [sx, sy] of [DIRS[it.rot]].concat(STEPS)) for (const [cx, cy] of cells(it)) if (free(cx + sx, cy + sy)) return [cx + sx, cy + sy];
+      return null;
+    }
+    // nearest free reachable tile, walking out from the counters (or the door)
+    function nearest() {
+      const from = counters.length ? counters.flatMap(cells) : [[DOOR.x, DOOR.y]];
+      const dist = new Uint8Array(N * N), q = [];
+      for (const [x, y] of from) if (inside(x, y)) { dist[x + y * N] = 1; q.push(x + y * N); }
+      for (let i = 0; i < q.length; i++) {
+        const k = q[i], x = k % N, y = (k / N) | 0;
+        if (free(x, y)) return [x, y];
+        for (const [sx, sy] of STEPS) {
+          const nx = x + sx, ny = y + sy, nk = nx + ny * N;
+          if (inside(nx, ny) && !dist[nk] && (seen[nk] || blocked[nk])) { dist[nk] = 1; q.push(nk); }
+        }
+      }
+      return [DOOR.x, DOOR.y];
+    }
+    const chefs = staffOf('chef').sort((a, b) => speedOf(b) - speedOf(a));
+    chefs.forEach((p, i) => { p.counter = counters[i] || null; });
+    for (const p of chefs.concat(staff.filter((x) => x.role !== 'chef'))) {
+      if (p.role !== 'chef') p.counter = null;
+      let spot = p.counter ? beside(p.counter) : null;
+      if (!spot && p.role !== 'chef') for (const it of counters) if ((spot = beside(it))) break;
+      p.home = spot || nearest();
+      taken.add(p.home[0] + p.home[1] * N);
+    }
+  }
+
+  /* a waiter or helper puts the job down: plates go back to the counter queue */
+  function dropJob(p) {
+    const j = p.job;
+    p.job = null;
+    if (p.body) p.body.carry = null;
+    if (!j || !j.cust || j.cust.state !== 'served') return;
+    if (j.counter && items.includes(j.counter)) ready.unshift({ cust: j.cust, dish: j.dish, counter: j.counter });
+    else { j.cust.state = 'waitFood'; orders.unshift(j.cust); }
+  }
+  function clearPlate(ch) {
+    const [px, py] = plateSpot(ch);
+    ch.plate = null;
+    spawnRing(px - 0.2, py - 0.2, 0.4, 0.4);
+  }
+  const dirtyFor = () => chairs().find((ch) => !ch.occupant && ch.plate && ch.plate.state === 'dirty' && !staff.some((p) => p.job && p.job.chair === ch));
+
+  function updateStaff(dt) {
+    for (const p of staff) {
+      const b = bodyOf(p);
+      b.alpha = Math.min(1, b.alpha + dt * 3);
+      p.busy = Math.max(0, (p.busy || 0) - dt);
+      const arrived = stepPath(b, dt, STAFF_WALK * speedOf(p));
+      if (p.role === 'chef') {
+        if (arrived && !atStation(p)) goHome(p);
+        b.cooking = !!(p.counter && p.counter.cook) && atStation(p);
+        continue;
+      }
+      const j = p.job;
+      if (!j) {
+        let r = null;
+        while (p.busy <= 0 && ready.length && !r) {
+          r = ready.shift();
+          if (!r.cust || r.cust.state !== 'waitFood' || !r.cust.seat || !items.includes(r.counter)) r = null;
+        }
+        if (r) {
+          // one delivery keeps them busy for 60 / (SERVES_PER_WAITER * power) seconds, or the walk if longer
+          r.cust.state = 'served';
+          p.busy = 60 / (SERVES_PER_WAITER * powerOf(p));
+          p.job = { kind: 'pickup', cust: r.cust, dish: r.dish, counter: r.counter };
+          if (!walkNear(b, r.counter)) b.path = [];
+          continue;
+        }
+        const ch = !ready.length && dirtyFor();
+        if (ch) {
+          p.job = { kind: 'clear', chair: ch };
+          if (!walkNear(b, ch)) b.path = [];
+          continue;
+        }
+        if (arrived && !atStation(p)) goHome(p);
+        continue;
+      }
+      if (j.kind !== 'clear' && !j.cust) { dropJob(p); continue; }   // the guest left
+      if (!arrived) continue;
+      if (j.pause > 0) { j.pause -= dt; continue; }      // a short hand-off, so the plate is seen in hand
+      if (j.kind === 'pickup') {
+        b.carry = j.dish;
+        j.kind = 'deliver';
+        j.pause = HANDOFF;
+        if (!walkNear(b, j.cust.seat)) b.path = [];
+      } else if (j.kind === 'deliver' && !j.placed) {
+        j.placed = true;
+        j.pause = HANDOFF;
+      } else if (j.kind === 'deliver') {
+        b.carry = null;
+        p.job = null;
+        servePlate(j.cust, j.dish);
+      } else if (j.kind === 'clear') {
+        p.job = null;
+        const ch = j.chair;
+        if (items.includes(ch) && !ch.occupant && ch.plate && ch.plate.state === 'dirty') clearPlate(ch);
+      }
+    }
+    for (let q = leavers.length - 1; q >= 0; q--) {
+      const b = leavers[q];
+      if (!stepPath(b, dt, STAFF_WALK)) continue;
+      if (b.state === 'leaving') { b.state = 'exit'; b.path = [[DOOR_IN.x, DOOR_IN.y]]; }
+      else if ((b.alpha -= dt * 3) <= 0) leavers.splice(q, 1);
+    }
+  }
+
+  /* the layout or the team changed: new stations, and everyone on the move re-paths */
+  function staffOnLayout() {
+    assignStations();
+    for (const p of staff) {
+      const b = bodyOf(p), j = p.job;
+      if (!j) { if (!atStation(p)) goHome(p); continue; }
+      if (j.kind === 'clear') {
+        if (items.includes(j.chair) && j.chair.plate) walkNear(b, j.chair); else p.job = null;
+      } else if (!j.cust) {
+        dropJob(p);
+      } else if (j.kind === 'pickup') {
+        if (items.includes(j.counter)) walkNear(b, j.counter); else dropJob(p);
+      } else walkNear(b, j.cust.seat);
+    }
+  }
+  /* a new hire fades in at the door and walks to their station */
+  function staffJoins(p) {
+    const b = bodyOf(p);
+    b.x = DOOR_IN.x; b.y = DOOR_IN.y; b.alpha = 0;
+    staffOnLayout();
+  }
+  function staffLeaves(p) {
+    dropJob(p);
+    const b = bodyOf(p);
+    b.cooking = false;
+    b.state = 'leaving';
+    if (!walkTo(b, DOOR.x, DOOR.y)) b.path = [];
+    leavers.push(b);
+    staffOnLayout();
   }
 
   // ===== INTERACTION STATE =====
@@ -3055,15 +3269,18 @@
     }
 
     // items, back to front
-    // items and walking guests, back to front (seated guests are drawn by their chair)
+    // items, walking guests and staff, back to front (seated guests are drawn by their chair)
     const list = items.map((it) => [depthOf(it), it.y, it, null]);
     for (const c of customers) if (!c.seated) list.push([c.x + c.y + 0.02, c.y, null, c]);
+    for (const b of staffBodies()) list.push([b.x + b.y + 0.02, b.y, null, b]);
     list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
     for (const [, , it, c] of list) {
       if (it) drawItem(it, now, drag && drag.item === it ? 0.3 : 1);
-      else drawPerson(c, c.x, c.y, 0, false, now);
+      else {
+        drawPerson(c, c.x, c.y, 0, false, now);
+        if (c.role) drawStaffBits(c, now);
+      }
     }
-    drawFlights();
 
     // ghost previews
     if (drag && drag.tx !== null) {
@@ -3708,6 +3925,7 @@
     const fee = hireFee(p);
     if (!spend(fee, 'Hiring ' + p.name)) return;
     staff.push(p);
+    staffJoins(p);
     // a new face takes the hired one's place, and keyboard focus stays on that spot
     const fresh = rollCandidate(p.role);
     candidates[candidates.indexOf(p)] = fresh;
@@ -3727,6 +3945,7 @@
     }
     letGoId = '';
     staff = staff.filter((x) => x !== p);
+    staffLeaves(p);
     const msg = p.name + ' said goodbye. ' + (staffOf(p.role).length ? '' : 'No ' + ROLES[p.role].name.toLowerCase() + ' left on the team.');
     toast(p.name + ' said goodbye');
     staffChanged(msg);
@@ -4146,7 +4365,9 @@
       state: () => ({
         name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, xp, xpNeed: xpNeed(level), coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length, ready: ready.length,
-        staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2) })),
+        staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2),
+          home: p.home && p.home.slice(), x: +bodyOf(p).x.toFixed(2), y: +bodyOf(p).y.toFixed(2), job: p.job ? p.job.kind : null, carrying: !!bodyOf(p).carry, cooking: bodyOf(p).cooking })),
+        leavers: leavers.length,
         candidates: candidates.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, fee: hireFee(p) })), staffCap: staffCap(),
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
@@ -4166,6 +4387,7 @@
     adoptItems(defaultLayout(), true);
     save();
   }
+  staffOnLayout();       // stations for the saved team; everyone starts at their spot
   renderName();
   buildDecorRow();
   renderLevel();
