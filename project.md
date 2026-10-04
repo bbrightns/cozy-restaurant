@@ -260,7 +260,7 @@ income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 
 - In the live sim, each chef is assigned to one counter (fastest chefs first) and cooks a dish in `cookTime / speed` seconds. A finished plate waits until a waiter or helper is free; each delivery keeps that person busy for `60 / (SERVES_PER_WAITER * power)` seconds (or the walk, if longer; see "Staff on the floor" in 7.1). This matches `kitchenCap` and `serviceCap`.
 - Guests still wait with the same patience, so a slow kitchen or too few waiters shows up as "waited too long" (clock bubble).
-- The breakdown shows Seats, Kitchen and Service as separate rows and the hint names the bottleneck: "Not enough seats", "Kitchen is busy: hire a chef" or "add a counter", "Waiters are busy: hire a waiter or helper", "Hire a chef so the kitchen can cook", "Hire a waiter to carry plates", or "A chef has no counter" when a chef is idle.
+- The breakdown shows Seats, Kitchen and Service as separate rows and the hint names the bottleneck: "Not enough seats", "Kitchen is busy: hire a chef" or "add a counter", "Waiters are busy: hire a waiter or helper", "Hire a chef so the kitchen can cook", "Hire a waiter to carry plates", or "A chef has no counter" when a chef is idle. From Phase 3e, dirt at half the trash limit or more shows "Trash is piling up: tap it, or hire a helper to sweep" (and "Guests are leaving over trash" at the limit), ahead of the capacity and appeal hints. The order is: missing seat, stove, chef or waiter; trash; seats, kitchen or service shortfall; idle chef; low appeal or high prices.
 - Wage check (8.2): a Brisk waiter fully busy carries 6 guests a minute; even at the cheapest dish and lowest price (margin 5) that is 30 coins/min against a wage of 2. Staff only cost more than they earn when they are idle, and the hint says so.
 
 ### 8.2 Balance principles
@@ -399,7 +399,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c done (trash and dirt, save v7); 3d done (tap-to-clean tip, staff sweeping); 3e next |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c done (trash and dirt, save v7); 3d done (tap-to-clean tip, staff sweeping); 3e done (trash hint); 3f next |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |

@@ -2541,6 +2541,8 @@
     else if (!kitchens) hint = 'Add a stove so the kitchen can cook';
     else if (!chefs) hint = 'Hire a chef so the kitchen can cook';
     else if (!servePower) hint = 'Hire a waiter to carry plates';
+    else if (dirtLevel >= TRASH_LIMIT) hint = 'Guests are leaving over trash: tap it, or hire a helper to sweep';
+    else if (dirtLevel >= TRASH_LIMIT / 2) hint = 'Trash is piling up: tap it, or hire a helper to sweep';
     else if (arrivalRate > capacity) {
       if (capacity === seatCap) hint = 'Not enough seats';
       else if (capacity === kitchenCap) hint = chefs < kitchens ? 'Kitchen is busy: hire a chef' : 'Kitchen is busy: add a stove and a chef';
