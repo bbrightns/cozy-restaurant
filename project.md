@@ -388,7 +388,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); 3c next |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 done (code-drawn character upgrade); 3c next |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -450,15 +450,13 @@ Open decisions for B: whether tables may span 2x2 tiles later (a bigger gameplay
 
 Done when: a person next to a table, chair and stove looks right at a glance, characters look shaded and walk facing the way they move, the kitchen is recognisable as a kitchen, nothing breaks at 360px.
 
-**Phase 3 polish (C): painted character art (optional layer, in progress)**
-Why: the code-drawn people still read as flat vector shapes. CLAUDE.md rule 2 now allows image files, so characters can be painted layers. `assets/SPEC.md` is the source of truth for sizes, layers, file names and the checklist.
+**Phase 3 polish (C): character upgrade, code-drawn**
+Why: the people still read as flat vector shapes. A painted image approach (layered parts, then 12 whole characters loaded from `assets/`) was tried in C0 and C0b and dropped: AI-made frames were hard to keep consistent and lost the recolourable look parts. The upgrade is done in code instead.
 | Step | Work | Model |
 |---|---|---|
-| C0 | Spec (`assets/SPEC.md`), checklist built from the look ids, loader with code-drawn fallback (`// ===== CHARACTER ART =====`), `assets/characters/manifest.js` plus `make-manifest.ps1`, `cozyDebug.art()`. Done. | Sonnet |
-| C0b | Whole-character mode: 4 chefs, 4 staff (waiter and helper) and 4 guests as finished characters (`cast/<id>/`), lazy loading, staff `cast` number (save v6), staff panel portraits from the cast. The layered mode stays as an option. Done. | Sonnet |
-| C1 | Make the art (152 files: 8 x 13 + 4 x 12), consistent in all 12 body frames, and list sources in `assets/CREDITS.md`. The user does this. | user |
-| C2 | Drop the art in, run `make-manifest.ps1`, check both views, all 4 walk frames, sitting, day and night, hire list and panel portraits, 360px. Retune anchors (feet line, sit drop) if needed. | Sonnet |
-| C3 | Optional: `eat`, `carry` and `cook` frames so hands and plates match the art. | Sonnet |
+| C0 | Image art loaders (layered and whole-character), spec and manifest. Dropped and removed in C1; save v6 from C0b stays, and its `cast` field is ignored. | Sonnet |
+| C1 | Code-drawn chibi upgrade in `paintChibi`: head about 56% of a standing figure (`CHIBI` proportions), glossy eyes (deep top, own colour, lighter glow low in the iris, pupil, two highlights, lid line), soft radial blush, shade under the fringe and along the jaw, the head's soft shadow on the chest, hair shine, ears, idle breathing stretch in `drawChibi`, sprites at 5px per unit. Done. | Opus |
+| C2 | Optional: bring the staff panel portrait (`avatarSvg`) to the same look; tune eye size and blush after playing. | Sonnet |
 
 **Phase 3: Staff and cleanliness**
 | Step | Work | Model |
