@@ -122,7 +122,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 ### Typography
 - Rounded friendly sans from local system stack, e.g.
   `ui-rounded, "Nunito", "Quicksand", "Segoe UI", system-ui, sans-serif`
-- No web fonts or external files.
+- Web fonts and other external files are allowed (see CLAUDE.md rule 2); keep the system stack above as the fallback.
 - Large tap targets (minimum 44px).
 
 ### Icons
@@ -156,7 +156,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 ## 14. Technical Constraints
 
 - Stack: HTML, CSS, vanilla JS, Canvas 2D. Firebase for save/online later. Hosting on Vercel.
-- Phase 1 is one standalone HTML file, no external resources.
+- External libraries, web fonts and image assets (in `assets/`) are allowed; see CLAUDE.md rules 2 and 3.
 - Canvas matches container size and devicePixelRatio (capped at 2); re-layout on resize.
 - Responsive from 360px wide with no horizontal scroll.
 - Save to localStorage in try/catch; no console errors.

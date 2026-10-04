@@ -360,7 +360,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 ## 11. Technical Plan
 
 - **Stack:** HTML, CSS, vanilla JS, Canvas 2D. Firebase (Auth, Firestore) for accounts, saves, and social. Hosting on Vercel. GitHub for versions.
-- **Prototype:** single HTML file, localStorage save, no external resources.
+- **Prototype:** `index.html` plus an optional `assets/` folder (images, fonts, libraries allowed, see CLAUDE.md rule 2), localStorage save.
 - **Rendering:** two canvas scenes (storefront 2D, interior isometric) sharing one camera and lighting system; painter's algorithm for isometric depth.
 - **Pathfinding:** A* on the interior grid for customers and staff.
 - **Sim loop:** requestAnimationFrame for visuals; income is computed with the formula above (not by simulating every customer while offline).
@@ -449,6 +449,15 @@ Reference use: the user allows taking general ideas from restaurant games (propo
 Open decisions for B: whether tables may span 2x2 tiles later (a bigger gameplay and save change, not part of B); final person height as a fraction of a tile.
 
 Done when: a person next to a table, chair and stove looks right at a glance, characters look shaded and walk facing the way they move, the kitchen is recognisable as a kitchen, nothing breaks at 360px.
+
+**Phase 3 polish (C): painted character art (optional layer, in progress)**
+Why: the code-drawn people still read as flat vector shapes. CLAUDE.md rule 2 now allows image files, so characters can be painted layers. `assets/SPEC.md` is the source of truth for sizes, layers, file names and the checklist.
+| Step | Work | Model |
+|---|---|---|
+| C0 | Spec (`assets/SPEC.md`), checklist built from the look ids, loader with code-drawn fallback (`// ===== CHARACTER ART =====`), `assets/characters/manifest.js` plus `make-manifest.ps1`, `cozyDebug.art()`. Done. | Sonnet |
+| C1 | Make or commission the art (141 layers) and list sources in `assets/CREDITS.md`. The user does this. | user |
+| C2 | Drop the art in, run `make-manifest.ps1`, check both views, all 4 walk frames, sitting, day and night, every hair/face/accessory combination, 360px. Retune anchors if needed. | Sonnet |
+| C3 | Optional: staff panel portraits from the head layers; `eat`, `carry` and `cook` poses. | Sonnet |
 
 **Phase 3: Staff and cleanliness**
 | Step | Work | Model |
