@@ -2222,6 +2222,7 @@
       x: DOOR_IN.x, y: DOOR_IN.y, alpha: 0, state: 'enter', path: [[DOOR.x + 0.5, DOOR.y + 0.5]],
       seat: null, rec: '', table: null, dish: null, t: 0, seated: false, moving: false,
       shirt: pick(SHIRTS), pants: pick(PANTS), skin: pick(SKINS), hair: pick(HAIRS),
+      hairStyle: pick(HAIR_STYLES), eye: Math.floor(Math.random() * EYE_COLS.length), face: pick(FACES), acc: pick(ACCS),
       ph: Math.random() * 6, bubble: null, hx: 0, hy: 0
     });
   }
@@ -2606,39 +2607,7 @@
   }
 
   /* ---------------- drawing guests, plates, bubbles ---------------- */
-  function drawPerson(c, fx, fy, z, sitting, now) {
-    const sx = PX(fx, fy), base = PY(fx, fy, z);
-    const walk = !sitting && c.moving && !reduced;
-    const bob = walk ? Math.abs(Math.sin(c.ph)) * 1.3 : 0;
-    ctx.save();
-    ctx.globalAlpha *= clamp(c.alpha, 0, 1);
-    if (!sitting) {
-      ctx.fillStyle = 'rgba(122,82,118,0.18)';
-      ctx.beginPath(); ctx.ellipse(sx, base, 5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-      const st = walk ? Math.sin(c.ph) * 1.6 : 0;
-      ctx.fillStyle = lit(c.pants, 0.95);
-      rrect(sx - 3.4, base - 8, 2.9, 8 - Math.max(0, st), 1.2); ctx.fill();
-      rrect(sx + 0.5, base - 8, 2.9, 8 - Math.max(0, -st), 1.2); ctx.fill();
-    }
-    const top = base - (sitting ? 11 : 19) - bob;
-    const g = ctx.createLinearGradient(sx - 5, 0, sx + 5, 0);
-    g.addColorStop(0, lit(c.shirt, 1.04));
-    g.addColorStop(1, lit(c.shirt, 0.82));
-    ctx.fillStyle = g;
-    rrect(sx - 4.6, top, 9.2, sitting ? 11 : 12, 3.6); ctx.fill();
-    if (c.state === 'eating' && !reduced) {
-      ctx.fillStyle = lit(c.skin, 1);
-      ctx.beginPath(); ctx.arc(sx + 4.6, top + 5 - Math.abs(Math.sin(now * 0.007)) * 3, 1.7, 0, Math.PI * 2); ctx.fill();
-    }
-    const hy = top - 4.2;
-    ctx.fillStyle = lit(c.skin, 1);
-    ctx.beginPath(); ctx.arc(sx, hy, 4.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = lit(c.hair, 1);
-    ctx.beginPath(); ctx.arc(sx, hy - 0.4, 4.7, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fill();
-    ctx.restore();
-    c.hx = sx;
-    c.hy = hy - 7;
-  }
+  const drawPerson = (c, fx, fy, z, sitting, now) => drawChibi(c, fx, fy, z, sitting, now);
 
   function drawPlate(ch) {
     const [px, py] = plateSpot(ch);
@@ -2663,29 +2632,33 @@
     ctx.fillStyle = lit(dish.cols[2], 1);
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
-  /* A staff member drawn chibi on the floor (big head, face, hair style, uniform). Sets b.hx and b.hy like drawPerson,
-     so bubbles and drawStaffBits (hands, plates) keep working; the head centre is 7px below hy. */
+  /* Anyone drawn chibi on the floor (big head, face, hair style). Staff have b.role and b.look (uniform, hat); guests carry the
+     look parts themselves and wear plain clothes. Sets b.hx and b.hy so bubbles and drawStaffBits keep working; the head centre is 7px below hy. */
   const STAFF_TOP = { chef: rgb('#fff1e2'), waiter: rgb('#fff1e2'), helper: rgb('#b8e0d2') };
   const CAP = { white: rgb('#fbf0e3'), whiteDeep: rgb('#efdfcc'), band: rgb('#f6d27a'), bow: rgb('#ffb5a7'), apron: rgb('#8a6f7e'), vest: rgb('#cdb4db'), apronY: rgb('#f6d27a'), blush: rgb('#ff9f96'), mouth: rgb('#b8566a'), cream: rgb('#fff8ef') };
-  function drawStaffPerson(b, now) {
-    const sx = PX(b.x, b.y), base = PY(b.x, b.y, 0), p = b.look;
-    const walk = b.moving && !reduced;
+  function drawChibi(b, fx, fy, z, sitting, now) {
+    const sx = PX(fx, fy), base = PY(fx, fy, z), p = b.look || b;
+    const walk = !sitting && b.moving && !reduced;
     const bob = walk ? Math.abs(Math.sin(b.ph)) * 1.2 : 0;
     const breathe = !walk && !reduced ? Math.sin(now * 0.003 + b.ph) * 0.35 : 0;
     const st = walk ? Math.sin(b.ph) * 1.5 : 0;
-    const role = b.role, hair = lit(b.hair, 1), hairDeep = lit(b.hair, 0.85), skin = lit(b.skin, 1);
+    const role = b.role, tc = role ? STAFF_TOP[role] : b.shirt, hair = lit(b.hair, 1), hairDeep = lit(b.hair, 0.85), skin = lit(b.skin, 1);
     ctx.save();
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
-    ctx.fillStyle = 'rgba(122,82,118,0.18)';
-    ctx.beginPath(); ctx.ellipse(sx, base, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-    // legs
-    ctx.fillStyle = lit(b.pants, 0.95);
-    rrect(sx - 3.6, base - 7.5, 3, 7.5 - Math.max(0, st), 1.3); ctx.fill();
-    rrect(sx + 0.6, base - 7.5, 3, 7.5 - Math.max(0, -st), 1.3); ctx.fill();
+    if (!sitting) {
+      ctx.fillStyle = 'rgba(122,82,118,0.18)';
+      ctx.beginPath(); ctx.ellipse(sx, base, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // legs (seated guests are hidden by the table and chair)
+    if (!sitting) {
+      ctx.fillStyle = lit(b.pants, 0.95);
+      rrect(sx - 3.6, base - 7.5, 3, 7.5 - Math.max(0, st), 1.3); ctx.fill();
+      rrect(sx + 0.6, base - 7.5, 3, 7.5 - Math.max(0, -st), 1.3); ctx.fill();
+    }
     // arms swing a little
-    const top = base - 15.5 - bob + breathe;
+    const top = base - (sitting ? 10 : 15.5) - bob + breathe;
     const sw = walk ? Math.sin(b.ph) * 1.4 : 0;
-    ctx.fillStyle = lit(STAFF_TOP[role], 0.92);
+    ctx.fillStyle = lit(tc, 0.92);
     rrect(sx - 6.4, top + 1.2 + sw * 0.3, 2.6, 7, 1.3); ctx.fill();
     rrect(sx + 3.8, top + 1.2 - sw * 0.3, 2.6, 7, 1.3); ctx.fill();
     ctx.fillStyle = skin;
@@ -2693,9 +2666,13 @@
     ctx.beginPath(); ctx.arc(sx + 5.1, top + 8.6 - sw * 0.3, 1.5, 0, Math.PI * 2); ctx.fill();
     // torso and the role garment over it
     const g = ctx.createLinearGradient(sx - 4.6, 0, sx + 4.6, 0);
-    g.addColorStop(0, lit(STAFF_TOP[role], 1.03)); g.addColorStop(1, lit(STAFF_TOP[role], 0.84));
+    g.addColorStop(0, lit(tc, 1.03)); g.addColorStop(1, lit(tc, 0.84));
     ctx.fillStyle = g;
-    rrect(sx - 4.6, top, 9.2, 9.6, 3.4); ctx.fill();
+    rrect(sx - 4.6, top, 9.2, sitting ? 10 : 9.6, 3.4); ctx.fill();
+    if (b.state === 'eating' && !reduced) {
+      ctx.fillStyle = skin;
+      ctx.beginPath(); ctx.arc(sx + 5.2, top + 6 - Math.abs(Math.sin(now * 0.007)) * 3.4, 1.7, 0, Math.PI * 2); ctx.fill();
+    }
     if (role === 'chef') {
       ctx.fillStyle = lit(CAP.apron, 1);
       rrect(sx - 4.2, top + 4.4, 8.4, 5.2, 1.6); ctx.fill();
@@ -2705,7 +2682,7 @@
       ctx.fillStyle = lit(CAP.vest, 1);
       rrect(sx - 4.4, top + 0.4, 3.2, 8.8, 1.6); ctx.fill();
       rrect(sx + 1.2, top + 0.4, 3.2, 8.8, 1.6); ctx.fill();
-    } else {
+    } else if (role === 'helper') {
       ctx.fillStyle = lit(CAP.apronY, 1);
       rrect(sx - 3.8, top + 4, 7.6, 5.6, 1.6); ctx.fill();
     }
@@ -2766,7 +2743,7 @@
     } else if (role === 'helper') {
       ctx.strokeStyle = lit(CAP.band, 1); ctx.lineWidth = 1.7;
       ctx.beginPath(); ctx.arc(sx, hy - 0.6, r + 0.2, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
-    } else {
+    } else if (role === 'waiter') {
       ctx.fillStyle = lit(CAP.bow, 1);
       const y = top + 0.8;
       ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx - 3, y - 1.7); ctx.lineTo(sx - 3, y + 1.7); ctx.closePath(); ctx.fill();
@@ -3402,8 +3379,8 @@
     for (const [, , it, c] of list) {
       if (it) drawItem(it, now, drag && drag.item === it ? 0.3 : 1);
       else {
-        if (c.role) { drawStaffPerson(c, now); drawStaffBits(c, now); }
-        else drawPerson(c, c.x, c.y, 0, false, now);
+        drawChibi(c, c.x, c.y, 0, false, now);
+        if (c.role) drawStaffBits(c, now);
       }
     }
 
