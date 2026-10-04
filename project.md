@@ -388,7 +388,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 done (code-drawn character upgrade); 3c next |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c next |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -456,7 +456,8 @@ Why: the people still read as flat vector shapes. A painted image approach (laye
 |---|---|---|
 | C0 | Image art loaders (layered and whole-character), spec and manifest. Dropped and removed in C1; save v6 from C0b stays, and its `cast` field is ignored. | Sonnet |
 | C1 | Code-drawn chibi upgrade in `paintChibi`: head about 56% of a standing figure (`CHIBI` proportions), glossy eyes (deep top, own colour, lighter glow low in the iris, pupil, two highlights, lid line), soft radial blush, shade under the fringe and along the jaw, the head's soft shadow on the chest, hair shine, ears, idle breathing stretch in `drawChibi`, sprites at 5px per unit. Done. | Opus |
-| C2 | Optional: bring the staff panel portrait (`avatarSvg`) to the same look; tune eye size and blush after playing. | Sonnet |
+| C2 | Reshape the code-drawn characters (mockup in `scratch/mockup-chibi.html` approved first): bezier body with a neck, round shoulders, a waist and a flared hem; puffy sleeves with cuffs, mitten hands, calf-shaped legs, round-toed shoes with soles; a softer mochi head; back-of-head hair per style (shine band, darker nape, short locks, parting or cowlick, bun with scrunchie, twin tails with ties, curls, layered fluffy tufts) and a fringe per style in front; collars, buttons and apron ties front and back; guests keep the scarf and bag; a chef at the stove turns toward the camera and, while cooking, reaches to the pot with the stirring hand. Same proportions, scale, sprites, bubbles and save (v6). Done. | Opus |
+| C3 | Optional: bring the staff panel portrait (`avatarSvg`) to the same look; tune eye size, blush, curly and fluffy backs after playing. | Sonnet |
 
 **Phase 3: Staff and cleanliness**
 | Step | Work | Model |
