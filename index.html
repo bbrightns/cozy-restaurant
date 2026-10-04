@@ -3339,7 +3339,7 @@
         j.pause = HANDOFF;
         if (!walkNear(b, j.cust.seat)) b.path = [];
       } else if (j.kind === 'deliver' && !j.placed) {
-        faceToward(b, j.cust.seat.x + 0.5, j.cust.seat.y + 0.5);
+        if (j.cust.seat) faceToward(b, j.cust.seat.x + 0.5, j.cust.seat.y + 0.5);
         j.placed = true;
         j.pause = HANDOFF;
       } else if (j.kind === 'deliver') {

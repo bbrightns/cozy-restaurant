@@ -388,7 +388,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B in progress (B0 to B5 done; B6 sweep next), then 3c |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); 3c next |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -433,7 +433,7 @@ Already shipped: chibi portraits and in-world drawing for staff and guests (`dra
 
 Done when: staff and guests are told apart at a glance in day and night, nothing breaks at 360px, placing and removing furniture still works.
 
-**Phase 3 polish (B): art and scale pass**
+**Phase 3 polish (B): art and scale pass. Done**
 Why: after A the room still reads wrong. People are about 28px tall on a 64px wide tile (about 0.44 of a tile). A readable isometric restaurant puts a person at roughly 0.8 to 1.0 of a tile, a table at waist height and a chair lower than the table. The shrink in A made the room feel empty instead of fixing this. The people also look flat and crude (plain shapes, no shading, always front-facing, tiny face details), and the counter reads as a box, not a kitchen.
 Reference use: the user allows taking general ideas from restaurant games (proportions, a stove with burners and flames, a clothed table with chairs around it, value contrast between floor and furniture). Do not copy specific sprites, characters, posters or patterns; draw everything fresh in code. CLAUDE.md rule 3 still applies to names, characters and exact art.
 | Step | Work | Model |

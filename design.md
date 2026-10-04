@@ -76,15 +76,18 @@ A cozy restaurant-management toy. The player builds and decorates a tiny floatin
 
 Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a small unique detail (a steam wisp, a candle, a flower).
 
-**Scale rule.** A person is drawn `PERSON_SCALE` = 1.7 times the old chibi: about 45px tall (chef hat about 63px), roughly 0.7 of a 64px tile. Furniture is drawn slightly smaller than its tile (`ITEM_SCALE`: table 0.88, chair 0.78, counter 0.86, plant and lantern 0.88): table top about 16px (waist height) with the vase at 25px, chair seat 11px and back 20px (lower than the table with its vase), counter about 27px, door 64px, wall 74px. Seated guests sink `SIT_DROP` (3px) into the chair so a sitter is no taller than a stander. Keep new furniture to this scale.
+**Scale rule.** A person is drawn `PERSON_SCALE` = 1.7 times the old chibi: about 45px tall (chef hat about 63px), roughly 0.7 of a 64px tile. Furniture is drawn slightly smaller than its tile (`ITEM_SCALE`: table 0.88, chair 0.78, stove 0.86 (item id `counter_01`), plant and lantern 0.88): table top about 16px (waist height) with the vase at 25px, chair seat 11px and back 20px (lower than the table with its vase), stove hob about 25px with its backsplash at 40px, door 64px, wall 74px. Seated guests sink `SIT_DROP` (3px) into the chair so a sitter is no taller than a stander. Keep new furniture to this scale.
+
+**Stove** (item id `counter_01`, label Stove, 2x1 tiles). Cabinet with an oven door, window, handle and knobs under a blush band; a hob with two burners; a backsplash with a rail and hanging tools on the far edge; a pickup shelf that shows finished plates waiting for a waiter. While it cooks the burners show animated flames, the pot steams and a progress ring appears. Rot 2 and 3 swap pot and pan and move the shelf to the other end; the stove runs along x (rot 0, 2) or y (rot 1, 3) and chefs stand at its visible front.
 
 ## 7. Characters and Behavior
 
 - Customer cycle: arrive, walk to a free seat, order, wait, eat, pay (coin pop), leave.
 - Staff cycle: take order, cook, serve, idle.
-- Characters are chibi: a big round head, eyes with a highlight, blush, a small mouth, no outlines. Looks are built from parts (skin, hair colour, hair style, eye colour, face, accessory) so a crowd stays varied.
+- Characters are chibi: a big round head, eyes with a highlight, blush, a small mouth, no black outlines. Looks are built from parts (skin, hair colour, hair style, eye colour, face, accessory) so a crowd stays varied.
+- Characters are painted once into cached offscreen sprites (4px per chibi unit, keyed by look, pose and a quantised ambient light) and stamped each frame. Every part shades from light on the left to dark on the right and has an edge tone that is a darker shade of its own colour. Four views, picked from the walk direction or the chair facing: front or back, mirrored for left or right. Walking alternates the legs, swings the arms in opposition and bobs the body; hair is drawn from behind in the back views.
 - Staff and guests must be told apart at a glance. Staff wear deeper role uniforms and always a cream name badge; guests wear light, bright clothes that never use the staff lavender or mint, plus a scarf and a small bag.
-- Staff wear role uniforms (chef cream with a tall puffy hat and a dark apron, waiter deep lavender with a plum vest and a bow, helper deep mint with a headband and a yellow apron). Chefs stir at their counter; waiters carry the plate in hand to the table and clear dirty plates when free.
+- Staff wear role uniforms (chef cream with a tall puffy hat and a dark apron, waiter deep lavender with a plum vest and a bow, helper deep mint with a headband and a yellow apron). Chefs stand at the visible front of their stove and stir with a spoon; waiters carry the plate in hand to the table and clear dirty plates when free.
 - Little emote bubbles above heads (heart, coin, hungry).
 - Characters walk along tile paths; sort by depth with other objects.
 
