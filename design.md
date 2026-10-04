@@ -45,7 +45,7 @@ A cozy restaurant-management toy. The player builds and decorates a tiny floatin
 ### Rules
 - Shadows are a darker, more saturated version of the surface color, not gray or black.
 - Keep at most 4 to 5 hues visible on screen at once.
-- Value ladder in the room: tabletops and cloths lightest, wall paper next, floor mid, rugs under tables darkest (the table cloth colour at 0.84 of its brightness). New floor designs must stay darker than any tabletop.
+- Value ladder in the room: tabletops and cloths lightest, wall paper next, floor mid (no rugs under tables for now). New floor designs must stay darker than any tabletop.
 - Night tint uses deep blue/violet multiplied over surfaces, never a black overlay.
 
 ## 4. Lighting and Shading

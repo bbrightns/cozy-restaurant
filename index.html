@@ -1598,22 +1598,6 @@
     for (const c of seats) if (near(c)) drawPlate(c);
   }
 
-  /* A rug under each table, one shade darker than the cloth, so the tabletop (lightest) stands out from the floor (mid) and the
-     rug (darkest). Drawn in the floor pass, before any item, so chairs on its edge are not covered. */
-  function drawRugs() {
-    for (const it of items) {
-      if (it.id !== 'table_01' || (drag && drag.item === it)) continue;
-      const C = pal(it);
-      const x0 = Math.max(0, it.x - 0.55), y0 = Math.max(0, it.y - 0.55), x1 = Math.min(N, it.x + 1.55), y1 = Math.min(N, it.y + 1.55);
-      flat(x0, y0, x1, y1, 0.2);
-      ctx.fillStyle = lit(C.cloth, 0.84);
-      ctx.fill();
-      flat(x0 + 0.09, y0 + 0.09, x1 - 0.09, y1 - 0.09, 0.2);
-      ctx.fillStyle = lit(C.cloth, 0.92);
-      ctx.fill();
-    }
-  }
-
   function drawChair(it, now) {
     const C = pal(it);
     const x = it.x, y = it.y;
@@ -3675,7 +3659,6 @@
     drawRoomShadow();
     drawSlab();
     drawFloor();
-    drawRugs();
     drawWalls();
 
     // warm light pools from lanterns, under everything that stands
