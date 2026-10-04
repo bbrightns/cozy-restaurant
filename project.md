@@ -455,9 +455,10 @@ Why: the code-drawn people still read as flat vector shapes. CLAUDE.md rule 2 no
 | Step | Work | Model |
 |---|---|---|
 | C0 | Spec (`assets/SPEC.md`), checklist built from the look ids, loader with code-drawn fallback (`// ===== CHARACTER ART =====`), `assets/characters/manifest.js` plus `make-manifest.ps1`, `cozyDebug.art()`. Done. | Sonnet |
-| C1 | Make or commission the art (141 layers) and list sources in `assets/CREDITS.md`. The user does this. | user |
-| C2 | Drop the art in, run `make-manifest.ps1`, check both views, all 4 walk frames, sitting, day and night, every hair/face/accessory combination, 360px. Retune anchors if needed. | Sonnet |
-| C3 | Optional: staff panel portraits from the head layers; `eat`, `carry` and `cook` poses. | Sonnet |
+| C0b | Whole-character mode: 4 chefs, 4 staff (waiter and helper) and 4 guests as finished characters (`cast/<id>/`), lazy loading, staff `cast` number (save v6), staff panel portraits from the cast. The layered mode stays as an option. Done. | Sonnet |
+| C1 | Make the art (152 files: 8 x 13 + 4 x 12), consistent in all 12 body frames, and list sources in `assets/CREDITS.md`. The user does this. | user |
+| C2 | Drop the art in, run `make-manifest.ps1`, check both views, all 4 walk frames, sitting, day and night, hire list and panel portraits, 360px. Retune anchors (feet line, sit drop) if needed. | Sonnet |
+| C3 | Optional: `eat`, `carry` and `cook` frames so hands and plates match the art. | Sonnet |
 
 **Phase 3: Staff and cleanliness**
 | Step | Work | Model |
