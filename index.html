@@ -6,6 +6,7 @@
 <title>Cozy Restaurant</title>
 <meta name="description" content="Decorate a tiny pastel isometric restaurant. Place, move, rotate and remove tables, chairs, counters, plants and lanterns. The sky follows your real clock.">
 <meta name="theme-color" content="#cfe6f2">
+<link rel="icon" href="data:,">
 <style>
   :root {
     --grass: #a8d5a2;
@@ -66,8 +67,7 @@
     left: 14px;
     right: 14px;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: flex-start;
     gap: 8px;
     pointer-events: none;
@@ -78,15 +78,24 @@
     border-radius: 20px;
     box-shadow: var(--shadow);
   }
-  .title-card {
-    padding: 10px 12px 10px 14px;
+  /* one card, two rows: shop name + clock, then coins + level */
+  .hud {
+    width: min(100%, 440px);
+    padding: 6px 8px 6px 12px;
+    display: grid;
+    gap: 4px;
+  }
+  .hud-row {
     display: flex;
     align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
   }
-  .title-card h1 {
+  .hud-row + .hud-row { border-top: 1.5px dashed var(--line); padding-top: 4px; }
+  .hud h1 {
     margin: 0;
+    min-width: 0;
     font-size: 19px;
     font-weight: 800;
     letter-spacing: -.01em;
@@ -95,7 +104,7 @@
     gap: 8px;
     white-space: nowrap;
   }
-  .title-card h1 svg { width: 28px; height: 28px; flex: none; }
+  .hud h1 svg { width: 28px; height: 28px; flex: none; }
   .shop-name, .shop-name-input {
     font: inherit;
     color: inherit;
@@ -104,9 +113,10 @@
     margin: 0 0 0 -6px;
     padding: 0 6px;
     border-radius: 12px;
-    max-width: 13em;
+    max-width: 100%;
   }
   .shop-name {
+    min-width: 0;
     background: transparent;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -124,7 +134,7 @@
   }
   .shop-name-input:focus-visible { box-shadow: inset 0 0 0 2px #9b7fc0; }
   .shop-name[hidden], .shop-name-input[hidden] { display: none; }
-  .clock { display: flex; align-items: center; gap: 8px; }
+  .clock { display: flex; align-items: center; gap: 8px; flex: none; }
   .dial { width: 30px; height: 30px; flex: none; }
   .clock-read {
     margin: 0;
@@ -155,27 +165,31 @@
   .chip[aria-pressed="true"] { background: var(--lav); }
 
   .level-card {
-    padding: 6px;
     display: flex;
     align-items: center;
     gap: 4px;
+    flex: none;
   }
-  .level-read { padding: 0 8px; text-align: center; line-height: 1.1; min-width: 74px; }
+  .level-read { margin: 0; padding: 0 6px; text-align: right; line-height: 1.1; min-width: 64px; }
   .level-read b { display: block; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .level-read small { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .04em; }
   .step { font-size: 20px; font-weight: 800; padding: 0; width: 44px; }
+  .step[hidden] { display: none; }
   .step:disabled { opacity: .45; cursor: default; }
 
-  .top-right { display: flex; gap: 8px; margin-left: auto; }
   .stats-card {
     min-height: 44px;
-    padding: 6px 14px 6px 8px;
+    margin-left: -4px;
+    padding: 4px 14px 4px 4px;
+    border-radius: 999px;
+    background: transparent;
     display: flex;
     align-items: center;
     gap: 8px;
     text-align: left;
-    transition: transform .2s cubic-bezier(.3, 1.6, .5, 1);
+    transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), background .2s ease;
   }
+  .stats-card:hover { background: var(--cream-2); }
   .stats-card:active { transform: scale(.97); }
   .stats-card[aria-expanded="true"] { background: #fbefd9; }
   .coin { width: 30px; height: 30px; flex: none; }
@@ -186,9 +200,9 @@
   .stats-read small { font-size: 11px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
   .breakdown {
-    flex: 0 0 100%;
-    max-width: 360px;
-    margin-left: auto;
+    width: min(100%, 440px);
+    max-height: calc(100vh - 230px);
+    overflow: auto;
     padding: 12px 14px 14px 16px;
     font-size: 13px;
   }
@@ -228,32 +242,63 @@
     pointer-events: none;
   }
   .bottom > * { pointer-events: auto; }
+  /* selection card: name and actions, then the item's style swatches */
   .context {
-    display: flex;
-    align-items: center;
+    display: grid;
+    justify-items: center;
     gap: 6px;
-    padding: 5px 6px 5px 14px;
-    border-radius: 999px;
+    padding: 5px 6px;
+    border-radius: 26px;
     max-width: 100%;
     transition: opacity .25s ease, transform .3s cubic-bezier(.3, 1.6, .5, 1);
   }
-  .context[hidden], .chip[hidden] { display: none; }
-  .context .lbl { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ctx-row { display: flex; align-items: center; gap: 6px; max-width: 100%; padding-left: 8px; }
+  .ctx-variants { padding: 0 4px 4px; }
+  .ctx-variants .sw-row { flex-wrap: nowrap; }
+  .ctx-variants .swatch { border-radius: 999px; }
+  .context[hidden], .ctx-variants[hidden], .chip[hidden] { display: none; }
+  .context .lbl { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .context .chip.warn { background: #fbd9d2; }
   .context .chip.warn:hover { background: #f8c9bf; }
+
+  /* toolbar: category tabs over one panel */
   .toolbar {
+    width: min(100%, 520px);
     padding: 6px;
     border-radius: 24px;
-    display: flex;
-    gap: 4px;
-    max-width: 100%;
+    display: grid;
+    gap: 6px;
   }
+  .tabs {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--cream-2);
+  }
+  .tab {
+    flex: 1 1 0;
+    min-height: 44px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 14.5px;
+    font-weight: 800;
+    transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { background: var(--cream); color: var(--text); box-shadow: 0 3px 8px -4px rgba(108, 72, 104, .55); }
+  .panel { display: flex; gap: 4px; }
+  .panel[hidden] { display: none; }
+  .decor-panel { display: grid; gap: 6px; padding: 2px 2px 4px; }
+  .decor-row { display: flex; align-items: center; gap: 6px; }
+  .decor-lbl { flex: none; width: 46px; font-size: 12px; font-weight: 800; color: var(--text-2); }
+  .decor-row .sw-row { flex-wrap: nowrap; gap: 6px; }
   .tool {
     flex: 1 1 0;
     min-width: 0;
-    width: 70px;
-    min-height: 56px;
-    padding: 5px 2px 6px;
+    min-height: 62px;
+    padding: 6px 2px;
     border-radius: 17px;
     background: transparent;
     color: var(--text-2);
@@ -264,12 +309,12 @@
     transition: background .25s ease, color .25s ease, transform .3s cubic-bezier(.3, 1.6, .5, 1);
   }
   .tool svg { width: 36px; height: 30px; transition: transform .35s cubic-bezier(.3, 1.8, .5, 1); }
-  .tool span { font-size: 11.5px; font-weight: 800; }
+  .tool span { font-size: 13px; font-weight: 800; }
   .tool:hover { background: var(--cream-2); color: var(--text); }
   .tool[aria-pressed="true"] {
     background: var(--tint, var(--mint));
     color: var(--text);
-    transform: translateY(-5px);
+    transform: translateY(-2px);
     box-shadow: 0 10px 16px -10px rgba(108, 72, 104, .6);
   }
   .tool[aria-pressed="true"] svg { transform: translateY(-2px) scale(1.08); }
@@ -281,7 +326,6 @@
   .tool[data-tool="lantern_01"] { --tint: #fbe7b8; }
   .tool[data-tool="remove"] { --tint: #fbd9d2; }
   .tool[data-action="rotate"]:active svg { transform: rotate(90deg); }
-  .tool[data-action="decor"] { --tint: #f3e3f2; }
 
   .sheet {
     padding: 10px 14px 12px;
@@ -336,14 +380,6 @@
   .price-read b { display: block; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .price-read small { font-size: 10.5px; font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums; }
   .lock-read { font-size: 12px; font-weight: 800; color: var(--text-2); padding: 0 8px; white-space: nowrap; }
-  .variant-pop {
-    padding: 8px 12px 10px;
-    border-radius: 20px;
-    max-width: 100%;
-  }
-  .variant-pop[hidden] { display: none; }
-  .variant-pop h2 { margin: 0 0 6px 2px; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
-  .variant-pop .swatch { border-radius: 999px; }
 
   .toast {
     position: fixed;
@@ -378,30 +414,56 @@
 
   @media (max-width: 640px) {
     .top { top: 8px; left: 8px; right: 8px; gap: 6px; }
-    .title-card { padding: 4px 6px 4px 10px; gap: 8px; border-radius: 18px; }
-    .title-card h1 { font-size: 15px; gap: 6px; }
-    .title-card h1 svg { width: 22px; height: 22px; }
-    .shop-name { max-width: 9.5em; }
-    .shop-name-input { width: 9.5em; }
+    .hud { width: 100%; padding: 4px 6px 4px 10px; gap: 2px; border-radius: 18px; }
+    .hud-row { gap: 6px; }
+    .hud-row + .hud-row { padding-top: 2px; }
+    .hud h1 { font-size: 16px; gap: 6px; }
+    .hud h1 svg { width: 22px; height: 22px; }
     .dial { width: 24px; height: 24px; }
+    .clock { gap: 6px; }
     .clock-read { font-size: 13px; }
     .clock-read small { font-size: 10px; }
-    .level-card { padding: 4px; border-radius: 18px; }
-    .level-read { min-width: 60px; padding: 0 4px; }
+    .level-read { min-width: 56px; padding: 0 4px; }
     .level-read b { font-size: 14px; }
-    .level-read small { font-size: 10px; }
-    .top-right { gap: 6px; }
-    .stats-card { padding: 4px 10px 4px 6px; gap: 6px; border-radius: 18px; }
-    .coin { width: 24px; height: 24px; }
-    .stats-read b { font-size: 14px; }
-    .stats-read small { font-size: 10px; }
-    .toolbar { padding: 4px; gap: 2px; border-radius: 20px; }
-    .tool { width: 48px; min-height: 52px; border-radius: 14px; }
-    .tool svg { width: 30px; height: 25px; }
-    .tool span { font-size: 9.5px; }
-    .tool[aria-pressed="true"] { transform: translateY(-3px); }
+    .level-read small { font-size: 10.5px; }
+    .stats-card { padding: 2px 10px 2px 4px; gap: 6px; }
+    .coin { width: 26px; height: 26px; }
+    .stats-read b { font-size: 15px; }
+    .stats-read small { font-size: 10.5px; }
+    .toolbar { padding: 4px; gap: 4px; border-radius: 20px; }
+    .tab { font-size: 13.5px; }
+    .panel { gap: 2px; }
+    .tool { min-height: 56px; padding: 4px 1px; border-radius: 14px; }
+    .tool svg { width: 32px; height: 26px; }
+    .tool span { font-size: 11.5px; }
+    .decor-row { gap: 5px; }
+    .decor-row .sw-row { gap: 5px; }
+    .decor-lbl { width: 40px; font-size: 11px; }
     .chip .txt { display: none; }
-    .toast { bottom: 136px; font-size: 12px; }
+    .toast { font-size: 12px; }
+  }
+  /* short, wide screens (phones held sideways): dock the toolbar on the right */
+  @media (max-height: 520px) and (min-width: 600px) {
+    .top { top: 8px; left: 8px; right: 260px; }
+    .hud { padding: 4px 6px 4px 10px; gap: 2px; }
+    .hud-row + .hud-row { padding-top: 2px; }
+    .bottom { left: auto; right: 8px; top: 8px; bottom: 8px; width: 244px; justify-content: flex-end; align-items: stretch; gap: 6px; }
+    .toolbar { width: 100%; padding: 4px; gap: 4px; }
+    .tab { font-size: 13px; }
+    .panel { flex-wrap: wrap; gap: 2px; }
+    .tool { flex: 1 1 30%; min-height: 54px; padding: 4px 1px; }
+    .tool svg { width: 30px; height: 24px; }
+    .tool span { font-size: 12px; }
+    .decor-row { flex-wrap: wrap; gap: 2px 5px; }
+    .decor-row .sw-row { flex-wrap: wrap; gap: 5px; }
+    .decor-lbl { width: 100%; }
+    .context, .menu-sheet { width: 100%; }
+    .ctx-variants .sw-row { flex-wrap: wrap; justify-content: center; }
+    .menu-sheet { max-height: none; min-height: 0; flex: 0 1 auto; }
+    .dish { grid-template-columns: 44px 1fr; }
+    .dish-price, .lock-read { grid-column: 2; justify-self: start; }
+    .breakdown { max-height: calc(100vh - 110px); }
+    .chip .txt { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: .01ms !important; animation: none !important; }
@@ -414,7 +476,8 @@
 </main>
 
 <div class="top">
-  <section class="card title-card" aria-label="Restaurant">
+  <section class="card hud" id="hud" aria-label="Restaurant">
+  <div class="hud-row">
     <h1>
       <svg viewBox="0 0 28 28" aria-hidden="true">
         <path d="M14 5l11 5.5L14 16 3 10.5z" fill="#f6e2cf"/>
@@ -442,9 +505,9 @@
         <span class="txt" id="preview-lbl">Live</span>
       </button>
     </div>
-  </section>
-  <div class="top-right">
-    <button type="button" class="card stats-card" id="stats-btn" aria-expanded="false" aria-controls="breakdown">
+  </div>
+  <div class="hud-row">
+    <button type="button" class="stats-card" id="stats-btn" aria-expanded="false" aria-controls="breakdown">
       <svg class="coin" id="coin-icon" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="10.5" fill="#e9b44c"/>
         <circle cx="12" cy="12" r="8" fill="#f6d27a"/>
@@ -452,12 +515,13 @@
       </svg>
       <span class="stats-read"><b id="coin-read">0</b><small id="rate-read">+0/min</small></span>
     </button>
-    <section class="card level-card" aria-label="Level (sandbox)">
-      <button type="button" class="chip step" id="lv-down" aria-label="Lower level">&minus;</button>
+    <div class="level-card" aria-label="Level">
+      <button type="button" class="chip step" id="lv-down" hidden aria-label="Lower level (debug)">&minus;</button>
       <p class="level-read" id="level-read" aria-live="polite"><b>Lv 1</b><small>5×5 room</small></p>
-      <button type="button" class="chip step" id="lv-up" aria-label="Raise level">+</button>
-    </section>
+      <button type="button" class="chip step" id="lv-up" hidden aria-label="Raise level (debug)">+</button>
+    </div>
   </div>
+  </section>
   <section class="card breakdown" id="breakdown" hidden aria-label="Income breakdown">
     <div class="bd-head">
       <div>
@@ -474,17 +538,7 @@
   </section>
 </div>
 
-<div class="bottom">
-  <section class="card sheet" id="decor-sheet" hidden aria-label="Room decor">
-    <div class="sw-group">
-      <h2 id="walls-h">Walls</h2>
-      <div class="sw-row" id="wall-swatches" role="group" aria-labelledby="walls-h"></div>
-    </div>
-    <div class="sw-group">
-      <h2 id="floor-h">Floor</h2>
-      <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
-    </div>
-  </section>
+<div class="bottom" id="bottom">
   <section class="card sheet menu-sheet" id="menu-sheet" hidden aria-labelledby="menu-h">
     <div class="menu-head">
       <div>
@@ -497,32 +551,34 @@
     </div>
     <ul class="menu-list" id="menu-list"></ul>
   </section>
-  <section class="card variant-pop" id="variant-pop" hidden aria-labelledby="variant-h">
-    <h2 id="variant-h">Colors</h2>
-    <div class="sw-row" id="variant-swatches" role="group" aria-labelledby="variant-h"></div>
-  </section>
   <div class="card context" id="context" hidden>
-    <span class="lbl" id="ctx-lbl">Table</span>
-    <button type="button" class="chip" id="ctx-rotate" aria-label="Rotate">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.6 6A5 5 0 1 0 13 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.6 2.4v4h-4z" fill="currentColor"/></svg>
-      <span class="txt">Rotate</span>
-    </button>
-    <button type="button" class="chip warn" id="ctx-remove" aria-label="Remove selected item">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="txt">Remove</span>
-    </button>
-    <button type="button" class="chip" id="ctx-done" aria-label="Deselect">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="txt">Done</span>
-    </button>
+    <div class="ctx-row">
+      <span class="lbl" id="ctx-lbl">Table</span>
+      <button type="button" class="chip" id="ctx-rotate" aria-label="Rotate">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.6 6A5 5 0 1 0 13 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.6 2.4v4h-4z" fill="currentColor"/></svg>
+        <span class="txt">Rotate</span>
+      </button>
+      <button type="button" class="chip warn" id="ctx-remove" aria-label="Remove selected item">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="txt">Remove</span>
+      </button>
+      <button type="button" class="chip" id="ctx-done" aria-label="Deselect">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="txt">Done</span>
+      </button>
+    </div>
+    <div class="ctx-variants" id="variant-pop" hidden role="group" aria-labelledby="variant-h">
+      <span class="sr-only" id="variant-h">Style</span>
+      <div class="sw-row" id="variant-swatches"></div>
+    </div>
   </div>
-  <nav class="card toolbar" role="toolbar" aria-label="Decorating tools">
-    <button type="button" class="tool" data-tool="move" aria-pressed="true" aria-label="Move tool (1): select, drag and rotate items">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M20 4l4 4h-2.6v6.6H28V12l4 4-4 4v-2.6h-6.6V24H24l-4 4-4-4h2.6v-6.6H12V20l-4-4 4-4v2.6h6.6V8H16z" fill="#8fc7b5"/>
-      </svg>
-      <span>Move</span>
-    </button>
+  <nav class="card toolbar" id="toolbar" aria-label="Decorating tools">
+    <div class="tabs" role="tablist" aria-label="Tool categories">
+      <button type="button" class="tab" role="tab" id="tab-furniture" data-tab="furniture" aria-selected="true" aria-controls="panel-furniture">Furniture</button>
+      <button type="button" class="tab" role="tab" id="tab-decor" data-tab="decor" aria-selected="false" aria-controls="panel-decor" tabindex="-1">Decor</button>
+      <button type="button" class="tab" role="tab" id="tab-tools" data-tab="tools" aria-selected="false" aria-controls="panel-tools" tabindex="-1">Tools</button>
+    </div>
+    <div class="panel" id="panel-furniture" role="tabpanel" aria-labelledby="tab-furniture">
     <button type="button" class="tool" data-tool="table_01" aria-pressed="false" aria-label="Table (2)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
         <path d="M11 20v7M29 20v7M20 24v6" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
@@ -573,6 +629,24 @@
       </svg>
       <span>Lantern</span>
     </button>
+    </div>
+    <div class="panel decor-panel" id="panel-decor" role="tabpanel" aria-labelledby="tab-decor" hidden>
+      <div class="decor-row">
+        <span class="decor-lbl" id="walls-h">Walls</span>
+        <div class="sw-row" id="wall-swatches" role="group" aria-labelledby="walls-h"></div>
+      </div>
+      <div class="decor-row">
+        <span class="decor-lbl" id="floor-h">Floor</span>
+        <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
+      </div>
+    </div>
+    <div class="panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+    <button type="button" class="tool" data-tool="move" aria-pressed="true" aria-label="Move tool (1): select, drag and rotate items">
+      <svg viewBox="0 0 40 34" aria-hidden="true">
+        <path d="M20 4l4 4h-2.6v6.6H28V12l4 4-4 4v-2.6h-6.6V24H24l-4 4-4-4h2.6v-6.6H12V20l-4-4 4-4v2.6h6.6V8H16z" fill="#8fc7b5"/>
+      </svg>
+      <span>Move</span>
+    </button>
     <button type="button" class="tool" data-action="rotate" aria-label="Rotate the selected item 90 degrees (R)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
         <path d="M27.5 11.5A9.5 9.5 0 1 0 29 20" fill="none" stroke="#a98fc0" stroke-width="3" stroke-linecap="round"/>
@@ -583,16 +657,14 @@
       </svg>
       <span>Rotate</span>
     </button>
-    <button type="button" class="tool" data-action="decor" aria-pressed="false" aria-controls="decor-sheet" aria-label="Decor: wall colors and floor patterns">
+    <button type="button" class="tool" data-tool="remove" aria-pressed="false" aria-label="Remove tool (7)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M8 8l12-5v17L8 25z" fill="#fcdcd4"/>
-        <path d="M8 19l12-5v6L8 25z" fill="#b8e0d2"/>
-        <path d="M8 25l12-5 12 6-12 5z" fill="#f2dccb"/>
-        <path d="M14 22.5l6-2.5 6 3-6 2.5z" fill="#f7eadb"/>
-        <circle cx="29" cy="11" r="5" fill="#cdb4db"/>
-        <circle cx="27.4" cy="9.6" r="1.4" fill="#fff3e4"/>
+        <path d="M11 9h18" stroke="#e8968a" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M16.5 9V6h7v3" fill="none" stroke="#e8968a" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M13 11h14l-1.4 18H14.4z" fill="#f6b3a8"/>
+        <path d="M17.5 14.5v11M22.5 14.5v11" stroke="#fde6e0" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      <span>Decor</span>
+      <span>Remove</span>
     </button>
     <button type="button" class="tool" data-action="menu" aria-pressed="false" aria-controls="menu-sheet" aria-label="Menu: dishes and prices">
       <svg viewBox="0 0 40 34" aria-hidden="true">
@@ -604,15 +676,7 @@
       </svg>
       <span>Menu</span>
     </button>
-    <button type="button" class="tool" data-tool="remove" aria-pressed="false" aria-label="Remove tool (7)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M11 9h18" stroke="#e8968a" stroke-width="2.6" stroke-linecap="round"/>
-        <path d="M16.5 9V6h7v3" fill="none" stroke="#e8968a" stroke-width="2.4" stroke-linejoin="round"/>
-        <path d="M13 11h14l-1.4 18H14.4z" fill="#f6b3a8"/>
-        <path d="M17.5 14.5v11M22.5 14.5v11" stroke="#fde6e0" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-      <span>Remove</span>
-    </button>
+    </div>
   </nav>
 </div>
 
@@ -634,6 +698,8 @@
   const MAX_GRID = 12, MAX_LEVEL = 60;
   const DOOR = { x: 1, y: 0 };       // floor tile just inside the front door
   const SAVE_KEY = 'cozy-restaurant-v1';
+  const TAB_KEY = 'cozy-restaurant-tab';
+  const DEBUG = /[?&]debug\b/.test(location.search);   // ?debug or ?debug=1: level buttons and window.cozyDebug
   // facing directions for rot 0..3, clockwise on screen
   const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
   const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -1104,18 +1170,70 @@
      ================================================================ */
   let W = 0, H = 0, DPR = 1;
   const cam = { x: 0, y: 0, zoom: 1, fit: 1 };
-  function fitCamera() {
-    const left = -N * TW - WALL_T * TW, right = N * TW;
-    const top = -WALL_H - WALL_T * TH * 2 - 6, bottom = 2 * N * TH + SLAB + 10;
+  /* Fit the room into the space between the top card and the toolbar, measured
+     from the live layout. With animate, glide there unless the player has
+     panned or zoomed since the last fit. */
+  const hudEl = document.getElementById('hud');
+  const toolbarEl = document.getElementById('toolbar');
+  function fitCamera(animate) {
+    const left = -(N + WALL_T) * TW, right = (N + WALL_T) * TW, mid = (left + right) / 2;
+    const top = -WALL_H - WALL_T * TH * 2 - 4, bottom = 2 * N * TH + SLAB + 6;
+    const worldW = right - left, worldH = bottom - top;
     const narrow = W < 640;
-    const padTop = narrow ? 112 : 96, padBot = narrow ? 128 : 140, padX = narrow ? 14 : 60;
-    const availW = Math.max(100, W - padX * 2), availH = Math.max(100, H - padTop - padBot);
-    cam.fit = clamp(Math.min(availW / (right - left), availH / (bottom - top)), 0.35, 2.6);
-    cam.zoom = cam.fit;
-    cam.x = padX + availW / 2 - ((left + right) / 2) * cam.zoom;
-    cam.y = padTop + availH / 2 - ((top + bottom) / 2) * cam.zoom;
+    const gap = narrow ? 6 : 12, padX = narrow ? 8 : 32;
+    const hud = hudEl.getBoundingClientRect(), tb = toolbarEl.getBoundingClientRect();
+    // the toolbar sits along the bottom, or docks on the right on short wide screens
+    const docked = tb.left > W / 2;
+    const floorY = docked ? H - gap : tb.top - gap;   // the front corner sits above the toolbar
+    const xMax = docked ? tb.left - gap : W - padX;
+    const cx = (padX + xMax) / 2;
+    // The room's top edge falls away from its back corner at the iso slope (TH / TW),
+    // so it only has to clear the top card where the two overlap horizontally.
+    const ceilingFor = (z) => {
+      const cornerX = cx - mid * z, half = (worldW / 2) * z;
+      const p = clamp(cornerX, hud.left, hud.right);
+      if (p < cx - half || p > cx + half) return gap;
+      return Math.max(gap, hud.bottom + gap - Math.abs(p - cornerX) * (TH / TW));
+    };
+    const fits = (z) => ceilingFor(z) + worldH * z <= floorY;
+    let lo = 0.35, hi = clamp((xMax - padX) / worldW, 0.35, 3.2);
+    if (fits(hi)) lo = hi;
+    else for (let q = 0; q < 24; q++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
+    const fit = lo;
+    const ceil = ceilingFor(fit);
+    const peak = ceil + Math.max(0, floorY - ceil - worldH * fit) / 2;   // centre in the free band
+    const x = cx - mid * fit;
+    const y = peak - top * fit;
+    cam.fit = fit;
+    if (animate && cam.user) return;
+    cam.user = false;
+    if (animate && !reduced) cam.anim = { x0: cam.x, y0: cam.y, z0: cam.zoom, x1: x, y1: y, z1: fit, t: 0 };
+    else { cam.anim = null; cam.x = x; cam.y = y; cam.zoom = fit; }
+  }
+  function updateCamera(dt) {
+    const a = cam.anim;
+    if (!a) return;
+    a.t = Math.min(1, a.t + dt / 0.35);
+    const e = a.t * a.t * (3 - 2 * a.t);
+    cam.x = lerp(a.x0, a.x1, e); cam.y = lerp(a.y0, a.y1, e); cam.zoom = lerp(a.z0, a.z1, e);
+    if (a.t >= 1) cam.anim = null;
+  }
+  /* the HUD changed size (tab switch, level card): refit and keep the toast above the toolbar */
+  function hudChanged() {
+    if (!W) return;
+    fitCamera(true);
+    placeToast();
+  }
+  function placeToast() {
+    const b = document.getElementById('bottom').getBoundingClientRect();
+    const docked = b.left > W / 2;
+    toastEl.style.bottom = docked ? '14px' : Math.round(H - b.top + 10) + 'px';
+    toastEl.style.left = docked ? Math.round(b.left / 2) + 'px' : '';
+    toastEl.style.maxWidth = docked ? Math.round(b.left - 24) + 'px' : '';
   }
   function zoomAt(sx, sy, factor) {
+    cam.user = true;
+    cam.anim = null;
     const nz = clamp(cam.zoom * factor, cam.fit * 0.6, cam.fit * 3);
     const f = nz / cam.zoom;
     cam.x = sx - (sx - cam.x) * f;
@@ -1140,6 +1258,7 @@
     canvas.width = Math.max(1, Math.round(W * DPR));
     canvas.height = Math.max(1, Math.round(H * DPR));
     fitCamera();
+    placeToast();
   }
 
   /* ================================================================
@@ -2626,6 +2745,7 @@
      Actions
      ================================================================ */
   function toast(msg) {
+    placeToast();
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toast.t);
@@ -2782,8 +2902,6 @@
     dots: (h) => 'radial-gradient(' + h.b + ' 24%, transparent 27%) 0 0 / 11px 11px, ' + h.a,
     rug: (h) => 'linear-gradient(' + h.b + ', ' + h.b + ') center / 58% 58% no-repeat, linear-gradient(' + h.c + ', ' + h.c + ') center / 76% 76% no-repeat, ' + h.a
   };
-  const decorSheet = document.getElementById('decor-sheet');
-  const decorBtn = document.querySelector('.tool[data-action="decor"]');
   const swatchSets = { wall: [], floor: [] };
   function buildSwatches(kind, list, host, cssOf) {
     list.forEach((s, i) => {
@@ -2811,20 +2929,43 @@
     const name = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[i].name;
     announce((kind === 'wall' ? 'Walls' : 'Floor') + ' changed to ' + name + '.');
   }
-  /* bottom sheets: at most one open at a time */
+  /* toolbar categories: Furniture / Decor / Tools */
+  const TAB_OF = { table_01: 'furniture', chair_01: 'furniture', counter_01: 'furniture', plant_01: 'furniture', lantern_01: 'furniture', move: 'tools', remove: 'tools' };
+  const tabBtns = Array.from(document.querySelectorAll('.tab'));
+  let tab = 'furniture';
+  function setTab(name, focus) {
+    tab = name;
+    for (const b of tabBtns) {
+      const on = b.dataset.tab === name;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
+      if (on && focus) b.focus();
+    }
+    store.set(TAB_KEY, name);   // a view preference, kept apart from the shop save
+    hudChanged();
+  }
+  for (const b of tabBtns) {
+    b.addEventListener('click', () => setTab(b.dataset.tab));
+    b.addEventListener('keydown', (e) => {
+      const i = tabBtns.indexOf(b), n = tabBtns.length;
+      const to = e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+      if (to < 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setTab(tabBtns[to].dataset.tab, true);
+    });
+  }
+
+  /* the menu sheet floats over the room */
   const menuSheet = document.getElementById('menu-sheet');
   const menuBtn = document.querySelector('.tool[data-action="menu"]');
-  const SHEETS = { decor: [decorSheet, decorBtn], menu: [menuSheet, menuBtn] };
   function setSheet(name) {
-    for (const k in SHEETS) {
-      const [el, btn] = SHEETS[k];
-      el.hidden = k !== name;
-      btn.setAttribute('aria-pressed', k === name ? 'true' : 'false');
-    }
+    menuSheet.hidden = name !== 'menu';
+    menuBtn.setAttribute('aria-pressed', name === 'menu' ? 'true' : 'false');
     if (name === 'menu') renderMenu();
   }
-  const openSheet = () => Object.keys(SHEETS).find((k) => !SHEETS[k][0].hidden) || '';
-  decorBtn.addEventListener('click', () => setSheet(decorSheet.hidden ? 'decor' : ''));
+  const openSheet = () => (menuSheet.hidden ? '' : 'menu');
   menuBtn.addEventListener('click', () => setSheet(menuSheet.hidden ? 'menu' : ''));
   document.getElementById('menu-close').addEventListener('click', () => { setSheet(''); menuBtn.focus(); });
 
@@ -2842,7 +2983,7 @@
         '<g class="food"><ellipse cx="17" cy="16.5" rx="7.5" ry="4.4" fill="' + c[0] + '"/><circle cx="14.6" cy="13.8" r="3.6" fill="' + c[1] + '"/><circle cx="20.4" cy="14.4" r="2.2" fill="' + c[2] + '"/></g>' +
         '<g class="plus"><circle cx="17" cy="18" r="6" fill="#f2e6da"/><path d="M17 15v6M14 18h6" stroke="#a897a2" stroke-width="1.8" stroke-linecap="round"/></g></svg>' +
       '</button>' +
-      '<div><p class="dish-name">' + d.name + '</p><p class="dish-meta">Suggested ' + d.suggest + ' · cost ' + d.cost + ' · cooks ' + d.cook + 's</p></div>' +
+      '<div><p class="dish-name">' + d.name + '</p><p class="dish-meta">Sugg. ' + d.suggest + ' · cost ' + d.cost + ' · ' + d.cook + 's cook</p></div>' +
       '<div class="dish-price"><button type="button" class="chip down">&minus;</button><span class="price-read"><b></b><small></small></span><button type="button" class="chip up">+</button></div>' +
       '<span class="lock-read">Lv ' + d.unlock + '</span>';
     const r = {
@@ -3021,6 +3162,7 @@
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60;
     last = now;
     updateLight(dt);
+    updateCamera(dt);
     updateEffects(dt);
     simUpdate(dt);
     frame(now, dt);
@@ -3106,6 +3248,7 @@
       const [a, b] = Array.from(pointers.values());
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      cam.anim = null;
       cam.x += mx - gesture.mx; cam.y += my - gesture.my;
       zoomAt(mx, my, d / (gesture.d || d));
       gesture.d = d; gesture.mx = mx; gesture.my = my;
@@ -3118,6 +3261,8 @@
     }
     if (gesture.mode === 'drag' && drag) updateDrag(e.clientX, e.clientY);
     if (gesture.mode === 'pan') {
+      cam.user = true;
+      cam.anim = null;
       cam.x += e.clientX - gesture.lx;
       cam.y += e.clientY - gesture.ly;
       gesture.lx = e.clientX; gesture.ly = e.clientY;
@@ -3202,13 +3347,18 @@
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
-    if (k >= '1' && k <= '7') { selectTool(TOOL_ORDER[+k - 1], true); return; }
+    if (k >= '1' && k <= '7') {
+      const name = TOOL_ORDER[+k - 1];
+      selectTool(name, true);
+      if (tab !== TAB_OF[name]) setTab(TAB_OF[name]);
+      return;
+    }
     if (k === '+' || k === '=') { zoomAt(W / 2, H / 2, 1.15); return; }
     if (k === '-' || k === '_') { zoomAt(W / 2, H / 2, 1 / 1.15); return; }
     if (k === 'r' || k === 'R') { rotate(); return; }
     if (k === 'Escape') {
       if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
-      else if (openSheet()) { const b = SHEETS[openSheet()][1]; setSheet(''); b.focus(); }
+      else if (openSheet()) { setSheet(''); menuBtn.focus(); }
       else select(null);
       return;
     }
@@ -3244,7 +3394,9 @@
   window.addEventListener('pagehide', save);
 
   /* read-only test hook, only with ?debug in the URL */
-  if (/[?&]debug\b/.test(location.search)) {
+  if (DEBUG) {
+    lvDown.hidden = false;
+    lvUp.hidden = false;
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       state: () => ({
@@ -3265,10 +3417,13 @@
     adoptItems(defaultLayout(), true);
     save();
   }
-  resize();
   renderName();
   renderDecor();
   renderLevel();
+  resize();
+  const savedTab = store.get(TAB_KEY);
+  setTab(tabBtns.some((b) => b.dataset.tab === savedTab) ? savedTab : 'furniture');
+  fitCamera();
   selectTool('move', false);
   updateLight(0);
   updateClock();
