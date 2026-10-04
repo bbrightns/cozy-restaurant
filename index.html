@@ -255,7 +255,7 @@
   .ctx-row { display: flex; align-items: center; gap: 6px; max-width: 100%; padding-left: 8px; }
   .ctx-variants { padding: 0 4px 4px; }
   .ctx-variants .sw-row { flex-wrap: nowrap; }
-  .ctx-variants .swatch { border-radius: 999px; }
+  .ctx-variants .sw-face { border-radius: 999px; }
   .context[hidden], .ctx-variants[hidden], .chip[hidden] { display: none; }
   .context .lbl { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .context .chip.warn { background: #fbd9d2; }
@@ -290,10 +290,8 @@
   .tab[aria-selected="true"] { background: var(--cream); color: var(--text); box-shadow: 0 3px 8px -4px rgba(108, 72, 104, .55); }
   .panel { display: flex; gap: 4px; }
   .panel[hidden] { display: none; }
-  .decor-panel { display: grid; gap: 6px; padding: 2px 2px 4px; }
-  .decor-row { display: flex; align-items: center; gap: 6px; }
-  .decor-lbl { flex: none; width: 46px; font-size: 12px; font-weight: 800; color: var(--text-2); }
-  .decor-row .sw-row { flex-wrap: nowrap; gap: 6px; }
+  .decor-panel { display: grid; gap: 8px; padding: 2px 2px 4px; }
+  .decor-panel .sw-row { flex-wrap: nowrap; gap: 6px; justify-content: center; }
   .tool {
     flex: 1 1 0;
     min-width: 0;
@@ -336,15 +334,73 @@
   .sheet[hidden] { display: none; }
   .sheet h2 { margin: 0 0 6px; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
   .sw-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .swatch {
+  /* a design to buy: colour face with its price underneath */
+  .sw-item {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 5px;
+    width: 48px;
+    padding: 0 0 2px;
+    background: transparent;
+    border-radius: 14px;
+  }
+  .sw-face {
     width: 44px;
     height: 44px;
     border-radius: 14px;
     box-shadow: inset 0 0 0 1.5px rgba(91, 75, 87, .12), 0 3px 8px -5px rgba(108, 72, 104, .6);
     transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s ease;
   }
-  .swatch:active { transform: scale(.92); }
-  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5.5px #a98fc0; }
+  .sw-item:active .sw-face { transform: scale(.92); }
+  .sw-item[aria-pressed="true"] .sw-face { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5.5px #a98fc0; }
+  .sw-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-price::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: inset 0 0 0 1.5px #e9b44c;
+  }
+  .sw-item.free .sw-price::before { display: none; }
+  .sw-item.poor .sw-price { color: #c0665a; }
+  .sw-item.poor .sw-face { opacity: .6; }
+  .decor-switch { display: flex; align-items: center; gap: 6px; }
+  .decor-note { margin-left: auto; padding-right: 6px; font-size: 11.5px; font-weight: 700; color: var(--text-3); text-align: right; }
+  .bill {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fbefd9;
+    font-size: 12.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .bill::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: inset 0 0 0 2px #e9b44c;
+  }
+  .bill small { font-size: 11px; font-weight: 700; color: var(--text-2); }
+  .bill[hidden] { display: none; }
   .tool[data-action="menu"] { --tint: #fbe7b8; }
   .menu-sheet { width: 440px; max-height: calc(100vh - 210px); overflow: auto; overscroll-behavior: contain; }
   .menu-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
@@ -436,9 +492,8 @@
     .tool { min-height: 56px; padding: 4px 1px; border-radius: 14px; }
     .tool svg { width: 32px; height: 26px; }
     .tool span { font-size: 11.5px; }
-    .decor-row { gap: 5px; }
-    .decor-row .sw-row { gap: 5px; }
-    .decor-lbl { width: 40px; font-size: 11px; }
+    .decor-panel .sw-row, .ctx-variants .sw-row { gap: 3px; }
+    .decor-note { font-size: 10.5px; }
     .chip .txt { display: none; }
     .toast { font-size: 12px; }
   }
@@ -454,9 +509,8 @@
     .tool { flex: 1 1 30%; min-height: 54px; padding: 4px 1px; }
     .tool svg { width: 30px; height: 24px; }
     .tool span { font-size: 12px; }
-    .decor-row { flex-wrap: wrap; gap: 2px 5px; }
-    .decor-row .sw-row { flex-wrap: wrap; gap: 5px; }
-    .decor-lbl { width: 100%; }
+    .decor-panel .sw-row { flex-wrap: wrap; gap: 5px; }
+    .decor-note { display: none; }
     .context, .menu-sheet { width: 100%; }
     .ctx-variants .sw-row { flex-wrap: wrap; justify-content: center; }
     .menu-sheet { max-height: none; min-height: 0; flex: 0 1 auto; }
@@ -471,7 +525,7 @@
 </style>
 </head>
 <body>
-<main id="world" tabindex="0" aria-label="Restaurant room. Tap a tile to place the selected item. With Move, tap an item to select it or drag it to a new spot. Right-click or long-press removes an item. Drag empty space to pan, scroll or pinch to zoom. Arrow keys move the cursor, Enter acts, R rotates, Delete removes." aria-describedby="status">
+<main id="world" tabindex="0" aria-label="Restaurant room. Tap a tile to place the selected item, which costs coins. With Move, tap an item to select it or drag it to a new spot. With a wallpaper or floor design chosen, tap a wall piece or floor tile to paint it, which costs coins per piece. Right-click or long-press removes an item. Drag empty space to pan, scroll or pinch to zoom. Arrow keys move the cursor, Enter acts, R rotates, Delete removes." aria-describedby="status">
   <canvas id="scene" aria-hidden="true"></canvas>
 </main>
 
@@ -554,6 +608,7 @@
   <div class="card context" id="context" hidden>
     <div class="ctx-row">
       <span class="lbl" id="ctx-lbl">Table</span>
+      <span class="bill" id="ctx-bill" hidden aria-live="polite"></span>
       <button type="button" class="chip" id="ctx-rotate" aria-label="Rotate">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.6 6A5 5 0 1 0 13 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.6 2.4v4h-4z" fill="currentColor"/></svg>
         <span class="txt">Rotate</span>
@@ -631,14 +686,12 @@
     </button>
     </div>
     <div class="panel decor-panel" id="panel-decor" role="tabpanel" aria-labelledby="tab-decor" hidden>
-      <div class="decor-row">
-        <span class="decor-lbl" id="walls-h">Walls</span>
-        <div class="sw-row" id="wall-swatches" role="group" aria-labelledby="walls-h"></div>
+      <div class="decor-switch" role="group" aria-label="What to decorate">
+        <button type="button" class="chip kind" data-kind="wall" aria-pressed="true">Wallpaper</button>
+        <button type="button" class="chip kind" data-kind="floor" aria-pressed="false">Floor</button>
+        <span class="decor-note" id="decor-note">coins per wall piece</span>
       </div>
-      <div class="decor-row">
-        <span class="decor-lbl" id="floor-h">Floor</span>
-        <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
-      </div>
+      <div class="sw-row" id="decor-swatches" role="group" aria-label="Designs"></div>
     </div>
     <div class="panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
     <button type="button" class="tool" data-tool="move" aria-pressed="true" aria-label="Move tool (1): select, drag and rotate items">
@@ -700,6 +753,9 @@
   const SAVE_KEY = 'cozy-restaurant-v1';
   const TAB_KEY = 'cozy-restaurant-tab';
   const DEBUG = /[?&]debug\b/.test(location.search);   // ?debug or ?debug=1: level buttons and window.cozyDebug
+  // DEV_MODE: everything is free (furniture, designs, wallpaper, floor). Flip it here, or open the page with ?free.
+  const DEV_MODE = false || /[?&]free\b/.test(location.search);
+  const START_COINS = 300;           // balance of a brand new shop
   // facing directions for rot 0..3, clockwise on screen
   const DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]];
   const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -719,6 +775,7 @@
   const lvUp = document.getElementById('lv-up');
   const contextEl = document.getElementById('context');
   const ctxLbl = document.getElementById('ctx-lbl');
+  const ctxBill = document.getElementById('ctx-bill');
   const ctxRotate = document.getElementById('ctx-rotate');
   const ctxRemove = document.getElementById('ctx-remove');
   const ctxDone = document.getElementById('ctx-done');
@@ -773,66 +830,66 @@
   /* ---------------- room decor: data only, drawn by code ----------------
      Entry 0 of each list is the original look. */
   const WALL_STYLES = [
-    { name: 'Blush', paper: '#fcdcd4', stripe: '#fde7e1', wainscot: '#b8e0d2', trim: '#fff3e4', base: '#9fcab9' },
-    { name: 'Lavender', paper: '#e6d9f0', stripe: '#efe6f6', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#ecb8b0' },
-    { name: 'Mint', paper: '#d3ecdf', stripe: '#e2f3ea', wainscot: '#cdb4db', trim: '#fff3e4', base: '#b39cc6' },
-    { name: 'Butter', paper: '#fbeec2', stripe: '#fdf4d8', wainscot: '#b8d8e8', trim: '#fff3e4', base: '#9cc3d8' },
-    { name: 'Sky', paper: '#d6e9f5', stripe: '#e4f1f9', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#f0b8ae' },
-    { name: 'Peach', paper: '#ffd9c4', stripe: '#ffe6d6', wainscot: '#a8d5a2', trim: '#fff3e4', base: '#8fc28a' }
-  ].map((s) => ({ name: s.name, paper: rgb(s.paper), stripe: rgb(s.stripe), wainscot: rgb(s.wainscot), trim: rgb(s.trim), base: rgb(s.base), hex: s }));
+    { name: 'Blush', price: 4, paper: '#fcdcd4', stripe: '#fde7e1', wainscot: '#b8e0d2', trim: '#fff3e4', base: '#9fcab9' },
+    { name: 'Lavender', price: 5, paper: '#e6d9f0', stripe: '#efe6f6', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#ecb8b0' },
+    { name: 'Mint', price: 5, paper: '#d3ecdf', stripe: '#e2f3ea', wainscot: '#cdb4db', trim: '#fff3e4', base: '#b39cc6' },
+    { name: 'Butter', price: 6, paper: '#fbeec2', stripe: '#fdf4d8', wainscot: '#b8d8e8', trim: '#fff3e4', base: '#9cc3d8' },
+    { name: 'Sky', price: 6, paper: '#d6e9f5', stripe: '#e4f1f9', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#f0b8ae' },
+    { name: 'Peach', price: 8, paper: '#ffd9c4', stripe: '#ffe6d6', wainscot: '#a8d5a2', trim: '#fff3e4', base: '#8fc28a' }
+  ].map((s) => ({ name: s.name, price: s.price, paper: rgb(s.paper), stripe: rgb(s.stripe), wainscot: rgb(s.wainscot), trim: rgb(s.trim), base: rgb(s.base), hex: s }));
   // pattern: how the floor is drawn; a, b, c: its colors
   const FLOOR_STYLES = [
-    { name: 'Checker tile', pattern: 'checker', a: '#f7eadb', b: '#f2dccb', c: '#f2dccb' },
-    { name: 'Wood planks', pattern: 'wood', a: '#ebcfae', b: '#e2c29d', c: '#cfa982' },
-    { name: 'Stripes', pattern: 'stripes', a: '#f6eaf1', b: '#ead9e8', c: '#ead9e8' },
-    { name: 'Light marble', pattern: 'marble', a: '#f7f2ef', b: '#efe8e6', c: '#d9ccd8' },
-    { name: 'Dots', pattern: 'dots', a: '#fbece6', b: '#f4c9bf', c: '#f4c9bf' },
-    { name: 'Plain rug', pattern: 'rug', a: '#f2e3d2', b: '#e2d3ec', c: '#cdb4db' }
-  ].map((s) => ({ name: s.name, pattern: s.pattern, a: rgb(s.a), b: rgb(s.b), c: rgb(s.c), hex: s }));
+    { name: 'Checker tile', price: 3, pattern: 'checker', a: '#f7eadb', b: '#f2dccb', c: '#f2dccb' },
+    { name: 'Wood planks', price: 6, pattern: 'wood', a: '#ebcfae', b: '#e2c29d', c: '#cfa982' },
+    { name: 'Stripes', price: 4, pattern: 'stripes', a: '#f6eaf1', b: '#ead9e8', c: '#ead9e8' },
+    { name: 'Light marble', price: 9, pattern: 'marble', a: '#f7f2ef', b: '#efe8e6', c: '#d9ccd8' },
+    { name: 'Dots', price: 5, pattern: 'dots', a: '#fbece6', b: '#f4c9bf', c: '#f4c9bf' },
+    { name: 'Plain rug', price: 7, pattern: 'rug', a: '#f2e3d2', b: '#e2d3ec', c: '#cdb4db' }
+  ].map((s) => ({ name: s.name, price: s.price, pattern: s.pattern, a: rgb(s.a), b: rgb(s.b), c: rgb(s.c), hex: s }));
   /* Furniture variants: palette swaps per item type, plus an optional code-drawn
      pattern. Each entry overrides palette roles that item's draw function reads
      through pal(it). Entry 0 is the original look. `sw` lists the roles shown
      in the swatch (main, accent). */
   const VARIANTS = {
     table_01: { sw: ['cloth', 'clothHi'], list: [
-      { name: 'Peach', cloth: '#ffb5a7', clothHi: '#ffd3c7' },
-      { name: 'Mint', cloth: '#a9d9c6', clothHi: '#cdeee0' },
-      { name: 'Lavender gingham', cloth: '#cdb4db', clothHi: '#ece0f3', woodDeep: '#b39cc6', pattern: 'gingham' },
-      { name: 'Butter dots', cloth: '#f6d27a', clothHi: '#fbe7b8', pattern: 'dots' },
-      { name: 'Sky', cloth: '#a9cfe8', clothHi: '#d3e8f5', woodDeep: '#a98f80' },
-      { name: 'Rose gingham', cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' }
+      { name: 'Peach', price: 30, cloth: '#ffb5a7', clothHi: '#ffd3c7' },
+      { name: 'Mint', price: 30, cloth: '#a9d9c6', clothHi: '#cdeee0' },
+      { name: 'Lavender gingham', price: 55, cloth: '#cdb4db', clothHi: '#ece0f3', woodDeep: '#b39cc6', pattern: 'gingham' },
+      { name: 'Butter dots', price: 50, cloth: '#f6d27a', clothHi: '#fbe7b8', pattern: 'dots' },
+      { name: 'Sky', price: 35, cloth: '#a9cfe8', clothHi: '#d3e8f5', woodDeep: '#a98f80' },
+      { name: 'Rose gingham', price: 55, cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' }
     ] },
     chair_01: { sw: ['cushion', 'wood'], list: [
-      { name: 'Mint', cushion: '#b8e0d2', cushionHi: '#cfeadf' },
-      { name: 'Peach', cushion: '#ffc2b4', cushionHi: '#ffd8cd' },
-      { name: 'Lavender', cushion: '#cdb4db', cushionHi: '#e2d3ec' },
-      { name: 'Butter', cushion: '#f6dc93', cushionHi: '#fbeabc' },
-      { name: 'Sky', cushion: '#b2d6ec', cushionHi: '#d3e8f5', wood: '#cdbcae', woodDeep: '#a98f80' },
-      { name: 'Cocoa', cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' }
+      { name: 'Mint', price: 15, cushion: '#b8e0d2', cushionHi: '#cfeadf' },
+      { name: 'Peach', price: 15, cushion: '#ffc2b4', cushionHi: '#ffd8cd' },
+      { name: 'Lavender', price: 18, cushion: '#cdb4db', cushionHi: '#e2d3ec' },
+      { name: 'Butter', price: 18, cushion: '#f6dc93', cushionHi: '#fbeabc' },
+      { name: 'Sky', price: 24, cushion: '#b2d6ec', cushionHi: '#d3e8f5', wood: '#cdbcae', woodDeep: '#a98f80' },
+      { name: 'Cocoa', price: 28, cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' }
     ] },
     counter_01: { sw: ['lav', 'blush'], list: [
-      { name: 'Lavender', lav: '#cdb4db', lavDeep: '#b39cc6', blush: '#fcd5ce' },
-      { name: 'Mint', lav: '#b8e0d2', lavDeep: '#9fcab9', blush: '#fcd5ce' },
-      { name: 'Peach', lav: '#ffc9b9', lavDeep: '#f2ad9b', blush: '#b8e0d2' },
-      { name: 'Butter stripe', lav: '#f8e3a4', lavDeep: '#e9cc7e', blush: '#cdb4db', pattern: 'stripes' },
-      { name: 'Sky', lav: '#b9d8ec', lavDeep: '#9cc3d8', blush: '#fff1e2' },
-      { name: 'Honey wood', lav: '#dcb891', lavDeep: '#c4966f', blush: '#b8e0d2', counterTop: '#f7eadb', pattern: 'stripes' }
+      { name: 'Lavender', price: 60, lav: '#cdb4db', lavDeep: '#b39cc6', blush: '#fcd5ce' },
+      { name: 'Mint', price: 60, lav: '#b8e0d2', lavDeep: '#9fcab9', blush: '#fcd5ce' },
+      { name: 'Peach', price: 65, lav: '#ffc9b9', lavDeep: '#f2ad9b', blush: '#b8e0d2' },
+      { name: 'Butter stripe', price: 90, lav: '#f8e3a4', lavDeep: '#e9cc7e', blush: '#cdb4db', pattern: 'stripes' },
+      { name: 'Sky', price: 70, lav: '#b9d8ec', lavDeep: '#9cc3d8', blush: '#fff1e2' },
+      { name: 'Honey wood', price: 110, lav: '#dcb891', lavDeep: '#c4966f', blush: '#b8e0d2', counterTop: '#f7eadb', pattern: 'stripes' }
     ] },
     plant_01: { sw: ['pot', 'cloth'], list: [
-      { name: 'Terracotta', pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
-      { name: 'Mint pot', pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
-      { name: 'Lavender pot', pot: '#c9b2dc', potHi: '#dccbe8', cloth: '#fff3e4' },
-      { name: 'Butter pot', pot: '#f4d98a', potHi: '#f9e7b5', cloth: '#ffb5a7' },
-      { name: 'Sky pot', pot: '#a9cfe8', potHi: '#c9e2f2', cloth: '#fcd5ce' },
-      { name: 'Cream pot', pot: '#efe2d2', potHi: '#f8efe4', cloth: '#cdb4db' }
+      { name: 'Terracotta', price: 12, pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
+      { name: 'Mint pot', price: 14, pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
+      { name: 'Lavender pot', price: 16, pot: '#c9b2dc', potHi: '#dccbe8', cloth: '#fff3e4' },
+      { name: 'Butter pot', price: 16, pot: '#f4d98a', potHi: '#f9e7b5', cloth: '#ffb5a7' },
+      { name: 'Sky pot', price: 18, pot: '#a9cfe8', potHi: '#c9e2f2', cloth: '#fcd5ce' },
+      { name: 'Cream pot', price: 20, pot: '#efe2d2', potHi: '#f8efe4', cloth: '#cdb4db' }
     ] },
     lantern_01: { sw: ['paperLamp', 'cloth'], list: [
-      { name: 'Warm paper', paperLamp: '#ffe6bf', glow: '#ffdc9a', cloth: '#ffb5a7' },
-      { name: 'Peach', paperLamp: '#ffd0c0', glow: '#ffc6a8', cloth: '#cdb4db' },
-      { name: 'Mint', paperLamp: '#d4f0e4', glow: '#f2e6b0', cloth: '#ffb5a7' },
-      { name: 'Lavender', paperLamp: '#e8dcf4', glow: '#f6d8ea', cloth: '#f6d27a' },
-      { name: 'Rose', paperLamp: '#ffd3dd', glow: '#ffc4cf', cloth: '#b8e0d2' },
-      { name: 'Butter', paperLamp: '#fbeaa6', glow: '#ffe08a', cloth: '#a9cfe8' }
+      { name: 'Warm paper', price: 20, paperLamp: '#ffe6bf', glow: '#ffdc9a', cloth: '#ffb5a7' },
+      { name: 'Peach', price: 22, paperLamp: '#ffd0c0', glow: '#ffc6a8', cloth: '#cdb4db' },
+      { name: 'Mint', price: 24, paperLamp: '#d4f0e4', glow: '#f2e6b0', cloth: '#ffb5a7' },
+      { name: 'Lavender', price: 26, paperLamp: '#e8dcf4', glow: '#f6d8ea', cloth: '#f6d27a' },
+      { name: 'Rose', price: 26, paperLamp: '#ffd3dd', glow: '#ffc4cf', cloth: '#b8e0d2' },
+      { name: 'Butter', price: 30, paperLamp: '#fbeaa6', glow: '#ffe08a', cloth: '#a9cfe8' }
     ] }
   };
   const VARIANT_COUNT = 6;
@@ -841,17 +898,37 @@
   for (const id in VARIANTS) {
     PAL[id] = VARIANTS[id].list.map((v) => {
       const p = Object.assign({}, P, { pattern: v.pattern || '' });
-      for (const k in v) if (k !== 'name' && k !== 'pattern') p[k] = rgb(v[k]);
+      for (const k in v) if (k !== 'name' && k !== 'pattern' && k !== 'price') p[k] = rgb(v[k]);
       return p;
     });
   }
   const pal = (it) => (PAL[it.id] && PAL[it.id][it.variant | 0]) || P;
   const clampVariant = (v) => (Number.isInteger(v) && v >= 0 && v < VARIANT_COUNT ? v : 0);
 
-  const decor = { wall: 0, floor: 0 };
-  const wallStyle = () => WALL_STYLES[decor.wall] || WALL_STYLES[0];
-  const floorStyle = () => FLOOR_STYLES[decor.floor] || FLOOR_STYLES[0];
+  /* Room decor is painted piece by piece: one style index per floor tile and per
+     wall segment (one tile wide). Arrays cover the biggest room, so tiles that
+     appear when the room grows start with the original look (style 0). */
+  const decor = {
+    floor: new Uint8Array(MAX_GRID * MAX_GRID),   // [x + y * MAX_GRID]
+    wallA: new Uint8Array(MAX_GRID),              // wall along y = 0, by x
+    wallB: new Uint8Array(MAX_GRID)               // wall along x = 0, by y
+  };
   const styleIndex = (v, list) => (Number.isInteger(v) && v >= 0 && v < list.length ? v : 0);
+  const floorIdx = (x, y) => decor.floor[x + y * MAX_GRID];
+  const floorTile = (x, y) => FLOOR_STYLES[floorIdx(x, y)] || FLOOR_STYLES[0];
+  const wallSeg = (side, i) => WALL_STYLES[(side === 'A' ? decor.wallA : decor.wallB)[i]] || WALL_STYLES[0];
+  /* fills a decor array from saved data, or with one style (older saves had a single style per kind) */
+  function loadDecor(dst, src, one, list) {
+    for (let q = 0; q < dst.length; q++) dst[q] = styleIndex(Array.isArray(src) ? src[q] : one, list);
+  }
+  const decorSnapshot = () => ({ floor: Array.from(decor.floor), wallA: Array.from(decor.wallA), wallB: Array.from(decor.wallB) });
+
+  /* ---------------- money rules ----------------
+     Every placement, restyle and paint click is bought. Paid-for pieces are not
+     refunded when replaced or removed. DEV_MODE makes everything free. */
+  const priceOfItem = (id, variant) => (DEV_MODE ? 0 : (VARIANTS[id].list[variant | 0] || VARIANTS[id].list[0]).price);
+  const priceOfStyle = (s) => (DEV_MODE ? 0 : s.price);
+  const priceText = (n) => (n === 0 ? 'Free' : String(n));
 
   /* ================================================================
      Catalog
@@ -1051,8 +1128,9 @@
   }
 
   /* Save format. v1: Phases 1-2. v2 adds name, decor, menu and item variants.
+     v3 paints decor per piece: decor is { floor: [tile styles], wallA: [...], wallB: [...] }.
      migrate() upgrades older payloads in place; every field is read defensively. */
-  const SAVE_VERSION = 2;
+  const SAVE_VERSION = 3;
   function migrate(d) {
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
@@ -1061,12 +1139,19 @@
       d.menu = defaultMenu();
       d.v = 2;
     }
+    if (d.v === 2) {
+      // one style for the whole room becomes the same style on every piece
+      const old = d.decor || {};
+      const full = (n, v) => new Array(n).fill(v | 0);
+      d.decor = { floor: full(MAX_GRID * MAX_GRID, old.floor), wallA: full(MAX_GRID, old.wall), wallB: full(MAX_GRID, old.wall) };
+      d.v = 3;
+    }
     return d;
   }
 
   function save() {
     const data = {
-      v: SAVE_VERSION, name: shopName, decor: { wall: decor.wall, floor: decor.floor },
+      v: SAVE_VERSION, name: shopName, decor: decorSnapshot(),
       menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
@@ -1084,8 +1169,9 @@
       migrate(d);
       shopName = cleanName(d.name);
       const dc = d.decor || {};
-      decor.wall = styleIndex(dc.wall, WALL_STYLES);
-      decor.floor = styleIndex(dc.floor, FLOOR_STYLES);
+      loadDecor(decor.floor, dc.floor, 0, FLOOR_STYLES);
+      loadDecor(decor.wallA, dc.wallA, 0, WALL_STYLES);
+      loadDecor(decor.wallB, dc.wallB, 0, WALL_STYLES);
       level = clamp(Math.floor(+d.level) || 1, 1, MAX_LEVEL);
       N = gridFor(level);
       menu = sanitizeMenu(d.menu);
@@ -1652,9 +1738,50 @@
       ctx.fill();
     }
   };
+  /* Each style paints the tiles that use it: its pattern is drawn across the room
+     and clipped to those tiles, so mixed floors share one pattern grid per style. */
   function drawFloor() {
-    const F = floorStyle();
-    FLOOR_DRAW[F.pattern](F);
+    const used = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const k = floorIdx(x, y);
+      (used[k] || (used[k] = [])).push(x, y);
+    }
+    for (let k = 0; k < used.length; k++) {
+      const tiles = used[k];
+      if (!tiles) continue;
+      const F = FLOOR_STYLES[k];
+      if (tiles.length === N * N * 2) { FLOOR_DRAW[F.pattern](F); continue; }
+      ctx.beginPath();
+      for (let q = 0; q < tiles.length; q += 2) {
+        const x = tiles[q], y = tiles[q + 1];
+        ctx.moveTo(PX(x, y), PY(x, y, 0));
+        ctx.lineTo(PX(x + 1, y), PY(x + 1, y, 0));
+        ctx.lineTo(PX(x + 1, y + 1), PY(x + 1, y + 1, 0));
+        ctx.lineTo(PX(x, y + 1), PY(x, y + 1, 0));
+        ctx.closePath();
+      }
+      // a base coat, slightly fat, so no sky shows through between different styles
+      ctx.fillStyle = lit(F.a, 1.02);
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 0.8;
+      ctx.fill();
+      ctx.stroke();
+      ctx.save();
+      ctx.clip();
+      FLOOR_DRAW[F.pattern](F);
+      ctx.restore();
+    }
+    // paint preview: the chosen floor on the tile under the cursor
+    const pt = paintTarget();
+    if (pt && !pt.side) {
+      const F = FLOOR_STYLES[paint.i];
+      ctx.save();
+      flat(pt.x, pt.y, pt.x + 1, pt.y + 1, 0);
+      ctx.clip();
+      ctx.globalAlpha = 0.88;
+      FLOOR_DRAW[F.pattern](F);
+      ctx.restore();
+    }
     // soft AO along the back walls
     let g = ctx.createLinearGradient(PX(0, 0), PY(0, 0, 0), PX(0, 0.6), PY(0, 0.6, 0));
     g.addColorStop(0, 'rgba(150,100,130,0.16)');
@@ -1679,48 +1806,64 @@
   /* wall A runs along y = 0 (faces +y), wall B along x = 0 (faces +x) */
   function wallA(pts) { return pts.map((p) => [p[0], 0, p[1]]); }
   function wallB(pts) { return pts.map((p) => [0, p[0], p[1]]); }
-  function drawWalls() {
-    const WS = wallStyle();
-    const shadeA = 0.97 - 0.03 * light.sun, shadeB = 0.88 + 0.03 * light.sun;
-    for (const [mk, shade] of [[wallA, shadeA], [wallB, shadeB]]) {
-      // wallpaper
-      poly(mk([[0, 26], [N, 26], [N, WALL_H], [0, WALL_H]]));
-      ctx.fillStyle = lit(WS.paper, shade);
-      ctx.fill();
-      ctx.fillStyle = lit(WS.stripe, shade, 0.85);
-      for (let s = 0.25; s < N; s += 0.5) {
-        poly(mk([[s, 26], [s + 0.12, 26], [s + 0.12, WALL_H], [s, WALL_H]]));
-        ctx.fill();
-      }
-      // wainscot, chair rail, skirting
-      poly(mk([[0, 0], [N, 0], [N, 26], [0, 26]]));
-      const g = ctx.createLinearGradient(0, PY(0, 0, 26), 0, PY(0, 0, 0) + N * TH);
-      g.addColorStop(0, lit(WS.wainscot, shade));
-      g.addColorStop(1, lit(WS.wainscot, shade * 0.9));
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.fillStyle = lit(WS.wainscot, shade * 0.93);
-      for (let s = 0.5; s < N; s += 0.5) {
-        poly(mk([[s - 0.015, 4], [s + 0.015, 4], [s + 0.015, 24], [s - 0.015, 24]]));
-        ctx.fill();
-      }
-      poly(mk([[0, 24], [N, 24], [N, 28], [0, 28]]));
-      ctx.fillStyle = lit(WS.trim, shade);
-      ctx.fill();
-      poly(mk([[0, 0], [N, 0], [N, 4], [0, 4]]));
-      ctx.fillStyle = lit(WS.base, shade);
-      ctx.fill();
-      // crown trim
-      poly(mk([[0, WALL_H - 4], [N, WALL_H - 4], [N, WALL_H], [0, WALL_H]]));
-      ctx.fillStyle = lit(WS.trim, shade);
+  /* One wall segment (a tile wide) in its own wallpaper. Each strip reaches 0.02
+     into the next segment, which is drawn afterwards, so no hairline gaps show. */
+  function drawWallSegment(mk, WS, i, shade) {
+    const u0 = i, u1 = Math.min(N, i + 1.02);
+    // wallpaper
+    poly(mk([[u0, 26], [u1, 26], [u1, WALL_H], [u0, WALL_H]]));
+    ctx.fillStyle = lit(WS.paper, shade);
+    ctx.fill();
+    ctx.fillStyle = lit(WS.stripe, shade, 0.85);
+    for (const s of [i + 0.25, i + 0.75]) {
+      poly(mk([[s, 26], [s + 0.12, 26], [s + 0.12, WALL_H], [s, WALL_H]]));
       ctx.fill();
     }
+    // wainscot, chair rail, skirting
+    poly(mk([[u0, 0], [u1, 0], [u1, 26], [u0, 26]]));
+    const g = ctx.createLinearGradient(0, PY(0, 0, 26), 0, PY(0, 0, 0) + N * TH);
+    g.addColorStop(0, lit(WS.wainscot, shade));
+    g.addColorStop(1, lit(WS.wainscot, shade * 0.9));
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.fillStyle = lit(WS.wainscot, shade * 0.93);
+    for (const s of i ? [i, i + 0.5] : [i + 0.5]) {
+      poly(mk([[s - 0.015, 4], [s + 0.015, 4], [s + 0.015, 24], [s - 0.015, 24]]));
+      ctx.fill();
+    }
+    poly(mk([[u0, 24], [u1, 24], [u1, 28], [u0, 28]]));
+    ctx.fillStyle = lit(WS.trim, shade);
+    ctx.fill();
+    poly(mk([[u0, 0], [u1, 0], [u1, 4], [u0, 4]]));
+    ctx.fillStyle = lit(WS.base, shade);
+    ctx.fill();
+    // crown trim
+    poly(mk([[u0, WALL_H - 4], [u1, WALL_H - 4], [u1, WALL_H], [u0, WALL_H]]));
+    ctx.fillStyle = lit(WS.trim, shade);
+    ctx.fill();
+  }
+  function drawWalls() {
+    const shadeA = 0.97 - 0.03 * light.sun, shadeB = 0.88 + 0.03 * light.sun;
+    for (const [side, mk, shade] of [['A', wallA, shadeA], ['B', wallB, shadeB]]) {
+      for (let i = 0; i < N; i++) drawWallSegment(mk, wallSeg(side, i), i, shade);
+    }
+    // paint preview: the chosen wallpaper on the segment under the cursor, behind windows and furniture
+    const pt = paintTarget();
+    if (pt && pt.side) {
+      const mk = pt.side === 'A' ? wallA : wallB;
+      ctx.save();
+      poly(mk([[pt.i, 0], [pt.i + 1, 0], [pt.i + 1, WALL_H], [pt.i, WALL_H]]));
+      ctx.clip();
+      ctx.globalAlpha = 0.88;
+      drawWallSegment(mk, WALL_STYLES[paint.i], pt.i, pt.side === 'A' ? shadeA : shadeB);
+      ctx.restore();
+    }
     // wall caps and exposed ends
-    ctx.fillStyle = lit(WS.trim, 1.04);
+    ctx.fillStyle = lit(wallSeg('A', 0).trim, 1.04);
     poly([[-WALL_T, -WALL_T, WALL_H], [N, -WALL_T, WALL_H], [N, 0, WALL_H], [0, 0, WALL_H], [0, N, WALL_H], [-WALL_T, N, WALL_H]]);
     ctx.fill();
-    box(N - 0.001, -WALL_T, N, 0, 0, WALL_H, WS.paper, { noTop: true });
-    box(-WALL_T, N - 0.001, 0, N, 0, WALL_H, WS.paper, { noTop: true });
+    box(N - 0.001, -WALL_T, N, 0, 0, WALL_H, wallSeg('A', N - 1).paper, { noTop: true });
+    box(-WALL_T, N - 0.001, 0, N, 0, WALL_H, wallSeg('B', N - 1).paper, { noTop: true });
 
     // windows: one every three tiles along each wall, skipping the door
     for (let c = 3.6; c + 0.65 <= N; c += 3) drawWindow('A', c);
@@ -1729,7 +1872,7 @@
   }
   function onWall(side, u, z) { return side === 'A' ? [u, 0, z] : [0, u, z]; }
   function drawWindow(side, c) {
-    const WS = wallStyle();
+    const WS = wallSeg(side, Math.floor(c));
     const u0 = c - 0.6, u1 = c + 0.6, z0 = 34, z1 = 62;
     const shade = side === 'A' ? 1 : 0.92;
     const q = (a, b, za, zb) => poly([onWall(side, a, za), onWall(side, b, za), onWall(side, b, zb), onWall(side, a, zb)]);
@@ -1767,7 +1910,7 @@
     else box(0, u0 - 0.08, 0.08, u1 + 0.08, z0 - 5, z0 - 3, WS.trim);
   }
   function drawDoor() {
-    const WS = wallStyle();
+    const WS = wallSeg('A', DOOR.x);
     const u0 = DOOR.x + 0.14, u1 = DOOR.x + 0.86, zt = 54;
     const q = (a, b, za, zb) => poly([[a, 0, za], [b, 0, za], [b, 0, zb], [a, 0, zb]]);
     q(u0 - 0.06, u1 + 0.06, 0, zt + 4);
@@ -2322,6 +2465,7 @@
   }
   function updateMoneyHud() {
     const e = economy();
+    refreshAfford();
     coinRead.textContent = fmt(shownCoins);
     const inc = (e.incomePerMin >= 0 ? '+' : '') + fmt(e.incomePerMin) + '/min';
     rateRead.textContent = inc;
@@ -2516,7 +2660,7 @@
       ctx.fillStyle = '#f6d27a';
       ctx.beginPath(); ctx.arc(p.x - 7, y, 3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#b7843a';
-      ctx.fillText('+' + p.amount, p.x - 1.5, y + 0.5);
+      ctx.fillText((p.amount < 0 ? '−' : '+') + Math.abs(p.amount), p.x - 1.5, y + 0.5);
     }
     ctx.globalAlpha = 1;
   }
@@ -2530,6 +2674,30 @@
   let drag = null;             // { item, offX, offY, grabZ, tx, ty, reason }
   const hover = { x: -1, y: -1, show: false };
   const kbd = { x: 2, y: 2, show: false };
+  /* paint tool: tool === 'paint' with paint = { kind: 'floor' | 'wall', i: style index }.
+     Walls have their own cursors, since a wall segment is not a floor tile. */
+  let paint = null;
+  const hoverWall = { side: 'A', i: 0, show: false };
+  const kwall = { side: 'A', i: 0, show: false };
+  function paintTarget() {
+    if (tool !== 'paint' || !paint || drag) return null;
+    if (paint.kind === 'wall') {
+      const w = hoverWall.show ? hoverWall : kwall.show ? kwall : null;
+      return w && w.i < N ? { side: w.side, i: w.i } : null;
+    }
+    const c = hover.show ? hover : kbd.show ? kbd : null;
+    return c && inside(c.x, c.y) ? { x: c.x, y: c.y } : null;
+  }
+  /* screen point -> wall segment. Wall A is the plane y = 0 (screen x grows with x),
+     wall B the plane x = 0; both rise WALL_H above the floor. */
+  function wallAt(sx, sy) {
+    const wx = (sx - cam.x) / cam.zoom, wy = (sy - cam.y) / cam.zoom;
+    for (const side of ['A', 'B']) {
+      const u = (side === 'A' ? wx : -wx) / TW, z = u * TH - wy;
+      if (u >= 0 && u < N && z >= 0 && z <= WALL_H) return { side, i: Math.floor(u) };
+    }
+    return null;
+  }
 
   function depthOf(it) {
     const [w, d] = dims(it.id, it.rot);
@@ -2727,7 +2895,17 @@
 
     // tile cursor
     const c = drag ? null : hover.show ? hover : kbd.show ? kbd : null;
-    if (c && inside(c.x, c.y)) {
+    const pt = paintTarget();
+    if (pt && pt.side) {
+      const mk = pt.side === 'A' ? wallA : wallB;
+      poly(mk([[pt.i + 0.03, 1], [pt.i + 0.97, 1], [pt.i + 0.97, WALL_H - 1], [pt.i + 0.03, WALL_H - 1]]));
+      ctx.setLineDash([5, 4]);
+      ctx.lineDashOffset = reduced ? 0 : -now * 0.02;
+      ctx.strokeStyle = 'rgba(255,250,240,0.95)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (c && inside(c.x, c.y)) {
       footprintPath(c.x, c.y, 1, 1, 0.8);
       ctx.setLineDash([5, 4]);
       ctx.lineDashOffset = reduced ? 0 : -now * 0.02;
@@ -2765,13 +2943,71 @@
     const cand = { id: tool, x, y, rot: ghostRot, variant: nextVariant[tool] || 0, born: performance.now(), anim: 'pop' };
     const reason = checkPlace(cand, null);
     if (reason) { toast(REASON[reason]); announce(REASON[reason] + '.'); return false; }
+    const price = priceOfItem(cand.id, cand.variant);
+    if (!spend(price, designName(cand.id, cand.variant))) return false;
     if (reduced) cand.born = performance.now();
     items.push(cand);
     const [w, d] = dims(cand.id, cand.rot);
     spawnRing(x, y, w, d);
+    spendPop(x + w / 2, y + d / 2, CATALOG[cand.id].h, price);
     layoutChanged();
     saveSoon();
-    announce(nameOf(cand.id) + ' placed at ' + (x + 1) + ', ' + (y + 1) + '.');
+    announce(nameOf(cand.id) + ' placed at ' + (x + 1) + ', ' + (y + 1) + (price ? ' for ' + price + ' coins' : '') + '.');
+    return true;
+  }
+  /* ---------------- buying ---------------- */
+  const wallName = (side, i) => (side === 'A' ? 'Right wall' : 'Left wall') + ', piece ' + (i + 1);
+  const designName = (id, v) => nameOf(id) + ' (' + VARIANTS[id].list[v | 0].name + ')';
+  /* Takes the coins, or blocks the action with a message. Free things always pass. */
+  function spend(price, what) {
+    if (price <= 0) return true;
+    if (coins < price) {
+      const msg = 'Not enough coins: ' + what + ' costs ' + price + ', you have ' + fmt(coins);
+      toast(msg);
+      announce(msg + '.');
+      coinIcon.classList.remove('bump');
+      void coinIcon.getBoundingClientRect();
+      coinIcon.classList.add('bump');
+      return false;
+    }
+    coins -= price;
+    shownCoins = Math.min(shownCoins, coins);
+    updateMoneyHud();
+    return true;
+  }
+  /* a small "-N" floating up from where something was bought (tile coordinates, z in px) */
+  function spendPop(x, y, z, price) {
+    if (price > 0) pops.push({ x: PX(x, y), y: PY(x, y, z), amount: -price, t: 0 });
+  }
+  /* Running total of the current decorating run: it counts every paid paint click and
+     resets when the player leaves the paint tool or taps the total. */
+  const bill = { total: 0, tiles: 0 };
+  function resetBill() { bill.total = 0; bill.tiles = 0; }
+  /* One click paints one piece: a floor tile or a wall segment. Repainting replaces the old
+     design and charges the new price. target is { x, y } for the floor, { side, i } for a wall. */
+  function paintAt(target) {
+    if (!paint || !target) return false;
+    const wall = paint.kind === 'wall';
+    const style = (wall ? WALL_STYLES : FLOOR_STYLES)[paint.i];
+    const arr = wall ? (target.side === 'A' ? decor.wallA : decor.wallB) : decor.floor;
+    const at = wall ? target.i : target.x + target.y * MAX_GRID;
+    const where = wall ? wallName(target.side, target.i) : 'Tile ' + (target.x + 1) + ', ' + (target.y + 1);
+    if (arr[at] === paint.i) {
+      toast('That piece already has ' + style.name);
+      announce(where + ' already has ' + style.name + '.');
+      return false;
+    }
+    const price = priceOfStyle(style);
+    if (!spend(price, style.name + (wall ? ' wallpaper' : ' floor'))) return false;
+    arr[at] = paint.i;
+    bill.total += price; bill.tiles++;
+    if (wall) {
+      if (target.side === 'A') { spawnRing(target.i, 0, 1, 0); spendPop(target.i + 0.5, 0, 40, price); }
+      else { spawnRing(0, target.i, 0, 1); spendPop(0, target.i + 0.5, 40, price); }
+    } else { spawnRing(target.x, target.y, 1, 1); spendPop(target.x + 0.5, target.y + 0.5, 6, price); }
+    updateContext();
+    saveSoon();
+    announce(where + ' is now ' + style.name + (price ? ', ' + price + ' coins' : '') + '. ' + (price ? bill.total + ' coins spent so far.' : ''));
     return true;
   }
   function removeItem(it) {
@@ -2843,28 +3079,68 @@
   }
   function updateContext() {
     renderVariantPop();
+    const painting = tool === 'paint' && paint;
+    ctxBill.hidden = !painting;
+    ctxRotate.hidden = !!painting;
     if (selected) {
       contextEl.hidden = false;
       ctxLbl.textContent = labelOf(selected);
       ctxRemove.hidden = false;
       ctxDone.hidden = false;
       ctxRotate.setAttribute('aria-label', 'Rotate ' + nameOf(selected.id));
-    } else if (CATALOG[tool]) {
+    } else if (painting) {
+      const style = (paint.kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[paint.i];
+      const price = priceOfStyle(style);
       contextEl.hidden = false;
-      ctxLbl.textContent = 'Placing ' + nameOf(tool).toLowerCase();
+      ctxLbl.textContent = (paint.kind === 'wall' ? 'Wallpaper: ' : 'Floor: ') + style.name + ' · ' + (price ? price + ' each' : 'free');
+      ctxRemove.hidden = true;
+      ctxDone.hidden = false;
+      ctxDone.setAttribute('aria-label', 'Finish decorating');
+      ctxBill.innerHTML = DEV_MODE ? 'Free mode' : '<b>' + fmt(bill.total) + '</b> <small>spent</small>';
+      ctxBill.setAttribute('aria-label', DEV_MODE ? 'Everything is free' : bill.total + ' coins spent on ' + bill.tiles + (bill.tiles === 1 ? ' piece' : ' pieces') + ' so far');
+    } else if (CATALOG[tool]) {
+      const price = priceOfItem(tool, nextVariant[tool] | 0);
+      contextEl.hidden = false;
+      ctxLbl.textContent = 'Placing ' + nameOf(tool).toLowerCase() + ' · ' + (price ? price + ' coins' : 'free');
       ctxRemove.hidden = true;
       ctxDone.hidden = true;
       ctxRotate.setAttribute('aria-label', 'Rotate ' + nameOf(tool) + ' before placing');
+    } else if (tab === 'decor' && tool === 'move') {
+      contextEl.hidden = false;
+      ctxLbl.textContent = 'Pick a design, then tap the room';
+      ctxRemove.hidden = true;
+      ctxDone.hidden = true;
+      ctxRotate.hidden = true;
     } else {
       contextEl.hidden = true;
     }
   }
   function selectTool(name, speak) {
+    if (tool === 'paint' && name !== 'paint') endPaintRun();
     tool = name;
     for (const b of toolBtns) b.setAttribute('aria-pressed', b.dataset.tool === name ? 'true' : 'false');
     if (name !== 'move') selected = null;
+    if (name !== 'paint') { paint = null; hoverWall.show = false; kwall.show = false; }
     updateContext();
+    renderDecor();
     if (speak) announce(name === 'move' ? 'Move tool.' : name === 'remove' ? 'Remove tool.' : nameOf(name) + ' selected for placing.');
+  }
+  /* leaving the paint tool closes the run: say what it cost, start the next from zero */
+  function endPaintRun() {
+    if (bill.tiles && !DEV_MODE) {
+      const msg = 'Decorating cost ' + fmt(bill.total) + ' coins for ' + bill.tiles + (bill.tiles === 1 ? ' piece' : ' pieces');
+      toast(msg);
+      announce(msg + '.');
+    }
+    resetBill();
+  }
+  const lastStyle = { wall: 0, floor: 0 };   // last design used for each kind
+  function startPaint(kind, i) {
+    paint = { kind, i };
+    lastStyle[kind] = i;
+    selectTool('paint', false);
+    const style = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[i];
+    announce((kind === 'wall' ? 'Wallpaper' : 'Floor') + ' ' + style.name + ' selected, ' + (priceOfStyle(style) ? priceOfStyle(style) + ' coins per piece' : 'free') + '. Tap the room to paint.');
   }
 
   function setLevel(lv) {
@@ -2902,39 +3178,64 @@
     dots: (h) => 'radial-gradient(' + h.b + ' 24%, transparent 27%) 0 0 / 11px 11px, ' + h.a,
     rug: (h) => 'linear-gradient(' + h.b + ', ' + h.b + ') center / 58% 58% no-repeat, linear-gradient(' + h.c + ', ' + h.c + ') center / 76% 76% no-repeat, ' + h.a
   };
-  const swatchSets = { wall: [], floor: [] };
-  function buildSwatches(kind, list, host, cssOf) {
-    list.forEach((s, i) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'swatch';
-      b.style.background = cssOf(s);
-      b.setAttribute('aria-label', (kind === 'wall' ? 'Walls: ' : 'Floor: ') + s.name);
-      b.title = s.name;
-      b.addEventListener('click', () => setDecor(kind, i));
-      host.appendChild(b);
-      swatchSets[kind].push(b);
+  /* a design button: a colour face over its price. The price is data-price so the
+     "can't afford" shading can be refreshed whenever the balance changes. */
+  function makeDesign(face, label, price) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sw-item' + (price === 0 ? ' free' : '');
+    b.dataset.price = price;
+    b.innerHTML = '<span class="sw-face"></span><span class="sw-price">' + priceText(price) + '</span>';
+    b.firstChild.style.background = face;
+    b.title = label;
+    b.setAttribute('aria-label', label + ', ' + (price === 0 ? 'free' : price + ' coins'));
+    b.classList.toggle('poor', price > coins);
+    return b;
+  }
+  let affordFor = -1;
+  function refreshAfford() {
+    if (affordFor === coins) return;
+    affordFor = coins;
+    for (const b of document.querySelectorAll('.sw-item')) b.classList.toggle('poor', +b.dataset.price > coins);
+  }
+  const decorHost = document.getElementById('decor-swatches');
+  const decorNote = document.getElementById('decor-note');
+  const kindBtns = Array.from(document.querySelectorAll('.kind'));
+  let decorKind = 'wall';
+  function buildDecorRow() {
+    const wall = decorKind === 'wall';
+    decorHost.textContent = '';
+    (wall ? WALL_STYLES : FLOOR_STYLES).forEach((st, i) => {
+      const b = makeDesign(wall ? wallSwatchCss(st) : FLOOR_SWATCH[st.pattern](st.hex), (wall ? 'Wallpaper: ' : 'Floor: ') + st.name, priceOfStyle(st));
+      b.addEventListener('click', () => {
+        if (tool === 'paint' && paint && paint.kind === decorKind && paint.i === i) selectTool('move', false);   // tap again to stop
+        else startPaint(decorKind, i);
+      });
+      decorHost.appendChild(b);
     });
-  }
-  buildSwatches('wall', WALL_STYLES, document.getElementById('wall-swatches'), wallSwatchCss);
-  buildSwatches('floor', FLOOR_STYLES, document.getElementById('floor-swatches'), (s) => FLOOR_SWATCH[s.pattern](s.hex));
-  function renderDecor() {
-    for (const kind of ['wall', 'floor']) swatchSets[kind].forEach((b, i) => b.setAttribute('aria-pressed', i === decor[kind] ? 'true' : 'false'));
-  }
-  function setDecor(kind, i) {
-    if (decor[kind] === i) return;
-    decor[kind] = i;
+    decorNote.textContent = DEV_MODE ? 'free mode' : wall ? 'coins per wall piece' : 'coins per floor tile';
+    decorHost.setAttribute('aria-label', wall ? 'Wallpaper designs' : 'Floor designs');
     renderDecor();
-    saveSoon();
-    const name = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[i].name;
-    announce((kind === 'wall' ? 'Walls' : 'Floor') + ' changed to ' + name + '.');
   }
+  function renderDecor() {
+    for (const b of kindBtns) b.setAttribute('aria-pressed', b.dataset.kind === decorKind ? 'true' : 'false');
+    const on = tool === 'paint' && paint && paint.kind === decorKind ? paint.i : -1;
+    Array.from(decorHost.children).forEach((b, i) => b.setAttribute('aria-pressed', i === on ? 'true' : 'false'));
+  }
+  function setDecorKind(kind) {
+    if (kind === decorKind) return;
+    decorKind = kind;
+    buildDecorRow();
+    if (tool === 'paint') startPaint(kind, lastStyle[kind]);   // keep painting, with that kind's last design
+  }
+  for (const b of kindBtns) b.addEventListener('click', () => setDecorKind(b.dataset.kind));
   /* toolbar categories: Furniture / Decor / Tools */
   const TAB_OF = { table_01: 'furniture', chair_01: 'furniture', counter_01: 'furniture', plant_01: 'furniture', lantern_01: 'furniture', move: 'tools', remove: 'tools' };
   const tabBtns = Array.from(document.querySelectorAll('.tab'));
   let tab = 'furniture';
   function setTab(name, focus) {
     tab = name;
+    if (name !== 'decor' && tool === 'paint') selectTool('move', false);
     for (const b of tabBtns) {
       const on = b.dataset.tab === name;
       b.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -2943,6 +3244,7 @@
       if (on && focus) b.focus();
     }
     store.set(TAB_KEY, name);   // a view preference, kept apart from the shop save
+    updateContext();
     hudChanged();
   }
   for (const b of tabBtns) {
@@ -3071,37 +3373,48 @@
     if (p.pattern === 'stripes') return 'repeating-linear-gradient(90deg, ' + main + ' 0 7px, ' + accent + ' 7px 11px)';
     return 'linear-gradient(135deg, ' + main + ' 0 62%, ' + accent + ' 62%)';
   }
+  /* The design row follows the furniture: a chosen type (about to place) or a selected piece
+     (restyle). Each design has its own price. */
   function renderVariantPop() {
-    const it = selected && !drag && VARIANTS[selected.id] ? selected : null;
-    variantPop.hidden = !it;
-    if (!it) return;
-    if (variantFor !== it.id) {
-      variantFor = it.id;
+    const id = selected && !drag ? (VARIANTS[selected.id] ? selected.id : '') : (VARIANTS[tool] ? tool : '');
+    variantPop.hidden = !id;
+    if (!id) return;
+    if (variantFor !== id) {
+      variantFor = id;
       variantRow.textContent = '';
-      VARIANTS[it.id].list.forEach((v, i) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'swatch';
-        b.style.background = variantSwatchCss(it.id, i);
-        b.title = v.name;
-        b.setAttribute('aria-label', nameOf(it.id) + ' style: ' + v.name);
+      VARIANTS[id].list.forEach((v, i) => {
+        const b = makeDesign(variantSwatchCss(id, i), nameOf(id) + ' design: ' + v.name, priceOfItem(id, i));
         b.addEventListener('click', () => setVariant(i));
         variantRow.appendChild(b);
       });
     }
-    variantHead.textContent = nameOf(it.id) + ' style';
-    Array.from(variantRow.children).forEach((b, i) => b.setAttribute('aria-pressed', i === (it.variant | 0) ? 'true' : 'false'));
+    variantHead.textContent = nameOf(id) + ' designs';
+    const cur = selected ? selected.variant | 0 : nextVariant[id] | 0;
+    Array.from(variantRow.children).forEach((b, i) => b.setAttribute('aria-pressed', i === cur ? 'true' : 'false'));
   }
+  /* With a type chosen, a design sets what the next placement uses and is paid for when placed.
+     With a piece selected, a different design is bought now and replaces the old one. */
   function setVariant(i) {
     const it = selected;
-    if (!it || !VARIANTS[it.id]) return;
-    nextVariant[it.id] = i;
+    if (!it) {
+      if (!VARIANTS[tool]) return;
+      nextVariant[tool] = i;
+      updateContext();
+      announce(VARIANTS[tool].list[i].name + ' ' + nameOf(tool).toLowerCase() + ' selected, ' + (priceOfItem(tool, i) ? priceOfItem(tool, i) + ' coins' : 'free') + '.');
+      return;
+    }
+    if (!VARIANTS[it.id]) return;
     if ((it.variant | 0) !== i) {
+      const price = priceOfItem(it.id, i);
+      if (!spend(price, designName(it.id, i))) return;
       it.variant = i;
       if (!reduced) { it.born = performance.now(); it.anim = 'wobble'; }
+      const [w, d] = dims(it.id, it.rot);
+      spendPop(it.x + w / 2, it.y + d / 2, CATALOG[it.id].h, price);
       saveSoon();
-      announce(nameOf(it.id) + ' is now ' + VARIANTS[it.id].list[i].name + '.');
+      announce(nameOf(it.id) + ' is now ' + VARIANTS[it.id].list[i].name + (price ? ' for ' + price + ' coins' : '') + '.');
     }
+    nextVariant[it.id] = i;
     renderVariantPop();
   }
 
@@ -3225,7 +3538,7 @@
     if (pointers.size > 2) return;
     gesture = { mode: 'tap', sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, button: e.button, hit: null, done: false };
     if (tool === 'move' && e.button === 0) gesture.hit = itemAt(e.clientX, e.clientY);
-    if (e.pointerType !== 'mouse') {
+    if (e.pointerType !== 'mouse' && tool !== 'paint') {
       longTimer = setTimeout(() => {
         if (!gesture || gesture.mode !== 'tap') return;
         const h = itemAt(gesture.sx, gesture.sy);
@@ -3240,6 +3553,12 @@
       hover.show = !!t;
       if (t) { hover.x = t[0]; hover.y = t[1]; }
       kbd.show = false;
+      if (tool === 'paint' && paint && paint.kind === 'wall') {
+        const w = wallAt(e.clientX, e.clientY);
+        hoverWall.show = !!w && w.i < N;
+        if (w) { hoverWall.side = w.side; hoverWall.i = w.i; }
+        kwall.show = false;
+      }
     }
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -3293,8 +3612,20 @@
   }
   function handleTap(sx, sy, button, hit) {
     if (button === 2) {
+      if (tool === 'paint') return;
       const h = itemAt(sx, sy);
       if (h) removeItem(h.item);
+      return;
+    }
+    // each tap paints one wall piece or floor tile
+    if (tool === 'paint' && paint) {
+      if (paint.kind === 'wall') {
+        const w = wallAt(sx, sy);
+        if (w && w.i < N) paintAt(w);
+      } else {
+        const t = tileAt(sx, sy);
+        if (t) paintAt({ x: t[0], y: t[1] });
+      }
       return;
     }
     // tapping a table with dirty plates clears them, whatever the tool (except Remove)
@@ -3317,7 +3648,7 @@
   }
   world.addEventListener('pointerup', endPointer);
   world.addEventListener('pointercancel', endPointer);
-  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hover.show = false; });
+  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover.show = false; hoverWall.show = false; } });
   world.addEventListener('contextmenu', (e) => e.preventDefault());
   world.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -3328,7 +3659,10 @@
   ctxRotate.addEventListener('click', rotate);
   rotateBtn.addEventListener('click', rotate);
   ctxRemove.addEventListener('click', () => { if (selected) removeItem(selected); });
-  ctxDone.addEventListener('click', () => { select(null); world.focus({ preventScroll: true }); });
+  ctxDone.addEventListener('click', () => {
+    if (tool === 'paint') selectTool('move', true); else select(null);
+    world.focus({ preventScroll: true });
+  });
   statsBtn.addEventListener('click', () => setBreakdown(breakdownEl.hidden));
   bdClose.addEventListener('click', () => { setBreakdown(false); statsBtn.focus(); });
   lvDown.addEventListener('click', () => setLevel(level - 1));
@@ -3359,11 +3693,34 @@
     if (k === 'Escape') {
       if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
       else if (openSheet()) { setSheet(''); menuBtn.focus(); }
+      else if (tool === 'paint') selectTool('move', true);
       else select(null);
       return;
     }
     if (document.activeElement !== world) return;
     const moves = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+    if (tool === 'paint' && paint && paint.kind === 'wall') {
+      // walls: left and right walk along the wall, up and down switch between the two walls
+      if (moves[k]) {
+        e.preventDefault();
+        kwall.show = true; hoverWall.show = false; hover.show = false; kbd.show = false;
+        if (k === 'ArrowLeft' || k === 'ArrowRight') kwall.i = clamp(kwall.i + (k === 'ArrowRight' ? 1 : -1), 0, N - 1);
+        else kwall.side = kwall.side === 'A' ? 'B' : 'A';
+        kwall.i = Math.min(kwall.i, N - 1);
+        announce(wallName(kwall.side, kwall.i) + ': ' + wallSeg(kwall.side, kwall.i).name + '.');
+      } else if (k === 'Enter' || k === ' ') {
+        e.preventDefault();
+        if (!hoverWall.show) kwall.show = true;
+        paintAt(paintTarget());
+      }
+      return;
+    }
+    if (tool === 'paint' && paint && (k === 'Enter' || k === ' ')) {
+      e.preventDefault();
+      if (!hover.show) kbd.show = true;
+      paintAt(paintTarget());
+      return;
+    }
     if (moves[k]) {
       e.preventDefault();
       kbd.show = true; hover.show = false;
@@ -3399,8 +3756,13 @@
     lvUp.hidden = false;
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
+      // centre of a wall piece on screen: side 'A' (right wall, along x) or 'B' (left wall, along y)
+      wallScreen: (side, i) => {
+        const p = side === 'A' ? [i + 0.5, 0] : [0, i + 0.5];
+        return [cam.x + PX(p[0], p[1]) * cam.zoom, cam.y + PY(p[0], p[1], 40) * cam.zoom];
+      },
       state: () => ({
-        name: shopName, decor: Object.assign({}, decor), menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
@@ -3414,11 +3776,12 @@
   if (!load()) {
     level = 1;
     N = gridFor(level);
+    coins = shownCoins = START_COINS;
     adoptItems(defaultLayout(), true);
     save();
   }
   renderName();
-  renderDecor();
+  buildDecorRow();
   renderLevel();
   resize();
   const savedTab = store.get(TAB_KEY);

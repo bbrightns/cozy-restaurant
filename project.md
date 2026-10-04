@@ -210,11 +210,22 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 - Optional: collect with a button (satisfying coin burst animation).
 
 ### 8.4 Spending
-- Furniture and decor (coins)
+- Furniture and decor (coins), see the build-mode rules below
 - Staff hiring
 - Recipes and menu upgrades
 - Cosmetics for storefront and staff
 - Island/shop expansion unlocks via level, not money
+
+**Build-mode pricing (Phase 1 polish 7).** Everything the player puts in the room is bought, Sims-build-mode style:
+
+- **Furniture:** picking a furniture type in the bottom bar shows its designs, each with its own price. Placing a piece costs the chosen design's price. Restyling a selected piece to a different design costs the new design's price. Moving and rotating are free. The starting layout is pre-owned.
+- **Floor and wallpaper** are painted piece by piece: one floor tile or one wall segment (one tile wide) per tap, so one room can mix designs. A tap costs that design's per-piece price. Repainting replaces the old design and charges the new price; tapping a piece that already has the design is free and does nothing.
+- A running total of the current decorating run shows beside the selected design. It resets when the player leaves the paint tool.
+- If the player cannot afford a purchase, the action is blocked with a message and nothing changes. No refunds when pieces are replaced or removed.
+- New shops start with 300 coins.
+- `DEV_MODE` in `index.html` (or `?free` in the URL) makes everything free for testing.
+
+Prices (coins): table 30-55, chair 15-28, counter 60-110, plant 12-20, lantern 20-30 by design; wallpaper 4-8 per wall piece; floor 3-9 per tile.
 
 ## 9. Social Features (Core Pillar)
 

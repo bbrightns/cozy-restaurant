@@ -105,6 +105,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 ### Layout
 - Top: title card with coins, level, and a small sun/moon clock dial.
 - Bottom: raised pastel toolbar with tool icons (Build, Decorate, Staff, Menu, Bulldoze).
+- Build menu (Sims-style): the Furniture tab shows a design row with a coin price under every design; the Decor tab has a Wallpaper / Floor switch and a priced design row. While painting, the card above the toolbar shows the chosen design, a running coin total and a Done button. Designs the player cannot afford are dimmed with a red price.
 - Cards: cream background, 16 to 20px radius, soft drop shadow.
 - Buttons: pill shape, pastel fill, slight press-down animation.
 
