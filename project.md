@@ -270,8 +270,11 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 | `OFFLINE_EFFICIENCY` | 1.0 | Future: 0.8 (20% cut) to reward playing online |
 | `OFFLINE_CAP` | 8 to 12 hours | Prevents unlimited idle farming |
 
-- Show a "Welcome back" popup: time away, coins earned, customers served.
-- Optional: collect with a button (satisfying coin burst animation).
+- Show a "Welcome back" popup on load (only when away longer than a minimum, e.g. 1 minute): a warm greeting, time away, the coins the player **left off with**, coins earned while away, the new total, and customers served.
+- The popup is a modal over the game: dismiss with the collect button, Esc or a tap outside; it must keep focus and use `aria-live`/aria-labels.
+- Coins from offline earnings are credited when the player taps collect (satisfying coin burst animation, skipped under `prefers-reduced-motion`). If the page is closed first, credit them on the next load so nothing is lost.
+- If the offline cap was reached, say so ("Your restaurant worked for 8 hours, the maximum").
+- First launch (no save) shows no popup.
 
 ### 8.4 Spending
 - Furniture and decor (coins), see the build-mode rules below
@@ -385,7 +388,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a and 3b done, 3c next |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B (art and scale pass) next, then 3c |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -417,24 +420,62 @@ Model key: **Opus** for design and cross-cutting work, **Sonnet** for feature wo
 - Check that serving customers gives XP and that levels unlock grid size, dishes and menu slots. Add it if missing. (Sonnet)
 - Add or ignore `.claude/` in git. Section `index.html` with banner comments (`// ===== STAFF =====`). Tag `phase2-done`. (Haiku)
 
+**Phase 3 polish (A): look and scale. Done** (commits 1f734a1 to b2e6eb1; steps below were checked in a separate chat)
+Already shipped: chibi portraits and in-world drawing for staff and guests (`drawChibi`, look parts `hairStyle`, `eye`, `face`, `acc`, save v5); staff uniforms made darker with a name badge, guests get a scarf and bag and avoid staff colours; furniture shrunk with `ITEM_SCALE` so people read at the right size.
+| Step | Work | Model |
+|---|---|---|
+| A1 | Check staff versus guest contrast in daytime and at night. If they still blur together, adjust colours or the badge. | Sonnet |
+| A2 | 360px pass: people, badges and the room must stay readable, no horizontal scroll. | Sonnet |
+| A3 | Test drag, place, rotate and remove after the furniture shrink (hit boxes, ghost preview, spend pop). | Sonnet |
+| A4 | Tune the gaps between tables and chairs and the shorter counter. Change `ITEM_SCALE` or shrink heights only. | Sonnet |
+| A5 | Update the build-bar icons to match the new proportions. | Haiku |
+| A6 | Check the guest cycle (door, walk, sit, eat, leave) and that emote bubbles do not overlap chef hats. | Sonnet |
+
+Done when: staff and guests are told apart at a glance in day and night, nothing breaks at 360px, placing and removing furniture still works.
+
+**Phase 3 polish (B): art and scale pass**
+Why: after A the room still reads wrong. People are about 28px tall on a 64px wide tile (about 0.44 of a tile). A readable isometric restaurant puts a person at roughly 0.8 to 1.0 of a tile, a table at waist height and a chair lower than the table. The shrink in A made the room feel empty instead of fixing this. The people also look flat and crude (plain shapes, no shading, always front-facing, tiny face details), and the counter reads as a box, not a kitchen.
+Reference use: the user allows taking general ideas from restaurant games (proportions, a stove with burners and flames, a clothed table with chairs around it, value contrast between floor and furniture). Do not copy specific sprites, characters, posters or patterns; draw everything fresh in code. CLAUDE.md rule 3 still applies to names, characters and exact art.
+| Step | Work | Model |
+|---|---|---|
+| B0 | Mockup first (outside `index.html`, in a scratch file): people at 1.6 to 1.8 times today's size beside furniture at about 0.85 to 0.9 of the original drawing, plus the new stove with a chef. Compare at real size and zoomed. The user picks the proportions. | Sonnet |
+| B1 | Scale pass in the game: enlarge `drawChibi` (one scale constant), set `ITEM_SCALE` to the chosen values, chairs lower than tables, retune seat height, plate spots, picking heights `h`, bubble offsets and staff hand positions. Check 360px. | Sonnet |
+| B2 | Value contrast: separate floor, wall and furniture tones (tables and cloth lightest, floor mid, rugs darker under tables) without breaking the pastel rules in design.md. | Sonnet |
+| B3 | Character rendering: draw each look once into a cached offscreen canvas at 2x to 3x and scale down; two-level shading on every part (top lightest, left mid, right darkest) with a darker edge tone, no black outlines; simpler face (eye with one highlight, soft blush, short mouth). Cache by look, direction and frame. | Opus |
+| B4 | Facing and walk cycle: four directions chosen from the movement vector, back-of-head hair for the two away directions, alternating steps, opposite arm swing, small body bob. Seated and eating poses keep working. | Sonnet |
+| B5 | Kitchen look: keep id `counter_01` (old saves stay valid) but draw a stove: cabinet, two burners, animated flames and a pan or pot while cooking, steam, a small backsplash; a pickup shelf for finished plates in place of the cake dome and bell. Rename the label to Stove. Chef stands and stirs at the burner. | Sonnet |
+| B6 | Sweep: day and night, 360px, drag and place, guest cycle, console clean, save and reload. Update design.md section 6 and 7 with the final numbers. | Sonnet |
+
+Open decisions for B: whether tables may span 2x2 tiles later (a bigger gameplay and save change, not part of B); final person height as a fraction of a tile.
+
+Done when: a person next to a table, chair and stove looks right at a glance, characters look shaded and walk facing the way they move, the kitchen is recognisable as a kitchen, nothing breaks at 360px.
+
 **Phase 3: Staff and cleanliness**
 | Step | Work | Model |
 |---|---|---|
 | 3a | Design the staff model: data, hire list UI, staff cap by shop size, wages in income/min, work spots (see 7.1), save v4 and `migrate()`. Write the decisions into this file first. | Opus |
 | 3b | Staff entities: waiter, chef, helper. They reuse A* and depth sorting. Chefs stand at counter work spots and cook. Waiters carry dishes from the pickup spot to tables. | Sonnet |
-| 3c | Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles. | Sonnet |
+| 3c | (starts after polish B is signed off) Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles. | Sonnet |
 | 3d | Tap-to-clean for the player and idle cleaning for staff. | Sonnet |
 | 3e | Bottleneck hint in the income panel (staff, seats, appeal, stoves). | Haiku |
 | 3f | Balance pass with fast-forward runs through `cozyDebug`. Wages must stay below the income they enable. | Opus |
 
 Done when: hiring raises income, ignoring dirt hurts income, old saves load, no console errors.
 
+**Working rules for the whole plan**
+- One step at a time, in order. After every sub-phase, stop and send the completion report in 12.2. Do not start the next one until the user replies.
+- Update the table in 12.1 in the same commit as the work.
+- Before each commit: open the game with `?debug`, check the console is clean, save and reload, and check 360px width.
+- Stop and report instead of continuing if a step needs a change to CLAUDE.md, a save format change not planned here, or an error that cannot be fixed.
+- Never push to GitHub unless asked. Do not commit unrelated pending changes (other chats may edit `project.md` or add reference files).
+- Switch to the model in the Model column when the user changes it with `/model`; the assistant cannot change it itself.
+
 **Phase 4: Storefront**
 | Step | Work | Model |
 |---|---|---|
 | 4a | Scene switcher with shared camera and lighting, street path to the door. | Opus |
 | 4b | Facade drawn in code: building, door, windows, sign with the shop name. | Sonnet |
-| 4c | Exterior decor slots, build-mode shop for them, save v5. | Sonnet |
+| 4c | Exterior decor slots, build-mode shop for them, next free save version (v5 is taken by staff look parts; 3c will likely take v6 if it saves dirt). | Sonnet |
 | 4d | `curbAppeal` and `nightBonus` feed the appeal formula. | Haiku |
 | 4e | Customers walk in from the street to the door. | Sonnet |
 
@@ -444,7 +485,7 @@ Done when: it looks right at 360px, exterior decor measurably raises arrivals, d
 | Step | Work | Model |
 |---|---|---|
 | 5a | Store `lastSeen`, pay `min(elapsed, OFFLINE_CAP) * incomePerMin * EFFICIENCY` on load. | Sonnet |
-| 5b | Welcome-back popup with a collect button and coin burst (respect reduced motion). | Sonnet |
+| 5b | Welcome-back popup: greeting, time away, coins at leave-off, coins earned, new total, customers served, collect button and coin burst (respect reduced motion). Save `coinsAtLeave` with `lastSeen` so the popup can show where the player left off. | Sonnet |
 | 5c | Clock guard: clamp negative elapsed time, mark the clock untrusted. | Opus |
 
 Done when: 10 minutes away pays correctly, a clock moved backwards pays nothing, a day away pays only the cap.

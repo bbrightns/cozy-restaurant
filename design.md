@@ -71,15 +71,19 @@ A cozy restaurant-management toy. The player builds and decorates a tiny floatin
 | Decor | plants, lanterns, rugs, signs, string lights |
 | Structures | walls, doors, windows, roof awnings |
 | Outdoor | trees, flower beds, benches, water tiles |
-| Characters | customers, chef, waiter (simple rounded bodies, no faces needed at small size) |
+| Characters | customers, chef, waiter, helper (chibi: big head, simple face, see section 7) |
 
 Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a small unique detail (a steam wisp, a candle, a flower).
+
+**Scale rule.** People are about 28px tall in world units, so furniture is drawn smaller than its tile: table about 21px high, chair 19, counter 27, plant 30, lantern 35 (the `ITEM_SCALE` factors are 0.66 to 0.7 of the original drawing). A counter or table top should sit near waist height of a standing person. Keep new furniture to this scale.
 
 ## 7. Characters and Behavior
 
 - Customer cycle: arrive, walk to a free seat, order, wait, eat, pay (coin pop), leave.
 - Staff cycle: take order, cook, serve, idle.
-- Staff wear role uniforms (chef cream with a tall hat, waiter lavender with a bow, helper mint with a headband). Chefs stir at their counter; waiters carry the plate in hand to the table and clear dirty plates when free.
+- Characters are chibi: a big round head, eyes with a highlight, blush, a small mouth, no outlines. Looks are built from parts (skin, hair colour, hair style, eye colour, face, accessory) so a crowd stays varied.
+- Staff and guests must be told apart at a glance. Staff wear deeper role uniforms and always a cream name badge; guests wear light, bright clothes that never use the staff lavender or mint, plus a scarf and a small bag.
+- Staff wear role uniforms (chef cream with a tall puffy hat and a dark apron, waiter deep lavender with a plum vest and a bow, helper deep mint with a headband and a yellow apron). Chefs stir at their counter; waiters carry the plate in hand to the table and clear dirty plates when free.
 - Little emote bubbles above heads (heart, coin, hungry).
 - Characters walk along tile paths; sort by depth with other objects.
 
