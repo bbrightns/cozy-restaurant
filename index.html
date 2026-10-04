@@ -280,7 +280,27 @@
   .tool[data-tool="plant_01"] { --tint: #d3ead0; }
   .tool[data-tool="lantern_01"] { --tint: #fbe7b8; }
   .tool[data-tool="remove"] { --tint: #fbd9d2; }
-  .tool[data-action]:active svg { transform: rotate(90deg); }
+  .tool[data-action="rotate"]:active svg { transform: rotate(90deg); }
+  .tool[data-action="decor"] { --tint: #f3e3f2; }
+
+  .sheet {
+    padding: 10px 14px 12px;
+    max-width: 100%;
+    display: grid;
+    gap: 8px;
+  }
+  .sheet[hidden] { display: none; }
+  .sheet h2 { margin: 0 0 6px; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
+  .sw-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 1.5px rgba(91, 75, 87, .12), 0 3px 8px -5px rgba(108, 72, 104, .6);
+    transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s ease;
+  }
+  .swatch:active { transform: scale(.92); }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5.5px #a98fc0; }
 
   .toast {
     position: fixed;
@@ -412,6 +432,16 @@
 </div>
 
 <div class="bottom">
+  <section class="card sheet" id="decor-sheet" hidden aria-label="Room decor">
+    <div class="sw-group">
+      <h2 id="walls-h">Walls</h2>
+      <div class="sw-row" id="wall-swatches" role="group" aria-labelledby="walls-h"></div>
+    </div>
+    <div class="sw-group">
+      <h2 id="floor-h">Floor</h2>
+      <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
+    </div>
+  </section>
   <div class="card context" id="context" hidden>
     <span class="lbl" id="ctx-lbl">Table</span>
     <button type="button" class="chip" id="ctx-rotate" aria-label="Rotate">
@@ -493,6 +523,17 @@
         <path d="M25.5 15.8L20 18.6v4l5.5-2.8z" fill="#b39cc6"/>
       </svg>
       <span>Rotate</span>
+    </button>
+    <button type="button" class="tool" data-action="decor" aria-pressed="false" aria-controls="decor-sheet" aria-label="Decor: wall colors and floor patterns">
+      <svg viewBox="0 0 40 34" aria-hidden="true">
+        <path d="M8 8l12-5v17L8 25z" fill="#fcdcd4"/>
+        <path d="M8 19l12-5v6L8 25z" fill="#b8e0d2"/>
+        <path d="M8 25l12-5 12 6-12 5z" fill="#f2dccb"/>
+        <path d="M14 22.5l6-2.5 6 3-6 2.5z" fill="#f7eadb"/>
+        <circle cx="29" cy="11" r="5" fill="#cdb4db"/>
+        <circle cx="27.4" cy="9.6" r="1.4" fill="#fff3e4"/>
+      </svg>
+      <span>Decor</span>
     </button>
     <button type="button" class="tool" data-tool="remove" aria-pressed="false" aria-label="Remove tool (7)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
@@ -582,10 +623,7 @@
 
   /* ---------------- palette ---------------- */
   const P = {
-    floorA: rgb('#f7eadb'), floorB: rgb('#f2dccb'),
     slab: rgb('#e6c7a8'), slabDeep: rgb('#cfa686'),
-    paper: rgb('#fcdcd4'), paperStripe: rgb('#fde7e1'),
-    wainscot: rgb('#b8e0d2'), trim: rgb('#fff3e4'), base: rgb('#9fcab9'),
     wood: rgb('#d9b08c'), woodDeep: rgb('#c4966f'),
     cloth: rgb('#ffb5a7'), clothHi: rgb('#ffd3c7'),
     cushion: rgb('#b8e0d2'), cushionHi: rgb('#cfeadf'),
@@ -596,6 +634,30 @@
     mat: rgb('#ffb5a7'), matHi: rgb('#ffd0c4'), cake: rgb('#ffc2cf'), cream: rgb('#fff6ea'),
     bad: rgb('#f2998c')
   };
+
+  /* ---------------- room decor: data only, drawn by code ----------------
+     Entry 0 of each list is the original look. */
+  const WALL_STYLES = [
+    { name: 'Blush', paper: '#fcdcd4', stripe: '#fde7e1', wainscot: '#b8e0d2', trim: '#fff3e4', base: '#9fcab9' },
+    { name: 'Lavender', paper: '#e6d9f0', stripe: '#efe6f6', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#ecb8b0' },
+    { name: 'Mint', paper: '#d3ecdf', stripe: '#e2f3ea', wainscot: '#cdb4db', trim: '#fff3e4', base: '#b39cc6' },
+    { name: 'Butter', paper: '#fbeec2', stripe: '#fdf4d8', wainscot: '#b8d8e8', trim: '#fff3e4', base: '#9cc3d8' },
+    { name: 'Sky', paper: '#d6e9f5', stripe: '#e4f1f9', wainscot: '#fcd5ce', trim: '#fff3e4', base: '#f0b8ae' },
+    { name: 'Peach', paper: '#ffd9c4', stripe: '#ffe6d6', wainscot: '#a8d5a2', trim: '#fff3e4', base: '#8fc28a' }
+  ].map((s) => ({ name: s.name, paper: rgb(s.paper), stripe: rgb(s.stripe), wainscot: rgb(s.wainscot), trim: rgb(s.trim), base: rgb(s.base), hex: s }));
+  // pattern: how the floor is drawn; a, b, c: its colors
+  const FLOOR_STYLES = [
+    { name: 'Checker tile', pattern: 'checker', a: '#f7eadb', b: '#f2dccb', c: '#f2dccb' },
+    { name: 'Wood planks', pattern: 'wood', a: '#ebcfae', b: '#e2c29d', c: '#cfa982' },
+    { name: 'Stripes', pattern: 'stripes', a: '#f6eaf1', b: '#ead9e8', c: '#ead9e8' },
+    { name: 'Light marble', pattern: 'marble', a: '#f7f2ef', b: '#efe8e6', c: '#d9ccd8' },
+    { name: 'Dots', pattern: 'dots', a: '#fbece6', b: '#f4c9bf', c: '#f4c9bf' },
+    { name: 'Plain rug', pattern: 'rug', a: '#f2e3d2', b: '#e2d3ec', c: '#cdb4db' }
+  ].map((s) => ({ name: s.name, pattern: s.pattern, a: rgb(s.a), b: rgb(s.b), c: rgb(s.c), hex: s }));
+  const decor = { wall: 0, floor: 0 };
+  const wallStyle = () => WALL_STYLES[decor.wall] || WALL_STYLES[0];
+  const floorStyle = () => FLOOR_STYLES[decor.floor] || FLOOR_STYLES[0];
+  const styleIndex = (v, list) => (Number.isInteger(v) && v >= 0 && v < list.length ? v : 0);
 
   /* ================================================================
      Catalog
@@ -800,6 +862,7 @@
   function migrate(d) {
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
+      d.decor = { wall: 0, floor: 0 };
       d.v = 2;
     }
     return d;
@@ -807,7 +870,7 @@
 
   function save() {
     const data = {
-      v: SAVE_VERSION, name: shopName, level, coins, rating: Math.round(rating * 100) / 100,
+      v: SAVE_VERSION, name: shopName, decor: { wall: decor.wall, floor: decor.floor }, level, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot })) }
     };
@@ -823,6 +886,9 @@
       if (!d || !(d.v >= 1 && d.v <= SAVE_VERSION) || !d.interior || !Array.isArray(d.interior.items)) return false;
       migrate(d);
       shopName = cleanName(d.name);
+      const dc = d.decor || {};
+      decor.wall = styleIndex(dc.wall, WALL_STYLES);
+      decor.floor = styleIndex(dc.floor, FLOOR_STYLES);
       level = clamp(Math.floor(+d.level) || 1, 1, MAX_LEVEL);
       N = gridFor(level);
       adoptItems(d.interior.items, true);
@@ -1222,14 +1288,95 @@
     // a darker underside lip
     box(-WALL_T, -WALL_T, N, N, -SLAB, -SLAB + 4, P.slabDeep, { noTop: true });
   }
-  function drawFloor() {
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < N; x++) {
+  /* floor patterns, all in floor coordinates so they follow the iso grid */
+  function floorLine(x0, y0, x1, y1, col, w) {
+    ctx.strokeStyle = col;
+    ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(PX(x0, y0), PY(x0, y0, 0.1)); ctx.lineTo(PX(x1, y1), PY(x1, y1, 0.1)); ctx.stroke();
+  }
+  const FLOOR_DRAW = {
+    checker(F) {
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
         flat(x, y, x + 1, y + 1, 0);
-        ctx.fillStyle = lit((x + y) % 2 ? P.floorB : P.floorA, 1.02);
+        ctx.fillStyle = lit((x + y) % 2 ? F.b : F.a, 1.02);
         ctx.fill();
       }
+    },
+    wood(F) {
+      // three planks per tile row, running along x, with staggered end joints
+      const rows = N * 3;
+      for (let r = 0; r < rows; r++) {
+        const y0 = r / 3, y1 = (r + 1) / 3;
+        let x = -((r * 0.57) % 1.5);
+        for (let s = 0; x < N; s++) {
+          const xa = Math.max(0, x), xb = Math.min(N, x + 1.5);
+          flat(xa, y0, xb, y1, 0);
+          ctx.fillStyle = lit(noise(r, s) > 0.5 ? F.a : F.b, 1.02);
+          ctx.fill();
+          if (x > 0) floorLine(x, y0, x, y1, lit(F.c, 1, 0.7), 0.7);
+          x += 1.5;
+        }
+        if (r) floorLine(0, y0, N, y0, lit(F.c, 1, 0.55), 0.7);
+      }
+    },
+    stripes(F) {
+      flat(0, 0, N, N, 0);
+      ctx.fillStyle = lit(F.a, 1.02);
+      ctx.fill();
+      ctx.fillStyle = lit(F.b, 1.02);
+      for (let s = 0; s < N; s += 0.5) { flat(0, s + 0.3, N, s + 0.5, 0); ctx.fill(); }
+    },
+    marble(F) {
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        flat(x, y, x + 1, y + 1, 0);
+        ctx.fillStyle = lit(mix3(F.a, F.b, noise(x + 40, y + 7)), 1.02);
+        ctx.fill();
+      }
+      // soft veins wandering across the slabs, then fine grout
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        if (noise(x, y + 90) < 0.45) continue;
+        let px = x + noise(x, y + 3) * 0.6, py = y + 0.05;
+        ctx.strokeStyle = lit(F.c, 1, 0.55);
+        ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(PX(px, py), PY(px, py, 0.1));
+        for (let k = 1; k <= 4; k++) {
+          px = clamp(px + (noise(x * 7 + k, y) - 0.4) * 0.3, x, x + 1);
+          py = y + k * 0.23;
+          ctx.lineTo(PX(px, py), PY(px, py, 0.1));
+        }
+        ctx.stroke();
+      }
+      for (let s = 1; s < N; s++) {
+        floorLine(s, 0, s, N, lit(F.b, 0.96, 0.8), 0.6);
+        floorLine(0, s, N, s, lit(F.b, 0.96, 0.8), 0.6);
+      }
+    },
+    dots(F) {
+      flat(0, 0, N, N, 0);
+      ctx.fillStyle = lit(F.a, 1.02);
+      ctx.fill();
+      ctx.fillStyle = lit(F.b, 1.02);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.75]]) {
+          ctx.beginPath(); ctx.ellipse(PX(x + ox, y + oy), PY(x + ox, y + oy, 0.1), 3.4, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    },
+    rug(F) {
+      FLOOR_DRAW.checker({ a: F.a, b: mix3(F.a, F.c, 0.12) });
+      // one big plain rug with a darker border band
+      const m = 0.4;
+      flat(m, m + 0.6, N - m, N - m, 0.2);
+      ctx.fillStyle = lit(F.c, 1.02);
+      ctx.fill();
+      flat(m + 0.14, m + 0.74, N - m - 0.14, N - m - 0.14, 0.3);
+      ctx.fillStyle = lit(F.b, 1.02);
+      ctx.fill();
     }
+  };
+  function drawFloor() {
+    const F = floorStyle();
+    FLOOR_DRAW[F.pattern](F);
     // soft AO along the back walls
     let g = ctx.createLinearGradient(PX(0, 0), PY(0, 0, 0), PX(0, 0.6), PY(0, 0.6, 0));
     g.addColorStop(0, 'rgba(150,100,130,0.16)');
@@ -1255,13 +1402,14 @@
   function wallA(pts) { return pts.map((p) => [p[0], 0, p[1]]); }
   function wallB(pts) { return pts.map((p) => [0, p[0], p[1]]); }
   function drawWalls() {
+    const WS = wallStyle();
     const shadeA = 0.97 - 0.03 * light.sun, shadeB = 0.88 + 0.03 * light.sun;
     for (const [mk, shade] of [[wallA, shadeA], [wallB, shadeB]]) {
       // wallpaper
       poly(mk([[0, 26], [N, 26], [N, WALL_H], [0, WALL_H]]));
-      ctx.fillStyle = lit(P.paper, shade);
+      ctx.fillStyle = lit(WS.paper, shade);
       ctx.fill();
-      ctx.fillStyle = lit(P.paperStripe, shade, 0.85);
+      ctx.fillStyle = lit(WS.stripe, shade, 0.85);
       for (let s = 0.25; s < N; s += 0.5) {
         poly(mk([[s, 26], [s + 0.12, 26], [s + 0.12, WALL_H], [s, WALL_H]]));
         ctx.fill();
@@ -1269,32 +1417,32 @@
       // wainscot, chair rail, skirting
       poly(mk([[0, 0], [N, 0], [N, 26], [0, 26]]));
       const g = ctx.createLinearGradient(0, PY(0, 0, 26), 0, PY(0, 0, 0) + N * TH);
-      g.addColorStop(0, lit(P.wainscot, shade));
-      g.addColorStop(1, lit(P.wainscot, shade * 0.9));
+      g.addColorStop(0, lit(WS.wainscot, shade));
+      g.addColorStop(1, lit(WS.wainscot, shade * 0.9));
       ctx.fillStyle = g;
       ctx.fill();
-      ctx.fillStyle = lit(P.wainscot, shade * 0.93);
+      ctx.fillStyle = lit(WS.wainscot, shade * 0.93);
       for (let s = 0.5; s < N; s += 0.5) {
         poly(mk([[s - 0.015, 4], [s + 0.015, 4], [s + 0.015, 24], [s - 0.015, 24]]));
         ctx.fill();
       }
       poly(mk([[0, 24], [N, 24], [N, 28], [0, 28]]));
-      ctx.fillStyle = lit(P.trim, shade);
+      ctx.fillStyle = lit(WS.trim, shade);
       ctx.fill();
       poly(mk([[0, 0], [N, 0], [N, 4], [0, 4]]));
-      ctx.fillStyle = lit(P.base, shade);
+      ctx.fillStyle = lit(WS.base, shade);
       ctx.fill();
       // crown trim
       poly(mk([[0, WALL_H - 4], [N, WALL_H - 4], [N, WALL_H], [0, WALL_H]]));
-      ctx.fillStyle = lit(P.trim, shade);
+      ctx.fillStyle = lit(WS.trim, shade);
       ctx.fill();
     }
     // wall caps and exposed ends
-    ctx.fillStyle = lit(P.trim, 1.04);
+    ctx.fillStyle = lit(WS.trim, 1.04);
     poly([[-WALL_T, -WALL_T, WALL_H], [N, -WALL_T, WALL_H], [N, 0, WALL_H], [0, 0, WALL_H], [0, N, WALL_H], [-WALL_T, N, WALL_H]]);
     ctx.fill();
-    box(N - 0.001, -WALL_T, N, 0, 0, WALL_H, P.paper, { noTop: true });
-    box(-WALL_T, N - 0.001, 0, N, 0, WALL_H, P.paper, { noTop: true });
+    box(N - 0.001, -WALL_T, N, 0, 0, WALL_H, WS.paper, { noTop: true });
+    box(-WALL_T, N - 0.001, 0, N, 0, WALL_H, WS.paper, { noTop: true });
 
     // windows: one every three tiles along each wall, skipping the door
     for (let c = 3.6; c + 0.65 <= N; c += 3) drawWindow('A', c);
@@ -1303,11 +1451,12 @@
   }
   function onWall(side, u, z) { return side === 'A' ? [u, 0, z] : [0, u, z]; }
   function drawWindow(side, c) {
+    const WS = wallStyle();
     const u0 = c - 0.6, u1 = c + 0.6, z0 = 34, z1 = 62;
     const shade = side === 'A' ? 1 : 0.92;
     const q = (a, b, za, zb) => poly([onWall(side, a, za), onWall(side, b, za), onWall(side, b, zb), onWall(side, a, zb)]);
     q(u0 - 0.06, u1 + 0.06, z0 - 3, z1 + 3);
-    ctx.fillStyle = lit(P.trim, shade);
+    ctx.fillStyle = lit(WS.trim, shade);
     ctx.fill();
     // sky seen through the glass (not multiplied: it IS the sky)
     q(u0, u1, z0, z1);
@@ -1325,7 +1474,7 @@
       }
     }
     // mullions
-    ctx.fillStyle = lit(P.trim, shade);
+    ctx.fillStyle = lit(WS.trim, shade);
     q(c - 0.03, c + 0.03, z0, z1); ctx.fill();
     q(u0, u1, (z0 + z1) / 2 - 1, (z0 + z1) / 2 + 1); ctx.fill();
     // curtains
@@ -1336,14 +1485,15 @@
     q(u0 - 0.04, u0 + 0.02, z0 - 6, z1 + 4); ctx.fill();
     q(u1 - 0.06, u1, z0 - 6, z1 + 4); ctx.fill();
     // little sill
-    if (side === 'A') box(u0 - 0.08, 0, u1 + 0.08, 0.08, z0 - 5, z0 - 3, P.trim);
-    else box(0, u0 - 0.08, 0.08, u1 + 0.08, z0 - 5, z0 - 3, P.trim);
+    if (side === 'A') box(u0 - 0.08, 0, u1 + 0.08, 0.08, z0 - 5, z0 - 3, WS.trim);
+    else box(0, u0 - 0.08, 0.08, u1 + 0.08, z0 - 5, z0 - 3, WS.trim);
   }
   function drawDoor() {
+    const WS = wallStyle();
     const u0 = DOOR.x + 0.14, u1 = DOOR.x + 0.86, zt = 54;
     const q = (a, b, za, zb) => poly([[a, 0, za], [b, 0, za], [b, 0, zb], [a, 0, zb]]);
     q(u0 - 0.06, u1 + 0.06, 0, zt + 4);
-    ctx.fillStyle = lit(P.trim, 1);
+    ctx.fillStyle = lit(WS.trim, 1);
     ctx.fill();
     q(u0, u1, 0, zt);
     if (doorOpen > 0.02) {
@@ -1376,7 +1526,7 @@
     ctx.save();
     ctx.translate(cx, cy);
     ctx.transform(1, 0.5, 0, 1, 0, 0);
-    ctx.fillStyle = lit(P.trim, 1);
+    ctx.fillStyle = lit(WS.trim, 1);
     ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, Math.PI * 2); ctx.fill();
     const sg = ctx.createLinearGradient(0, -6, 0, 6);
     sg.addColorStop(0, css(light.top, 1));
@@ -2415,6 +2565,55 @@
     layoutChanged();
     saveSoon();
   }
+  /* ---------------- decor sheet: swatches are built from the style data ---------------- */
+  function wallSwatchCss(s) {
+    const h = s.hex;
+    return 'linear-gradient(to bottom, transparent 56%, ' + h.trim + ' 56% 62%, ' + h.wainscot + ' 62% 88%, ' + h.base + ' 88%),' +
+      'repeating-linear-gradient(90deg, ' + h.paper + ' 0 6px, ' + h.stripe + ' 6px 9px)';
+  }
+  const FLOOR_SWATCH = {
+    checker: (h) => 'repeating-conic-gradient(' + h.a + ' 0 25%, ' + h.b + ' 0 50%) 0 0 / 22px 22px',
+    wood: (h) => 'repeating-linear-gradient(0deg, ' + h.a + ' 0 10px, ' + h.c + ' 10px 11px, ' + h.b + ' 11px 21px, ' + h.c + ' 21px 22px)',
+    stripes: (h) => 'repeating-linear-gradient(90deg, ' + h.a + ' 0 7px, ' + h.b + ' 7px 11px)',
+    marble: (h) => 'linear-gradient(125deg, transparent 38%, ' + h.c + ' 41%, transparent 45%), linear-gradient(160deg, ' + h.a + ', ' + h.b + ')',
+    dots: (h) => 'radial-gradient(' + h.b + ' 24%, transparent 27%) 0 0 / 11px 11px, ' + h.a,
+    rug: (h) => 'linear-gradient(' + h.b + ', ' + h.b + ') center / 58% 58% no-repeat, linear-gradient(' + h.c + ', ' + h.c + ') center / 76% 76% no-repeat, ' + h.a
+  };
+  const decorSheet = document.getElementById('decor-sheet');
+  const decorBtn = document.querySelector('.tool[data-action="decor"]');
+  const swatchSets = { wall: [], floor: [] };
+  function buildSwatches(kind, list, host, cssOf) {
+    list.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch';
+      b.style.background = cssOf(s);
+      b.setAttribute('aria-label', (kind === 'wall' ? 'Walls: ' : 'Floor: ') + s.name);
+      b.title = s.name;
+      b.addEventListener('click', () => setDecor(kind, i));
+      host.appendChild(b);
+      swatchSets[kind].push(b);
+    });
+  }
+  buildSwatches('wall', WALL_STYLES, document.getElementById('wall-swatches'), wallSwatchCss);
+  buildSwatches('floor', FLOOR_STYLES, document.getElementById('floor-swatches'), (s) => FLOOR_SWATCH[s.pattern](s.hex));
+  function renderDecor() {
+    for (const kind of ['wall', 'floor']) swatchSets[kind].forEach((b, i) => b.setAttribute('aria-pressed', i === decor[kind] ? 'true' : 'false'));
+  }
+  function setDecor(kind, i) {
+    if (decor[kind] === i) return;
+    decor[kind] = i;
+    renderDecor();
+    saveSoon();
+    const name = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[i].name;
+    announce((kind === 'wall' ? 'Walls' : 'Floor') + ' changed to ' + name + '.');
+  }
+  function setDecorSheet(open) {
+    decorSheet.hidden = !open;
+    decorBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+  }
+  decorBtn.addEventListener('click', () => setDecorSheet(decorSheet.hidden));
+
   /* ---------------- shop name ---------------- */
   let nameBefore = '';
   function renderName() {
@@ -2658,6 +2857,7 @@
     if (k === 'r' || k === 'R') { rotate(); return; }
     if (k === 'Escape') {
       if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
+      else if (!decorSheet.hidden) { setDecorSheet(false); decorBtn.focus(); }
       else select(null);
       return;
     }
@@ -2697,7 +2897,7 @@
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       state: () => ({
-        name: shopName, N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        name: shopName, decor: Object.assign({}, decor), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
@@ -2716,6 +2916,7 @@
   }
   resize();
   renderName();
+  renderDecor();
   renderLevel();
   selectTool('move', false);
   updateLight(0);
