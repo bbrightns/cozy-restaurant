@@ -683,21 +683,25 @@
     <div class="panel" id="panel-furniture" role="tabpanel" aria-labelledby="tab-furniture">
     <button type="button" class="tool" data-tool="table_01" aria-pressed="false" aria-label="Table (2)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
+        <g transform="translate(20 31) scale(.86) translate(-20 -31)">
         <path d="M11 20v7M29 20v7M20 24v6" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
         <path d="M20 9l12 6-12 6-12-6z" fill="#ffd0c4"/>
         <path d="M8 15l12 6v4L8 19z" fill="#f4a294"/>
         <path d="M32 15l-12 6v4l12-6z" fill="#e48c7e"/>
         <circle cx="20" cy="11.5" r="2.4" fill="#b8e0d2"/>
+        </g>
       </svg>
       <span>Table</span>
     </button>
     <button type="button" class="tool" data-tool="chair_01" aria-pressed="false" aria-label="Chair (3)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
+        <g transform="translate(20 31) scale(.76) translate(-20 -31)">
         <path d="M14 21v8M26 21v8M20 24v6" stroke="#c4966f" stroke-width="2.2" stroke-linecap="round"/>
         <path d="M14 5l12-0 0 12-12 0z" fill="#9fd2c1" transform="skewY(-26) translate(0 8)"/>
         <path d="M20 14l9 4.5-9 4.5-9-4.5z" fill="#b8e0d2"/>
         <path d="M11 18.5l9 4.5v2.5l-9-4.5z" fill="#d9b08c"/>
         <path d="M29 18.5L20 23v2.5l9-4.5z" fill="#c4966f"/>
+        </g>
       </svg>
       <span>Chair</span>
     </button>
@@ -999,7 +1003,7 @@
      ================================================================ */
   const CATALOG = {
     table_01: { name: 'Table', w: 1, d: 1, h: 21, draw: scaled('table_01', drawTable) },
-    chair_01: { name: 'Chair', w: 1, d: 1, h: 19, seat: true, draw: scaled('chair_01', drawChair) },
+    chair_01: { name: 'Chair', w: 1, d: 1, h: 19, seat: true, draw: tucked(scaled('chair_01', drawChair)) },
     counter_01: { name: 'Counter', w: 2, d: 1, h: 27, draw: scaled('counter_01', drawCounter) },
     plant_01: { name: 'Plant', w: 1, d: 1, h: 30, draw: scaled('plant_01', drawPlant) },
     lantern_01: { name: 'Lantern', w: 1, d: 1, h: 35, light: true, draw: scaled('lantern_01', drawLantern) }
@@ -1017,6 +1021,19 @@
       const s = ITEM_SCALE[id], [cx, cy] = pivotOf(it);
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+      fn(it, now);
+      ctx.restore();
+    };
+  }
+  /* Shrinking a table and a chair about their own tile centres leaves a gap of over half a tile between them, so a dining chair
+     (one facing a table) is drawn pushed toward that table by CHAIR_TUCK tiles. The seated guest moves with it. */
+  const CHAIR_TUCK = 0.24;
+  function tucked(fn) {
+    return (it, now) => {
+      if (!seatTable(it)) { fn(it, now); return; }
+      const [dx, dy] = DIRS[it.rot], t = CHAIR_TUCK;
+      ctx.save();
+      ctx.translate(PX(it.x + dx * t, it.y + dy * t) - PX(it.x, it.y), PY(it.x + dx * t, it.y + dy * t, 0) - PY(it.x, it.y, 0));
       fn(it, now);
       ctx.restore();
     };
@@ -2872,13 +2889,15 @@
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -3.4); ctx.moveTo(0, 0); ctx.lineTo(2.6, 1.2); ctx.stroke();
     }
   };
+  /* true when the bubble (24 wide, 25 tall above the head) sits over a staff head or hat (the hat tops out 8px above b.hy) */
+  const coversStaff = (c) => staffBodies().some((p) => p.hx !== undefined && Math.abs(p.hx - c.hx) < 17 && p.hy - 9 < c.hy && p.hy + 8 > c.hy - 26);
   function drawBubble(c) {
     const b = c.bubble;
     const k = clamp(b.t / 0.25, 0, 1);
     const s = reduced ? 1 : k < 1 ? 0.4 + 0.75 * k - 0.15 * Math.sin(k * Math.PI) : 1;
     const fade = clamp((b.dur - b.t) / 0.3, 0, 1);
     ctx.save();
-    ctx.globalAlpha = clamp(c.alpha, 0, 1) * fade * (reduced ? Math.min(1, b.t * 5) : 1);
+    ctx.globalAlpha = clamp(c.alpha, 0, 1) * fade * (reduced ? Math.min(1, b.t * 5) : 1) * (coversStaff(c) ? 0.4 : 1);
     ctx.translate(c.hx, c.hy);
     ctx.scale(s, s);
     ctx.fillStyle = 'rgba(122,82,118,0.16)';
