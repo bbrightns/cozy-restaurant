@@ -2312,11 +2312,11 @@
   let shownCoins = 0;       // HUD value, catches up as flying coins land
   const coinFlights = [];
   let dirtLevel = 0;       // 0..100, the weight of the trash on the floor (recomputeDirt)
-  const TRASH_LIMIT = 60;
+  const TRASH_LIMIT = 60;      // dirt level where the hint says guests are leaving (half of it is where the hint first appears)
   /* ---------------- trash and dirt, project.md 7.2 ---------------- */
   const TRASH_W = { crumple: 6, peel: 6, spill: 9 };   // dirt each piece adds
   const TRASH_KINDS = Object.keys(TRASH_W);
-  const TRASH_CHANCE = 0.55;   // chance that a happy guest leaves something behind
+  const TRASH_CHANCE = 0.8;    // chance that a happy guest leaves something behind
   const TRASH_MAX = 14;
   let trash = [];              // { x, y (tile), ox, oy (spot inside the tile), kind, born (ms) }
   function recomputeDirt() { dirtLevel = Math.min(100, trash.reduce((s, t) => s + TRASH_W[t.kind], 0)); }
@@ -2448,7 +2448,8 @@
     return false;
   }
   function decide(c) {
-    if (dirtLevel >= TRASH_LIMIT) { depart(c, 'trash'); return; }
+    // the live share of guests lost to dirt equals the estimate's: 1 - cleanFactor
+    if (Math.random() < (dirtLevel / 100) * DIRT_PENALTY) { depart(c, 'trash'); return; }
     if (trySeat(c, freeDining())) return;
     if (trySeat(c, freeWaiting())) return;
     depart(c, noSeatReason());
@@ -2499,7 +2500,13 @@
   /* ---------------- economy, project.md 8.1 ---------------- */
   const BASE_ARRIVAL = 3;          // guests per minute at appeal 1 and rating factor 1
   const APPEAL_SCALE = 40;
-  const SEAT_TURNOVER = 2.5;       // guests per dining seat per minute
+  const SEAT_TURNOVER = 2;         // guests per dining seat per minute when always full: a guest holds a seat about 30 s (measured with cozyDebug.measure)
+  /* Erlang B: the share of guests who find every seat taken, for `seats` seats and `load` = arrivals per minute / SEAT_TURNOVER */
+  function seatBlocking(seats, load) {
+    let b = 1;
+    for (let k = 1; k <= seats; k++) b = (load * b) / (k + load * b);
+    return b;
+  }
   const PRICE_ELASTICITY = 1.2;    // guests lost per unit of price above the suggestion
   const DIRT_PENALTY = 0.5;
   const NIGHT_BONUS_PER_LIGHT = 5;
@@ -2531,7 +2538,9 @@
     const servesPerChef = 60 / avgCook;
     const seatCap = seats * SEAT_TURNOVER, kitchenCap = chefPower * servesPerChef, serviceCap = servePower * SERVES_PER_WAITER;
     const capacity = Math.min(seatCap, kitchenCap, serviceCap);
-    const served = Math.min(arrivalRate, capacity);
+    // guests arrive at random, so some find every seat taken even when the seats could hold them on average
+    const seatBlock = seats ? seatBlocking(seats, arrivalRate / SEAT_TURNOVER) : 1;
+    const served = Math.min(arrivalRate * (1 - seatBlock), kitchenCap, serviceCap);
     const margin = avgMenuPrice - avgCost;
     const cleanFactor = 1 - (dirtLevel / 100) * DIRT_PENALTY;
     const wagesPerMin = wagesNow();
@@ -2543,14 +2552,14 @@
     else if (!servePower) hint = 'Hire a waiter to carry plates';
     else if (dirtLevel >= TRASH_LIMIT) hint = 'Guests are leaving over trash: tap it, or hire a helper to sweep';
     else if (dirtLevel >= TRASH_LIMIT / 2) hint = 'Trash is piling up: tap it, or hire a helper to sweep';
-    else if (arrivalRate > capacity) {
-      if (capacity === seatCap) hint = 'Not enough seats';
+    else if (arrivalRate > capacity || seatBlock > 0.2) {
+      if (capacity === seatCap || arrivalRate <= capacity) hint = 'Not enough seats';
       else if (capacity === kitchenCap) hint = chefs < kitchens ? 'Kitchen is busy: hire a chef' : 'Kitchen is busy: add a stove and a chef';
       else hint = 'Waiters are busy: hire a waiter or helper';
     }
     else if (chefs > kitchens) hint = 'A chef has no stove: add a stove';
     else if (arrivalRate < capacity * 0.6) hint = priceFactor < 0.8 ? 'Prices are high: fewer guests are coming' : 'Low appeal: add plants and lanterns';
-    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seatBlock, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
   }
   function pay(c) {
     // the guest pays the menu price; the dish cost comes out of it, so coins grow by the margin
@@ -2672,7 +2681,7 @@
     if (spawnTimer <= 0) {
       spawnTimer = 0.25;
       const e = economy();
-      const room = chairs().length + 3;
+      const room = chairs().length + 8;   // only a guard against a runaway crowd; guests who find no seat leave at once
       if (customers.length < room && Math.random() < (e.arrivalRate / 60) * 0.25) spawnCustomer();
     }
     for (const c of customers.slice()) updateCustomer(c, dt);
@@ -2763,7 +2772,7 @@
       row('Seats', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER, n1(e.seatCap) + '/min') +
       row('Kitchen', plural(e.chefs, 'chef') + ', ' + plural(e.kitchens, 'stove') + ', ' + n1(e.servesPerChef) + ' dishes/min at speed 1', n1(e.kitchenCap) + '/min') +
       row('Service', plural(e.waiters, 'waiter') + (e.helpers ? ' + ' + plural(e.helpers, 'helper') + ' at half pace' : '') + ', ' + SERVES_PER_WAITER + ' plates/min at speed 1', n1(e.serviceCap) + '/min') +
-      row('Served', 'guests arriving, up to the smallest of the three',n1(e.served) + '/min') +
+      row('Served', 'guests arriving' + (e.seats ? ', minus ' + Math.round(e.seatBlock * 100) + '% who find every seat taken' : '') + ', up to the kitchen and service', n1(e.served) + '/min') +
       row('Per guest', 'avg price ' + n1(e.avgMenuPrice) + ' − cost ' + n1(e.avgCost) + ', ' + menu.length + ' on the menu', '+' + n1(e.margin)) +
       row('Cleanliness', 'dirt ' + fmt(dirtLevel) + '%, ' + plural(trash.length, 'piece') + ' of trash','×' + e.cleanFactor.toFixed(2)) +
       row('Wages', staff.length + (staff.length === 1 ? ' person' : ' people') + ' on the team', '−' + fmt(e.wagesPerMin) + '/min') +
@@ -3847,7 +3856,7 @@
   const dirtyFor = () => chairs().find((ch) => !ch.occupant && ch.plate && ch.plate.state === 'dirty' && !staff.some((p) => p.job && p.job.chair === ch));
   /* sweeping (project.md 7.2): an idle waiter or helper walks to the nearest piece of trash nobody has claimed and sweeps it up.
      A piece that cannot be reached is skipped until the layout changes. */
-  const SWEEP_TIME = 0.9;
+  const SWEEP_TIME = 1.6;
   function startSweep(p, b) {
     let best = null, bd = Infinity;
     for (const t of trash) {
@@ -5324,11 +5333,31 @@
   if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', (e) => { reduced = e.matches; });
   window.addEventListener('pagehide', save);
 
-  /* read-only test hook, only with ?debug in the URL */
+  /* test hook, only with ?debug in the URL: a state snapshot and tile mapping, plus step() and measure() to fast-forward the sim
+     for balance runs (they change the live shop, coins included, so use a throwaway save) */
   if (DEBUG) {
     lvDown.hidden = false;
     lvUp.hidden = false;
+    const SIM_STEP = 0.05;
+    const runSim = (seconds, each) => {
+      const n = Math.round(seconds / SIM_STEP);
+      for (let q = 0; q < n; q++) { updateEffects(SIM_STEP); simUpdate(SIM_STEP); if (each) each(q); }
+    };
     window.cozyDebug = {
+      step: (seconds) => runSim(seconds),
+      // runs the sim for a while and reports the real income per minute next to the estimate shown in the income panel
+      measure: (seconds) => {
+        const c0 = coins, s0 = stats.served, l0 = stats.left, lv0 = level;
+        let dirtSum = 0, estSum = 0, n = 0, maxDirt = 0;
+        runSim(seconds, (q) => {
+          if (q % 20) return;
+          dirtSum += dirtLevel; estSum += economy().incomePerMin; n++;
+          maxDirt = Math.max(maxDirt, dirtLevel);
+        });
+        const min = seconds / 60;
+        return { minutes: min, coinsPerMin: (coins - c0) / min, estimatePerMin: estSum / n, served: stats.served - s0, left: stats.left - l0,
+          meanDirt: dirtSum / n, maxDirt, trashEnd: trash.length, levelStart: lv0, levelEnd: level };
+      },
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       // centre of a wall piece on screen: side 'A' (right wall, along x) or 'B' (left wall, along y)
       wallScreen: (side, i) => {

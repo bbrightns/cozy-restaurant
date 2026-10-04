@@ -198,14 +198,14 @@ Phase 3a is the model, hire list and economy. Staff drawn walking on the floor i
   - While offline, cleaning is handled inside the earnings formula (more staff means less dirt penalty).
 
 **Trash on the floor (Phase 3c).**
-- Each happy guest has a `TRASH_CHANCE` (0.55) of dropping one piece near their seat when they pay: a paper ball, a fruit peel or a spill. It lands on the free tile nearest the seat (within 2 tiles), never in the doorway, under furniture, on a stove's front tile or on a tile that already holds trash. At most `TRASH_MAX` (14) pieces lie on the floor.
+- Each happy guest has a `TRASH_CHANCE` (0.8) of dropping one piece near their seat when they pay: a paper ball, a fruit peel or a spill. It lands on the free tile nearest the seat (within 2 tiles), never in the doorway, under furniture, on a stove's front tile or on a tile that already holds trash. At most `TRASH_MAX` (14) pieces lie on the floor.
 - **Dirt level** is the total weight of the pieces, capped at 100: paper ball 6, peel 6, spill 9. Nothing else changes it, so picking a piece up lowers dirt at once. `cleanFactor = 1 - dirt / 100 * DIRT_PENALTY` (0.5) feeds the income formula, and the breakdown row shows dirt and the piece count.
-- At dirt 60 or more (`TRASH_LIMIT`) arriving guests turn around with a trash bubble, which moves the rating down and shows up as the top reason.
+- Each arriving guest turns around with a trash bubble with probability `dirt / 100 * DIRT_PENALTY`, which is exactly the share of guests the estimate's `cleanFactor` removes, so the live shop and the income panel agree (3f; before that a hard cliff at dirt 60 did not match). Each such guest moves the rating down and shows up as the top reason. `TRASH_LIMIT` (60) is now only where the hint changes to "Guests are leaving over trash".
 - Trash is saved as the list of pieces (save v7, `trash: [[x, y, kind, ox, oy]]`); dirt is recomputed on load. Furniture placed on a piece, or a smaller room, removes it quietly. Older saves start clean.
 
 **Cleaning (Phase 3d).**
 - **Player:** tapping a piece (or pressing Enter on its tile) picks it up for a small tip, 1 coin for a paper ball or peel and 2 for a spill, plus 1 XP, with a coin pop and the usual coin flight to the HUD. A piece right under the finger wins over a tall item that overlaps it on screen. Pieces only come from guests, so the tip cannot be farmed.
-- **Staff:** a waiter or helper with nothing to carry or clear walks to the nearest piece nobody else has claimed, spends `SWEEP_TIME` (0.9 s) sweeping, and removes it (no tip). Order for a waiter: plates to carry, then dirty plates to clear, then trash. A helper sweeps first, unless the shop has no waiter, so plates still get carried. A piece that cannot be reached is skipped until the layout changes, and a piece the player takes first just ends that job.
+- **Staff:** a waiter or helper with nothing to carry or clear walks to the nearest piece nobody else has claimed, spends `SWEEP_TIME` (1.6 s) sweeping, and removes it (no tip). Order for a waiter: plates to carry, then dirty plates to clear, then trash. A helper sweeps first, unless the shop has no waiter, so plates still get carried. A piece that cannot be reached is skipped until the layout changes, and a piece the player takes first just ends that job.
 - Chefs stay at their stoves and never sweep.
 
 ## 8. Economy
@@ -250,10 +250,12 @@ income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 ```
 chefPower    = sum of speeds of the fastest min(chefs, counters) chefs
 servePower   = sum(waiter speeds) + 0.5 * sum(helper speeds)
-seatCap      = seats * seatTurnover
+seatCap      = seats * seatTurnover                         // peak, 2 guests per seat per minute (a guest holds a seat about 30 s)
+seatBlock    = erlangB(seats, arrivalRate / seatTurnover)   // share of guests who find every seat taken (3f)
 kitchenCap   = chefPower * 60 / avgCookTime
 serviceCap   = servePower * SERVES_PER_WAITER        // 6 plates per minute at speed 1
-capacity     = min(seatCap, kitchenCap, serviceCap)
+capacity     = min(seatCap, kitchenCap, serviceCap)        // for the hints
+served       = min(arrivalRate * (1 - seatBlock), kitchenCap, serviceCap)
 wagesPerMin  = sum of every staff member's wage
 income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 ```
@@ -267,6 +269,12 @@ income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 - More seats with too few staff means wasted seats; the UI should hint at the bottleneck ("Not enough staff" / "Not enough seats" / "Low appeal").
 - Raising prices has diminishing returns.
 - Wages are always lower than the income they enable, so hiring is never a trap.
+
+**Balance pass (Phase 3f).** Runs were made with `cozyDebug.measure(seconds)` (the sim stepped at 20 steps a second, 15 to 20 sim minutes per window) on the 5x5 starter layout (2 tables, 4 dining seats, 1 stove) with different crews. What was found and changed:
+- The live shop earned only about 60 to 70% of the estimate even with no dirt. Arrivals matched; the loss was guests who found every seat taken (random arrivals, about 30 s per seat) plus a crowd cap in the spawner (`customers < chairs + 3`) that dropped about 15% of arrivals. Fix: `seatBlock` (Erlang B) in the estimate, `SEAT_TURNOVER` set to 2 from the measured seat time, and the crowd cap raised to `chairs + 8` as a guard only. The live shop now sits at roughly 80 to 90% of the estimate (queueing in the kitchen and at the waiter accounts for the rest).
+- Dirt: a hard turn-away at dirt 60 did not match the smooth `cleanFactor`; guests now turn away with probability `dirt / 100 * DIRT_PENALTY`, so live and estimate agree. With a waiter on the floor, dirt averaged about 1 to 2 (peaks near 10) at `TRASH_CHANCE` 0.55 and 0.9 s sweeping; it was raised to 0.8 and 1.6 s so trash is at least visible, but staff still keep it low: dirt only bites when nobody is free to sweep (no waiter or helper, or every one of them busy carrying plates), and the hint says what to do.
+- Wages: starter crew (Brisk chef and waiter) netted about 45 coins/min after wages of 5; adding a Brisk helper (wage 1) raised the net to about 49. Staff only cost more than they earn when they are idle.
+- Known limit: the estimate is steady-state, so it is a few percent above what a short session shows while the rating is still climbing.
 
 ### 8.3 Offline earnings
 When the player returns:
@@ -399,7 +407,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c done (trash and dirt, save v7); 3d done (tap-to-clean tip, staff sweeping); 3e done (trash hint); 3f next |
+| 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -478,7 +486,7 @@ Why: the people still read as flat vector shapes. A painted image approach (laye
 | 3c | Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles, save v7. Done (see 7.2). A plain tap-to-pick-up was added here so the shop could not get stuck. | Sonnet |
 | 3d | Tap-to-clean for the player (tip and XP) and idle cleaning for staff, helpers first. Done (see 7.2). | Sonnet |
 | 3e | Bottleneck hint in the income panel (staff, seats, appeal, stoves). | Haiku |
-| 3f | Balance pass with fast-forward runs through `cozyDebug`. Wages must stay below the income they enable. | Opus |
+| 3f | Balance pass with fast-forward runs through `cozyDebug` (`step` and `measure`, added under `?debug`). Wages must stay below the income they enable. Done (see 8.2). | Opus |
 
 Done when: hiring raises income, ignoring dirt hurts income, old saves load, no console errors.
 
