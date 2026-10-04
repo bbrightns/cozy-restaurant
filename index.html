@@ -448,7 +448,6 @@
   .staff-row.cand { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
   .avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: block; }
   .avatar svg { width: 44px; height: 44px; display: block; }
-  .avatar img { width: 44px; height: 44px; display: block; object-fit: cover; background: #f2e4d6; }
   .avatar .blink { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
   @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
   @media (prefers-reduced-motion: reduce) { .avatar .blink { animation: none; } }
@@ -802,8 +801,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <p class="sr-only" id="status" aria-live="polite"></p>
 
-<!-- Character art manifest (assets/characters/manifest.js); with enabled:false the game draws everyone in code -->
-<script src="assets/characters/manifest.js"></script>
 <!-- ===== SCRIPT: the whole game; sections below ===== -->
 <script>
 (() => {
@@ -1252,7 +1249,7 @@
      v3 paints decor per piece: decor is { floor: [tile styles], wallA: [...], wallB: [...] }.
      v4 adds staff: [{ id, role, tier, name, skin, hair }]; speed and wage come from role and tier.
      v5 adds the look parts hairStyle, eye, face and acc to each person (older people get a random look when the roster is sanitized).
-     v6 adds cast (0 to 3) to each person: which painted character they are when whole-character art exists (see CHARACTER ART).
+     v6 briefly stored a cast number per person for painted art; that art was dropped, so the field is ignored and no longer written.
      migrate() upgrades older payloads in place; every field is read defensively. */
   const SAVE_VERSION = 6;
   function migrate(d) {
@@ -1276,7 +1273,7 @@
       d.v = 4;
     }
     if (d.v === 4) d.v = 5;   // staff look parts are filled in by sanitizeStaff()
-    if (d.v === 5) d.v = 6;   // staff cast numbers are filled in by sanitizeStaff()
+    if (d.v === 5) d.v = 6;   // no data change (the old cast field is ignored)
     return d;
   }
 
@@ -1285,7 +1282,7 @@
       v: SAVE_VERSION, name: shopName, decor: decorSnapshot(),
       menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, xp, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
-      staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair, hairStyle: s.hairStyle, eye: s.eye, face: s.face, acc: s.acc, cast: s.cast })),
+      staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair, hairStyle: s.hairStyle, eye: s.eye, face: s.face, acc: s.acc })),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
     store.set(SAVE_KEY, JSON.stringify(data));
@@ -2312,7 +2309,6 @@
       seat: null, rec: '', table: null, dish: null, t: 0, seated: false, moving: false,
       shirt: pick(SHIRTS), pants: pick(PANTS), skin: pick(SKINS), hair: pick(HAIRS),
       hairStyle: pick(HAIR_STYLES), eye: Math.floor(Math.random() * EYE_COLS.length), face: pick(FACES), acc: pick(ACCS),
-      cast: castRoll('guest'),
       ph: Math.random() * 6, bubble: null, hx: 0, hy: 0
     });
   }
@@ -2727,253 +2723,6 @@
     ctx.fillStyle = lit(dish.cols[2], 1);
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
-  // ===== CHARACTER ART =====
-  /* ================================================================
-     Optional painted character art (assets/SPEC.md). window.COZY_ART comes from assets/characters/manifest.js; with enabled:false
-     (or any missing layer for a look) the person is drawn by paintChibi below, so art can arrive a layer at a time.
-     A person is a stack of layers: head layers (skin and hair are grey and multiplied by the saved colour, the rest are final colour)
-     and body layers (skin, outfit). Layers are composited once into the same cached sprite the code-drawn people use.
-     Art is authored at ART_PX px per chibi unit (a 272 x 384 body canvas, a 272 x 272 head canvas) or an exact multiple of that.
-     ================================================================ */
-  const ART_ROOT = 'assets/characters/';
-  const ART_PX = 8;                       // art pixels per chibi unit
-  const ART_RES = 6;                      // sprite pixels per chibi unit when art is used
-  const ART_BODY = [272, 384], ART_HEAD = 272;
-  const ART_HEAD_CY = 20;                 // the head canvas centre sits this many units below its top edge
-  const ART_HEAD_AT = { stand: -20.1, sit: -14.6 };   // head centre above the feet, in chibi units (torso top -15.5 and -10, minus 4.6)
-  const ART_POSES = { idle: 1, walk: 4, sit: 1 };
-  const ART_BACK_HAIR = ['bob', 'long', 'twin', 'bun'];   // styles with a hair layer behind the head in the front view
-  const EYE_NAMES = ['plum', 'cocoa', 'dusk'];            // art names for EYE_COLS, same order
-  const EYE_STATES = ['open', 'blink', 'happy'];
-  // outfit layers, bottom to top: [folder under body/outfit, which saved colour tints it (none = painted in final colour)]
-  const ART_OUTFIT = {
-    chef: [['chef']], waiter: [['waiter']], helper: [['helper']],
-    guest: [['guest_pants', 'pants'], ['guest_shoes'], ['guest_shirt', 'shirt'], ['guest_scarf', 'scarf']]
-  };
-  /* Whole-character mode ("cast"): a fixed set of finished characters instead of recolourable layers. A person is one of CAST[pool]
-     characters (chefs use the chef pool, waiters and helpers the staff pool, guests the guest pool) and draws as that character's
-     12 body frames. Ids are chef1..chef4, staff1..staff4, guest1..guest4; files live in cast/<id>/ (see assets/SPEC.md).
-     A cast loads on first use, and only when the manifest lists every file it needs; until then the person is drawn in code. */
-  const CAST = { chef: 4, staff: 4, guest: 4 };
-  const CAST_POOL = { chef: 'chef', waiter: 'staff', helper: 'staff' };
-  const CAST_PORTRAIT_POOLS = ['chef', 'staff'];          // these pools also need cast/<id>/portrait (staff panel picture)
-  const CAST_FRAMES = [];
-  for (const v of ['f', 'b']) for (const pn of Object.keys(ART_POSES)) for (let n = 0; n < ART_POSES[pn]; n++) CAST_FRAMES.push(v + '_' + pn + '_' + n);
-  const ART_MIN_W = 136;                  // smallest accepted body frame width (half of 272); portraits need 128
-  const art = { on: false, layered: false, pending: 0, ext: 'webp', files: new Set(), img: new Map(), onCast: null };
-  const castFiles = {};                   // cast id -> Set of file names the manifest lists
-  const castMap = new Map();              // cast id -> { st: 'loading' | 'ready' | 'bad', imgs: Map, left }
-  const artMiss = new Set();              // sprite keys that lack a layer; the code-drawn figure is used for them
-  const artTmp = document.createElement('canvas');
-
-  /* layered frames have an exact 17:24 body or square head canvas, any exact multiple of 272; cast frames only need the 17:24 shape */
-  function artSizeOk(name, w, h) {
-    const tol = Math.max(w, h) / 200 + 1;
-    if (name === 'portrait') return w >= 128 && Math.abs(w - h) <= tol;
-    if (name.startsWith('head/')) return w % ART_HEAD === 0 && w === h;
-    if (name.startsWith('body/')) return w % ART_BODY[0] === 0 && h * ART_BODY[0] === w * ART_BODY[1];
-    return w >= ART_MIN_W && Math.abs(w * ART_BODY[1] - h * ART_BODY[0]) <= tol * ART_BODY[1];
-  }
-  function artInit() {
-    const m = window.COZY_ART;
-    if (!m || !m.enabled || !Array.isArray(m.files) || !m.files.length) return;
-    art.ext = m.ext === 'png' ? 'png' : 'webp';
-    for (const f of m.files) {
-      if (typeof f !== 'string' || !/^[a-z0-9_\/]+$/.test(f)) continue;
-      const mc = /^cast\/([a-z]+[0-9]+)\/([a-z0-9_]+)$/.exec(f);
-      if (mc) (castFiles[mc[1]] = castFiles[mc[1]] || new Set()).add(mc[2]);
-      else art.files.add(f);
-    }
-    art.layered = art.files.size > 0;
-    art.on = art.layered || Object.keys(castFiles).length > 0;
-    art.pending = art.files.size;
-    for (const f of art.files) {
-      const im = new Image();
-      im.onload = () => {
-        if (artSizeOk(f, im.naturalWidth, im.naturalHeight)) art.img.set(f, im);
-        else console.warn('Character art ' + f + ' is ' + im.naturalWidth + 'x' + im.naturalHeight + ', which is the wrong shape (see assets/SPEC.md)');
-        artDone();
-      };
-      im.onerror = () => { console.warn('Character art missing: ' + f); artDone(); };
-      im.src = ART_ROOT + f + '.' + art.ext;
-    }
-  }
-  function artDone() {
-    if (--art.pending > 0) return;
-    artMiss.clear();
-    spriteCache.clear();
-  }
-  const castNeeds = (id) => CAST_FRAMES.concat(CAST_PORTRAIT_POOLS.includes(id.replace(/[0-9]+$/, '')) ? ['portrait'] : []);
-  /* a cast character's state; the first call starts loading it. Returns null unless it is ready to draw. */
-  function castGet(id) {
-    let c = castMap.get(id);
-    if (!c) {
-      c = { st: 'bad', imgs: new Map(), left: 0 };
-      castMap.set(id, c);
-      const names = castFiles[id], need = names ? castNeeds(id) : [];
-      if (names && need.every((n) => names.has(n))) {
-        c.st = 'loading';
-        c.left = need.length;
-        for (const n of need) {
-          const im = new Image();
-          const done = () => {
-            if (--c.left > 0) return;
-            c.st = need.every((k) => c.imgs.has(k)) ? 'ready' : 'bad';
-            if (c.st === 'bad') console.warn('Character ' + id + ' is incomplete or has wrongly sized frames; it stays code-drawn');
-            artMiss.clear();
-            spriteCache.clear();
-            if (art.onCast) art.onCast();
-          };
-          im.onload = () => {
-            if (artSizeOk(n, im.naturalWidth, im.naturalHeight)) c.imgs.set(n, im);
-            else console.warn('Character art cast/' + id + '/' + n + ' is ' + im.naturalWidth + 'x' + im.naturalHeight + ', which is the wrong shape (see assets/SPEC.md)');
-            done();
-          };
-          im.onerror = () => { console.warn('Character art missing: cast/' + id + '/' + n); done(); };
-          im.src = ART_ROOT + 'cast/' + id + '/' + n + '.' + art.ext;
-        }
-      } else if (names) console.warn('Character ' + id + ' lacks some of: ' + need.filter((n) => !names.has(n)).join(', ') + '; it stays code-drawn');
-    }
-    return c.st === 'ready' ? c : null;
-  }
-  /* "chef2", "staff1", "guest4"... for a person (a staff entry or customer with a saved cast number), or '' when it has none */
-  function castIdOf(b) {
-    const pool = b.role ? CAST_POOL[b.role] : 'guest', i = (b.look || b).cast;
-    return pool && i >= 0 && i < CAST[pool] ? pool + (i + 1) : '';
-  }
-  const castComplete = (id) => !!castFiles[id] && castNeeds(id).every((n) => castFiles[id].has(n));
-  /* a cast number for a new person: a character the manifest has complete, not in `taken` if possible; any number when there is no art */
-  function castRoll(pool, taken) {
-    const all = [...Array(CAST[pool]).keys()];
-    const have = all.filter((i) => castComplete(pool + (i + 1)));
-    const from = have.length ? have : all;
-    const fresh = from.filter((i) => !(taken || []).includes(i));
-    return pick(fresh.length ? fresh : from);
-  }
-  /* the staff panel picture for a person, or '' while their art is missing or still loading */
-  function castPortrait(p) {
-    const id = castIdOf({ role: p.role, look: p }), c = id && castGet(id);
-    return c ? '<img src="' + c.imgs.get('portrait').src + '" alt="" width="44" height="44">' : '';
-  }
-  /* the cached sprite for a person drawn as a cast character, or null while the art is missing or loading */
-  function castSprite(b, sitting, pose) {
-    const id = castIdOf(b), c = id && castGet(id);
-    if (!c) return null;
-    const pn = sitting ? 'sit' : pose.walk ? 'walk' : 'idle', view = pose.back ? 'b' : 'f';
-    const name = view + '_' + pn + '_' + (pn === 'walk' ? pose.fr : 0);
-    const key = 'K|' + id + '|' + name;
-    let spr = spriteCache.get(key);
-    if (spr) return spr;
-    const im = c.imgs.get(name);
-    spr = document.createElement('canvas');
-    spr.width = SPR_W * ART_RES;
-    spr.height = SPR_H * ART_RES;
-    const g = spr.getContext('2d');
-    g.imageSmoothingEnabled = true;
-    g.imageSmoothingQuality = 'high';
-    const dw = SPR_W * ART_RES;
-    g.drawImage(artTint(im, lit([255, 255, 255], 1)), 0, 0, dw, im.naturalHeight * dw / im.naturalWidth);
-    spr.cast = true;
-    spriteCache.set(key, spr);
-    return spr;
-  }
-  /* every layer path a full set needs, from the live look tables; also the checklist assets/SPEC.md is built from */
-  function artRequired() {
-    const out = ['head/skin/f', 'head/skin/b'];
-    for (const s of HAIR_STYLES) {
-      if (ART_BACK_HAIR.includes(s)) out.push('head/hair/' + s + '/back_f');
-      out.push('head/hair/' + s + '/front_f', 'head/hair/' + s + '/b');
-    }
-    for (const e of EYE_NAMES) for (const st of EYE_STATES) out.push('head/eyes/' + e + '_' + st);
-    for (const f of FACES) out.push('head/face/' + f);
-    for (const a of ACCS) {
-      if (a === 'glasses' || a === 'freckles') out.push('head/acc/' + a + '_f');
-      else if (a !== 'none') out.push('head/acc/' + a + '_f', 'head/acc/' + a + '_b');
-    }
-    for (const r of ['chef', 'helper']) out.push('head/hat/' + r + '_f', 'head/hat/' + r + '_b');
-    const bodies = [];
-    for (const v of ['f', 'b']) for (const pn of Object.keys(ART_POSES)) for (let n = 0; n < ART_POSES[pn]; n++) bodies.push(v + '_' + pn + '_' + n);
-    for (const bn of bodies) out.push('body/skin/' + bn);
-    for (const set of Object.values(ART_OUTFIT)) for (const [dir] of set) for (const bn of bodies) out.push('body/outfit/' + dir + '/' + bn);
-    return out;
-  }
-  /* the layers one person needs right now, as { back, body, head } lists of { path, tint } */
-  function artLayers(b, sitting, pose, scarf) {
-    const p = b.look || b, role = b.role, view = pose.back ? 'b' : 'f', front = view === 'f';
-    const pn = sitting ? 'sit' : pose.walk ? 'walk' : 'idle';
-    const bn = view + '_' + pn + '_' + (pn === 'walk' ? pose.fr : 0);
-    const eyeState = p.face === 'happy' ? 'happy' : pose.blink ? 'blink' : 'open';
-    const back = [], body = [], head = [];
-    const add = (list, path, tint) => list.push({ path, tint: tint || null });
-    if (front && ART_BACK_HAIR.includes(p.hairStyle)) add(back, 'head/hair/' + p.hairStyle + '/back_f', b.hair);
-    add(body, 'body/skin/' + bn, b.skin);
-    for (const [dir, tk] of ART_OUTFIT[role || 'guest']) {
-      add(body, 'body/outfit/' + dir + '/' + bn, tk === 'shirt' ? b.shirt : tk === 'pants' ? b.pants : tk === 'scarf' ? GUEST_SCARF[scarf] : null);
-    }
-    add(head, 'head/skin/' + view, b.skin);
-    if (front) {
-      add(head, 'head/face/' + p.face);
-      add(head, 'head/eyes/' + (EYE_NAMES[p.eye] || EYE_NAMES[0]) + '_' + eyeState);
-      if (p.acc === 'glasses' || p.acc === 'freckles') add(head, 'head/acc/' + p.acc + '_f');
-      add(head, 'head/hair/' + p.hairStyle + '/front_f', b.hair);
-    } else add(head, 'head/hair/' + p.hairStyle + '/b', b.hair);
-    if (role === 'chef' || role === 'helper') add(head, 'head/hat/' + role + '_' + view);
-    if (p.acc === 'star' || p.acc === 'flower') add(head, 'head/acc/' + p.acc + '_' + view);
-    return { back, body, head };
-  }
-  /* a layer multiplied by a colour (the lit colour, so the day and night tint is baked in), alpha kept; returns the shared scratch canvas */
-  function artTint(im, color) {
-    const w = im.naturalWidth, h = im.naturalHeight;
-    if (artTmp.width !== w || artTmp.height !== h) { artTmp.width = w; artTmp.height = h; }
-    const t = artTmp.getContext('2d');
-    t.globalCompositeOperation = 'source-over';
-    t.clearRect(0, 0, w, h);
-    t.drawImage(im, 0, 0);
-    t.globalCompositeOperation = 'multiply';
-    t.fillStyle = color;
-    t.fillRect(0, 0, w, h);
-    t.globalCompositeOperation = 'destination-in';
-    t.drawImage(im, 0, 0);
-    t.globalCompositeOperation = 'source-over';
-    return artTmp;
-  }
-  /* the cached sprite for a person made from art, or null when any layer is missing or still loading */
-  function artSprite(b, sitting, pose) {
-    if (!art.layered || art.pending > 0) return null;
-    const p = b.look || b;
-    const scarf = b.role ? 0 : Math.floor(b.ph * 7) % GUEST_SCARF.length;
-    const key = ['A', b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.role ? '' : b.pants, scarf, p.hairStyle, p.eye, p.face, p.acc,
-      sitting ? 1 : 0, pose.back ? 1 : 0, pose.walk ? pose.fr : -1, pose.blink ? 1 : 0].join('|');
-    let spr = spriteCache.get(key);
-    if (spr) return spr;
-    if (artMiss.has(key)) return null;
-    const lay = artLayers(b, sitting, pose, scarf);
-    const all = lay.back.concat(lay.body, lay.head);
-    if (all.some((l) => !art.img.has(l.path))) {
-      if (artMiss.size > 2000) artMiss.clear();
-      artMiss.add(key);
-      return null;
-    }
-    spr = document.createElement('canvas');
-    spr.width = SPR_W * ART_RES;
-    spr.height = SPR_H * ART_RES;
-    const g = spr.getContext('2d');
-    g.imageSmoothingEnabled = true;
-    g.imageSmoothingQuality = 'high';
-    const white = lit([255, 255, 255], 1);
-    const headTop = (SPR_OY + ART_HEAD_AT[sitting ? 'sit' : 'stand'] - ART_HEAD_CY) * ART_RES;
-    const put = (l, top) => {
-      const im = art.img.get(l.path), t = artTint(im, l.tint ? lit(l.tint, 1) : white);
-      const dw = SPR_W * ART_RES;
-      g.drawImage(t, 0, top, dw, im.naturalHeight * dw / im.naturalWidth);
-    };
-    for (const l of lay.back) put(l, headTop);
-    for (const l of lay.body) put(l, 0);
-    for (const l of lay.head) put(l, headTop);
-    spriteCache.set(key, spr);
-    return spr;
-  }
-
   /* Characters are painted once into a small offscreen sprite (SPRITE_RES px per chibi unit, so they stay crisp when zoomed) and
      stamped every frame. The cache key is the look, the pose and a quantised ambient light, so the night tint is baked in and the
      cache resets when the light moves a step. Every part has a light-to-dark gradient (left lightest, right darkest) and an edge
@@ -2992,7 +2741,6 @@
   function spriteFor(b, sitting, pose) {
     const lk = light.amb.map((v) => Math.round(v * 24)).join(',');
     if (lk !== spriteLight || spriteCache.size > SPRITE_MAX) { spriteCache.clear(); spriteLight = lk; }
-    if (art.on) { const made = castSprite(b, sitting, pose) || artSprite(b, sitting, pose); if (made) return made; }
     const p = b.look || b;
     const scarf = b.role ? 0 : Math.floor(b.ph * 7) % GUEST_SCARF.length;
     const key = [b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.pants, p.hairStyle, p.eye, p.face, p.acc, scarf, sitting ? 1 : 0, pose.back ? 1 : 0, pose.st, pose.eat, pose.blink ? 1 : 0].join('|');
@@ -3169,13 +2917,10 @@
     const pose = {
       back: fdx + fdy < -0.01,
       st: walk ? Math.round(Math.sin(b.ph) * 2) / 2 : 0,
-      walk,
-      fr: walk ? Math.floor(((b.ph / (Math.PI * 2)) % 1 + 0.875) % 1 * 4) : 0,   // painted art: 4 walk frames per stride
       eat: b.state === 'eating' && !reduced ? Math.round(Math.abs(Math.sin(now * 0.007)) * 3) : -1,
       blink: !reduced && ((now * 0.001 + b.ph * 3) % 4.6) > 4.42
     };
     const spr = spriteFor(b, sitting, pose), ps = PERSON_SCALE;
-    b.castArt = !!spr.cast;   // a painted cast character: drawStaffBits leaves out the code-drawn hand
     ctx.save();
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
     if (!sitting) {
@@ -3200,7 +2945,7 @@
     ctx.save();
     ctx.translate(hx, b.hb); ctx.scale(b.faceR ? PERSON_SCALE : -PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
-    if (b.cooking && !b.castArt) {   // painted cast characters have no code-drawn spoon and hand
+    if (b.cooking) {
       // a hand stirring, raised to counter-top height
       const a = reduced ? 0 : now * 0.008;
       const hx2 = hx + 4.8 + Math.cos(a) * 1.4, hy2 = hc + 5 + Math.sin(a) * 0.7;
@@ -3220,10 +2965,8 @@
       ctx.beginPath(); ctx.ellipse(0, -0.3, 4, 1.9, 0, 0, Math.PI * 2); ctx.fill();
       drawFood(0, -0.3, b.carry, 0.85);
       ctx.restore();
-      if (!b.castArt) {
-        ctx.fillStyle = lit(b.skin, 1);
-        ctx.beginPath(); ctx.arc(sx - 2.4, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
-      }
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.arc(sx - 2.4, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -3365,15 +3108,13 @@
   const EYE_COLS = ['#4a3340', '#5a3e2e', '#3f3b5c'];
   const rollLook = () => ({
     skin: Math.floor(Math.random() * SKINS.length), hair: Math.floor(Math.random() * HAIRS.length), hairStyle: pick(HAIR_STYLES),
-    eye: Math.floor(Math.random() * EYE_COLS.length), face: pick(FACES), acc: pick(ACCS), cast: 0
+    eye: Math.floor(Math.random() * EYE_COLS.length), face: pick(FACES), acc: pick(ACCS)
   });
   const oneOf = (list, v) => (list.includes(v) ? v : pick(list));
   const starterCrew = () => [
-    { id: 'st_chef01', role: 'chef', tier: 2, name: 'Noon', skin: 1, hair: 0, hairStyle: 'messy', eye: 0, face: 'grin', acc: 'none', cast: 0 },
-    { id: 'st_wait01', role: 'waiter', tier: 2, name: 'Wren', skin: 0, hair: 5, hairStyle: 'bun', eye: 1, face: 'smile', acc: 'star', cast: 1 }
+    { id: 'st_chef01', role: 'chef', tier: 2, name: 'Noon', skin: 1, hair: 0, hairStyle: 'messy', eye: 0, face: 'grin', acc: 'none' },
+    { id: 'st_wait01', role: 'waiter', tier: 2, name: 'Wren', skin: 0, hair: 5, hairStyle: 'bun', eye: 1, face: 'smile', acc: 'star' }
   ];
-  /* the cast number a saved person without one gets: fixed by their id, so it does not change between reloads */
-  const castOfId = (id, role) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % CAST[CAST_POOL[role]]; };
   /* keeps the roster valid: known roles, tiers in range, short names, palette indices; an empty team is allowed */
   function sanitizeStaff(list) {
     if (!Array.isArray(list)) return starterCrew();
@@ -3387,8 +3128,7 @@
       out.push({
         id, role: p.role, tier: clamp(Math.floor(+p.tier) || 2, 1, TIERS.length), name: name || pick(STAFF_NAMES),
         skin: clamp(p.skin | 0, 0, SKINS.length - 1), hair: clamp(p.hair | 0, 0, HAIRS.length - 1),
-        hairStyle: oneOf(HAIR_STYLES, p.hairStyle), eye: clamp(p.eye | 0, 0, EYE_COLS.length - 1), face: oneOf(FACES, p.face), acc: oneOf(ACCS, p.acc),
-        cast: Number.isInteger(p.cast) && p.cast >= 0 && p.cast < CAST[CAST_POOL[p.role]] ? p.cast : castOfId(id, p.role)
+        hairStyle: oneOf(HAIR_STYLES, p.hairStyle), eye: clamp(p.eye | 0, 0, EYE_COLS.length - 1), face: oneOf(FACES, p.face), acc: oneOf(ACCS, p.acc)
       });
     }
     return out;
@@ -3396,9 +3136,8 @@
   function rollCandidate(role) {
     const taken = new Set(staff.concat(candidates).map((p) => p.name));
     const names = STAFF_NAMES.filter((n) => !taken.has(n));
-    const pool = CAST_POOL[role], used = staff.concat(candidates).filter((q) => CAST_POOL[q.role] === pool).map((q) => q.cast);
     return {
-      id: newStaffId(), role, tier: pick(tiersOpen()), name: pick(names.length ? names : STAFF_NAMES), ...rollLook(), cast: castRoll(pool, used)
+      id: newStaffId(), role, tier: pick(tiersOpen()), name: pick(names.length ? names : STAFF_NAMES), ...rollLook()
     };
   }
   /* always at least one candidate per role, then one more of any role */
@@ -4482,7 +4221,7 @@
     const li = document.createElement('li');
     li.className = 'dish staff-row' + (cand ? ' cand' : '');
     const role = ROLES[p.role], tier = TIERS[p.tier - 1], wage = wageOf(p);
-    li.innerHTML = '<span class="avatar">' + (castPortrait(p) || avatarSvg(p)) + '</span>' +
+    li.innerHTML = '<span class="avatar">' + avatarSvg(p) + '</span>' +
       '<div><p class="dish-name"></p><p class="dish-meta">' + role.name + ' · ' + tier.name + ' · ' + (wage ? wage + '/min' : 'no wage') + '</p></div>';
     li.querySelector('.dish-name').textContent = p.name;      // names are player data on load, so never as HTML
     const t = document.createElement('span');
@@ -4581,7 +4320,6 @@
     toast(p.name + ' said goodbye');
     staffChanged(msg);
   }
-  art.onCast = () => { if (openSheet() === 'staff') renderStaff(); };   // a cast character finished loading: swap in its portrait
   rerollBtn.addEventListener('click', () => {
     rollCandidates();
     renderStaff();
@@ -4988,16 +4726,6 @@
     lvDown.hidden = false;
     lvUp.hidden = false;
     window.cozyDebug = {
-      // character art: whether it is on, still loading, and which layers a full set still lacks
-      art: () => ({
-        on: art.on, layered: art.layered, pending: art.pending, loaded: art.img.size,
-        missing: art.layered ? artRequired().filter((f) => !art.img.has(f)) : [],
-        // whole characters: per id, what the manifest lacks and whether it has loaded (loads start when someone uses it)
-        cast: Object.fromEntries(Object.keys(CAST).flatMap((pool) => [...Array(CAST[pool]).keys()].map((i) => {
-          const id = pool + (i + 1), names = castFiles[id] || new Set(), c = castMap.get(id);
-          return [id, { lacks: castNeeds(id).filter((n) => !names.has(n)), state: c ? c.st : 'unused' }];
-        })))
-      }),
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       // centre of a wall piece on screen: side 'A' (right wall, along x) or 'B' (left wall, along y)
       wallScreen: (side, i) => {
@@ -5029,7 +4757,6 @@
     adoptItems(defaultLayout(), true);
     save();
   }
-  artInit();             // painted character art, if the manifest turns it on
   staffOnLayout();       // stations for the saved team; everyone starts at their spot
   renderName();
   buildDecorRow();
