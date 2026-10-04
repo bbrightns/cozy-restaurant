@@ -2663,27 +2663,137 @@
     ctx.fillStyle = lit(dish.cols[2], 1);
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
-  /* uniform details drawn over a staff body; b.hx, b.hy were set by drawPerson (head centre is 7px below hy) */
-  const UNIFORM = { hat: rgb('#fff6ea'), hatBand: rgb('#eadccd'), bow: rgb('#ffb5a7'), band: rgb('#f6d27a') };
+  /* A staff member drawn chibi on the floor (big head, face, hair style, uniform). Sets b.hx and b.hy like drawPerson,
+     so bubbles and drawStaffBits (hands, plates) keep working; the head centre is 7px below hy. */
+  const STAFF_TOP = { chef: rgb('#fff1e2'), waiter: rgb('#fff1e2'), helper: rgb('#b8e0d2') };
+  const CAP = { white: rgb('#fbf0e3'), whiteDeep: rgb('#efdfcc'), band: rgb('#f6d27a'), bow: rgb('#ffb5a7'), apron: rgb('#8a6f7e'), vest: rgb('#cdb4db'), apronY: rgb('#f6d27a'), blush: rgb('#ff9f96'), mouth: rgb('#b8566a'), cream: rgb('#fff8ef') };
+  function drawStaffPerson(b, now) {
+    const sx = PX(b.x, b.y), base = PY(b.x, b.y, 0), p = b.look;
+    const walk = b.moving && !reduced;
+    const bob = walk ? Math.abs(Math.sin(b.ph)) * 1.2 : 0;
+    const breathe = !walk && !reduced ? Math.sin(now * 0.003 + b.ph) * 0.35 : 0;
+    const st = walk ? Math.sin(b.ph) * 1.5 : 0;
+    const role = b.role, hair = lit(b.hair, 1), hairDeep = lit(b.hair, 0.85), skin = lit(b.skin, 1);
+    ctx.save();
+    ctx.globalAlpha *= clamp(b.alpha, 0, 1);
+    ctx.fillStyle = 'rgba(122,82,118,0.18)';
+    ctx.beginPath(); ctx.ellipse(sx, base, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    // legs
+    ctx.fillStyle = lit(b.pants, 0.95);
+    rrect(sx - 3.6, base - 7.5, 3, 7.5 - Math.max(0, st), 1.3); ctx.fill();
+    rrect(sx + 0.6, base - 7.5, 3, 7.5 - Math.max(0, -st), 1.3); ctx.fill();
+    // arms swing a little
+    const top = base - 15.5 - bob + breathe;
+    const sw = walk ? Math.sin(b.ph) * 1.4 : 0;
+    ctx.fillStyle = lit(STAFF_TOP[role], 0.92);
+    rrect(sx - 6.4, top + 1.2 + sw * 0.3, 2.6, 7, 1.3); ctx.fill();
+    rrect(sx + 3.8, top + 1.2 - sw * 0.3, 2.6, 7, 1.3); ctx.fill();
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(sx - 5.1, top + 8.6 + sw * 0.3, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx + 5.1, top + 8.6 - sw * 0.3, 1.5, 0, Math.PI * 2); ctx.fill();
+    // torso and the role garment over it
+    const g = ctx.createLinearGradient(sx - 4.6, 0, sx + 4.6, 0);
+    g.addColorStop(0, lit(STAFF_TOP[role], 1.03)); g.addColorStop(1, lit(STAFF_TOP[role], 0.84));
+    ctx.fillStyle = g;
+    rrect(sx - 4.6, top, 9.2, 9.6, 3.4); ctx.fill();
+    if (role === 'chef') {
+      ctx.fillStyle = lit(CAP.apron, 1);
+      rrect(sx - 4.2, top + 4.4, 8.4, 5.2, 1.6); ctx.fill();
+      ctx.fillStyle = lit(CAP.cream, 1);
+      ctx.beginPath(); ctx.arc(sx - 1.4, top + 2, 0.6, 0, Math.PI * 2); ctx.arc(sx + 1.4, top + 2, 0.6, 0, Math.PI * 2); ctx.fill();
+    } else if (role === 'waiter') {
+      ctx.fillStyle = lit(CAP.vest, 1);
+      rrect(sx - 4.4, top + 0.4, 3.2, 8.8, 1.6); ctx.fill();
+      rrect(sx + 1.2, top + 0.4, 3.2, 8.8, 1.6); ctx.fill();
+    } else {
+      ctx.fillStyle = lit(CAP.apronY, 1);
+      rrect(sx - 3.8, top + 4, 7.6, 5.6, 1.6); ctx.fill();
+    }
+    // head, with hair that sits behind it
+    const hy = top - 4.6, r = 6.5;
+    const style = p.hairStyle;
+    ctx.fillStyle = hairDeep;
+    if (style === 'bob') { rrect(sx - r - 0.6, hy - 1, r * 2 + 1.2, 9, 3.6); ctx.fill(); }
+    else if (style === 'long') { rrect(sx - r - 0.6, hy - 1, r * 2 + 1.2, 13, 3.4); ctx.fill(); }
+    else if (style === 'twin') { ctx.beginPath(); ctx.ellipse(sx - r - 0.8, hy + 4, 2.4, 4, 0, 0, Math.PI * 2); ctx.ellipse(sx + r + 0.8, hy + 4, 2.4, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+    else if (style === 'bun') { ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(sx + 4.8, hy - 5.8, 3.3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(sx, hy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(b.skin, 0.95);
+    ctx.beginPath(); ctx.ellipse(sx + r * 0.62, hy + 0.5, r * 0.34, r * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+    // face
+    const ey = hy + 0.8, ec = lit(rgb(EYE_COLS[p.eye] || EYE_COLS[0]), 1);
+    const blink = !reduced && ((now * 0.001 + b.ph * 3) % 4.6) > 4.42;
+    ctx.fillStyle = ec; ctx.strokeStyle = ec; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+    if (p.face === 'happy' || blink) {
+      const dy = p.face === 'happy' ? 0.8 : 0;
+      ctx.beginPath();
+      ctx.arc(sx - 2.5, ey + dy, 1.2, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.moveTo(sx + 2.5 + 1.2 * Math.cos(Math.PI * 1.1), ey + dy + 1.2 * Math.sin(Math.PI * 1.1));
+      ctx.arc(sx + 2.5, ey + dy, 1.2, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.ellipse(sx - 2.5, ey, 1.15, 1.5, 0, 0, Math.PI * 2); ctx.ellipse(sx + 2.5, ey, 1.15, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(CAP.cream, 1);
+      ctx.beginPath(); ctx.arc(sx - 2.1, ey - 0.6, 0.5, 0, Math.PI * 2); ctx.arc(sx + 2.9, ey - 0.6, 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = lit(CAP.blush, 1, 0.45);
+    ctx.beginPath(); ctx.ellipse(sx - 4.2, ey + 1.9, 1.4, 0.8, 0, 0, Math.PI * 2); ctx.ellipse(sx + 4.2, ey + 1.9, 1.4, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = lit(CAP.mouth, 1); ctx.fillStyle = lit(CAP.mouth, 1); ctx.lineWidth = 0.8;
+    if (p.face === 'grin' || p.face === 'happy') { ctx.beginPath(); ctx.arc(sx, ey + 2.2, 1.3, 0, Math.PI); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(sx, ey + 2.1, 1.1, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke(); }
+    if (p.acc === 'glasses') {
+      ctx.strokeStyle = lit(rgb('#8a6f7e'), 1); ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(sx - 2.5, ey, 2.1, 0, Math.PI * 2); ctx.moveTo(sx + 4.6, ey); ctx.arc(sx + 2.5, ey, 2.1, 0, Math.PI * 2); ctx.stroke();
+    }
+    // hair in front
+    ctx.fillStyle = hair;
+    if (style === 'curly') {
+      for (const [ox, oy, rr] of [[-5.4, -1.2, 2.6], [-4, -4.6, 2.9], [0, -6.4, 3.1], [4, -4.6, 2.9], [5.4, -1.2, 2.6], [-1.8, -4, 2.4], [2, -4, 2.4]]) { ctx.beginPath(); ctx.arc(sx + ox, hy + oy, rr, 0, Math.PI * 2); ctx.fill(); }
+    } else {
+      const cap = style === 'buzz' ? 0.55 : 0.82;
+      ctx.beginPath(); ctx.arc(sx, hy - 0.2, r + 0.5, Math.PI * 1.04, Math.PI * 1.96);
+      ctx.lineTo(sx + r * 0.9, hy - 1 - cap * 2.4); ctx.quadraticCurveTo(sx, hy - 3 * cap - 1.6, sx - r * 0.9, hy - 1 - cap * 2.4); ctx.closePath(); ctx.fill();
+      if (style === 'messy') { ctx.beginPath(); ctx.moveTo(sx - 1, hy - r - 0.6); ctx.lineTo(sx + 1.8, hy - r - 2.6); ctx.lineTo(sx + 3, hy - r); ctx.closePath(); ctx.fill(); }
+    }
+    // headwear and accessories
+    if (role === 'chef') {
+      ctx.fillStyle = lit(CAP.white, 1.02);
+      for (const [ox, oy, rr] of [[-3.6, -9.4, 3.4], [3.6, -9.4, 3.4], [0, -11.2, 3.8]]) { ctx.beginPath(); ctx.arc(sx + ox, hy + oy, rr, 0, Math.PI * 2); ctx.fill(); }
+      rrect(sx - 5.8, hy - 9, 11.6, 5.4, 1.8); ctx.fill();
+      ctx.fillStyle = lit(CAP.whiteDeep, 1);
+      rrect(sx - 6, hy - 5.2, 12, 1.9, 0.9); ctx.fill();
+    } else if (role === 'helper') {
+      ctx.strokeStyle = lit(CAP.band, 1); ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.arc(sx, hy - 0.6, r + 0.2, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    } else {
+      ctx.fillStyle = lit(CAP.bow, 1);
+      const y = top + 0.8;
+      ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx - 3, y - 1.7); ctx.lineTo(sx - 3, y + 1.7); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx + 3, y - 1.7); ctx.lineTo(sx + 3, y + 1.7); ctx.closePath(); ctx.fill();
+    }
+    if (p.acc === 'star' || p.acc === 'flower') {
+      const ax = sx + 4.8, ay = hy - 3.6;
+      if (p.acc === 'star') {
+        ctx.fillStyle = lit(CAP.band, 1.02);
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 1.1 : 2.4; ctx[i ? 'lineTo' : 'moveTo'](ax + Math.cos(a) * rr, ay + Math.sin(a) * rr); }
+        ctx.closePath(); ctx.fill();
+      } else {
+        ctx.fillStyle = lit(CAP.bow, 1);
+        for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; ctx.beginPath(); ctx.arc(ax + Math.cos(a) * 1.5, ay + Math.sin(a) * 1.5, 1.2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = lit(CAP.band, 1); ctx.beginPath(); ctx.arc(ax, ay, 0.9, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+    b.hx = sx;
+    b.hy = hy - 7;
+  }
+  /* hand and plate details drawn over a staff body; b.hx, b.hy were set by drawPerson (head centre is 7px below hy) */
   function drawStaffBits(b, now) {
     const hx = b.hx, hc = b.hy + 7;
     ctx.save();
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
-    if (b.role === 'chef') {
-      ctx.fillStyle = lit(UNIFORM.hat, 1.02);
-      ctx.beginPath(); ctx.ellipse(hx, hc - 9.4, 5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
-      rrect(hx - 3.8, hc - 8.6, 7.6, 4.4, 1.2); ctx.fill();
-      ctx.fillStyle = lit(UNIFORM.hatBand, 1);
-      rrect(hx - 4, hc - 5.4, 8, 1.6, 0.7); ctx.fill();
-    } else if (b.role === 'waiter') {
-      ctx.fillStyle = lit(UNIFORM.bow, 1);
-      const y = hc + 5.6;
-      ctx.beginPath(); ctx.moveTo(hx, y); ctx.lineTo(hx - 3, y - 1.6); ctx.lineTo(hx - 3, y + 1.6); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(hx, y); ctx.lineTo(hx + 3, y - 1.6); ctx.lineTo(hx + 3, y + 1.6); ctx.closePath(); ctx.fill();
-    } else {
-      ctx.fillStyle = lit(UNIFORM.band, 1);
-      rrect(hx - 4.7, hc - 3.2, 9.4, 1.8, 0.9); ctx.fill();
-    }
     if (b.cooking) {
       // a hand stirring at the counter
       const a = reduced ? 0 : now * 0.008;
@@ -2910,7 +3020,7 @@
       p.body = {
         x: h[0] + 0.5, y: h[1] + 0.5, path: [], alpha: 1, moving: false, ph: Math.random() * 6, state: '',
         role: p.role, shirt: UNIFORMS[p.role].shirt, pants: UNIFORMS[p.role].pants, skin: SKINS[p.skin], hair: HAIRS[p.hair],
-        carry: null, cooking: false, hx: 0, hy: 0
+        carry: null, cooking: false, hx: 0, hy: 0, look: p
       };
     }
     return p.body;
@@ -3292,8 +3402,8 @@
     for (const [, , it, c] of list) {
       if (it) drawItem(it, now, drag && drag.item === it ? 0.3 : 1);
       else {
-        drawPerson(c, c.x, c.y, 0, false, now);
-        if (c.role) drawStaffBits(c, now);
+        if (c.role) { drawStaffPerson(c, now); drawStaffBits(c, now); }
+        else drawPerson(c, c.x, c.y, 0, false, now);
       }
     }
 
