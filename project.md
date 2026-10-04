@@ -173,6 +173,21 @@ Inputs the player controls:
 
 Output shown in UI: "Estimated income: X coins/min" with a breakdown so players see what to upgrade.
 
+**Menu rule (in use since the Phase 1 polish).** The formula above has no dish cost and no price response, so the menu fills those gaps. Guests pick evenly among the dishes on sale, so plain averages over the menu are used:
+
+```
+avgMenuPrice, avgCost, avgSuggested, avgCookTime   // averages over dishes on sale
+priceFactor  = clamp(1 - 1.2 * (avgMenuPrice / avgSuggested - 1), 0.5, 1.4)
+arrivalRate  = baseArrival * appeal * ratingFactor * priceFactor
+capacity     = min(seats * seatTurnover, counters * 60 / avgCookTime)
+income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
+```
+
+- Prices can be set within ±30% of the suggested price (whole coins, rounded inward). At +30% the price factor is ×0.64 guests; at −30% it is ×1.36.
+- Higher prices give a bigger margin per guest but fewer guests, which gives the diminishing returns in 8.2.
+- In the live sim a guest pays the menu price and the dish cost comes out of it, so coins grow by `price - cost` per guest and match the estimate.
+- Menu slots: `3 + floor(level / 5)`, max 6. Each dish also has its own unlock level.
+
 ### 8.2 Balance principles
 - More seats with too few staff means wasted seats; the UI should hint at the bottleneck ("Not enough staff" / "Not enough seats" / "Low appeal").
 - Raising prices has diminishing returns.

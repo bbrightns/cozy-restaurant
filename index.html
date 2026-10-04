@@ -301,6 +301,41 @@
   }
   .swatch:active { transform: scale(.92); }
   .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5.5px #a98fc0; }
+  .tool[data-action="menu"] { --tint: #fbe7b8; }
+  .menu-sheet { width: 440px; max-height: calc(100vh - 210px); overflow: auto; overscroll-behavior: contain; }
+  .menu-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .menu-head h2 { margin: 0; font-size: 18px; color: var(--text); letter-spacing: 0; text-transform: none; }
+  .menu-sub { margin: 2px 0 0; font-size: 12.5px; font-weight: 700; color: var(--text-2); }
+  .menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .dish {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px 4px 2px;
+    border-radius: 16px;
+  }
+  .dish.on { background: var(--cream-2); }
+  .dish.locked { opacity: .55; }
+  .dish-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: transparent;
+    display: grid;
+    place-items: center;
+  }
+  .dish-toggle svg { width: 34px; height: 34px; }
+  .dish-toggle:disabled { cursor: default; }
+  .dish-name { margin: 0; font-size: 14px; font-weight: 800; line-height: 1.15; }
+  .dish-meta { margin: 2px 0 0; font-size: 11.5px; font-weight: 700; color: var(--text-3); }
+  .dish-price { display: flex; align-items: center; gap: 2px; }
+  .dish-price .chip { width: 44px; padding: 0; font-size: 18px; background: var(--cream); }
+  .dish-price .chip:disabled { opacity: .4; cursor: default; }
+  .price-read { min-width: 44px; text-align: center; line-height: 1.05; }
+  .price-read b { display: block; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .price-read small { font-size: 10.5px; font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .lock-read { font-size: 12px; font-weight: 800; color: var(--text-2); padding: 0 8px; white-space: nowrap; }
   .variant-pop {
     padding: 8px 12px 10px;
     border-radius: 20px;
@@ -450,6 +485,18 @@
       <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
     </div>
   </section>
+  <section class="card sheet menu-sheet" id="menu-sheet" hidden aria-labelledby="menu-h">
+    <div class="menu-head">
+      <div>
+        <h2 id="menu-h">Menu</h2>
+        <p class="menu-sub" id="menu-sub" aria-live="polite"></p>
+      </div>
+      <button type="button" class="chip" id="menu-close" aria-label="Close menu">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <ul class="menu-list" id="menu-list"></ul>
+  </section>
   <section class="card variant-pop" id="variant-pop" hidden aria-labelledby="variant-h">
     <h2 id="variant-h">Colors</h2>
     <div class="sw-row" id="variant-swatches" role="group" aria-labelledby="variant-h"></div>
@@ -546,6 +593,16 @@
         <circle cx="27.4" cy="9.6" r="1.4" fill="#fff3e4"/>
       </svg>
       <span>Decor</span>
+    </button>
+    <button type="button" class="tool" data-action="menu" aria-pressed="false" aria-controls="menu-sheet" aria-label="Menu: dishes and prices">
+      <svg viewBox="0 0 40 34" aria-hidden="true">
+        <rect x="11" y="4" width="18" height="26" rx="3" fill="#fff1e2"/>
+        <rect x="11" y="4" width="18" height="6" rx="3" fill="#ffb5a7"/>
+        <path d="M15 15h10M15 19.5h10M15 24h6" stroke="#cdb4db" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="30" cy="25" r="5" fill="#f6d27a"/>
+        <circle cx="30" cy="25" r="3.2" fill="#fbe7b8"/>
+      </svg>
+      <span>Menu</span>
     </button>
     <button type="button" class="tool" data-tool="remove" aria-pressed="false" aria-label="Remove tool (7)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
@@ -935,6 +992,7 @@
       d.name = DEFAULT_NAME;
       d.decor = { wall: 0, floor: 0 };
       for (const it of d.interior.items) if (it) it.variant = 0;
+      d.menu = defaultMenu();
       d.v = 2;
     }
     return d;
@@ -942,7 +1000,8 @@
 
   function save() {
     const data = {
-      v: SAVE_VERSION, name: shopName, decor: { wall: decor.wall, floor: decor.floor }, level, coins, rating: Math.round(rating * 100) / 100,
+      v: SAVE_VERSION, name: shopName, decor: { wall: decor.wall, floor: decor.floor },
+      menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
@@ -963,6 +1022,7 @@
       decor.floor = styleIndex(dc.floor, FLOOR_STYLES);
       level = clamp(Math.floor(+d.level) || 1, 1, MAX_LEVEL);
       N = gridFor(level);
+      menu = sanitizeMenu(d.menu);
       adoptItems(d.interior.items, true);
       coins = Math.max(0, Math.floor(+d.coins) || 0);
       shownCoins = coins;
@@ -1753,11 +1813,37 @@
   const WALK_SPEED = 1.6;                 // tiles per second
   const ORDER_TIME = 2.2, EAT_TIME = 9;   // seconds
   const FOOD_PATIENCE = 32, WAIT_PATIENCE = 20;
+  // suggest: suggested price, cost: ingredients per plate, cook: seconds, unlock: player level
   const DISHES = [
-    { id: 'dish_01', name: 'Sunny Rice Bowl', price: 12, cook: 5, cols: [rgb('#fff6ea'), rgb('#f6d27a'), rgb('#94c98d')] },
-    { id: 'dish_02', name: 'Peach Pancake Stack', price: 18, cook: 7, cols: [rgb('#f2c99a'), rgb('#ffb5a7'), rgb('#fff6ea')] },
-    { id: 'dish_03', name: 'Mint Noodle Soup', price: 24, cook: 9, cols: [rgb('#b8e0d2'), rgb('#fff1d6'), rgb('#f2b09c')] }
-  ];
+    { id: 'dish_01', name: 'Sunny Rice Bowl', suggest: 12, cost: 4, cook: 5, unlock: 1, cols: ['#fff6ea', '#f6d27a', '#94c98d'] },
+    { id: 'dish_02', name: 'Peach Pancake Stack', suggest: 18, cost: 6, cook: 7, unlock: 1, cols: ['#f2c99a', '#ffb5a7', '#fff6ea'] },
+    { id: 'dish_03', name: 'Mint Noodle Soup', suggest: 24, cost: 9, cook: 9, unlock: 1, cols: ['#b8e0d2', '#fff1d6', '#f2b09c'] },
+    { id: 'dish_04', name: 'Lantern Dumplings', suggest: 30, cost: 11, cook: 10, unlock: 3, cols: ['#fff1e2', '#f6d27a', '#ffb5a7'] },
+    { id: 'dish_05', name: 'Cloud Curry Plate', suggest: 38, cost: 14, cook: 12, unlock: 6, cols: ['#fff6ea', '#f2c46d', '#b8e0d2'] },
+    { id: 'dish_06', name: 'Moonberry Parfait', suggest: 46, cost: 16, cook: 14, unlock: 10, cols: ['#cdb4db', '#fff6ea', '#f4a6b8'] }
+  ].map((d) => Object.assign({}, d, { hex: d.cols, cols: d.cols.map(rgb) }));
+  const DISH_BY_ID = {};
+  for (const d of DISHES) DISH_BY_ID[d.id] = d;
+  const PRICE_RANGE = 0.3;            // players may set prices within ±30% of the suggestion
+  // whole coins, rounded inward so the limit is never exceeded
+  const priceMin = (d) => Math.max(1, Math.ceil(d.suggest * (1 - PRICE_RANGE) - 1e-9));
+  const priceMax = (d) => Math.floor(d.suggest * (1 + PRICE_RANGE) + 1e-9);
+  const menuSlots = () => Math.min(DISHES.length, 3 + Math.floor(level / 5));
+  const defaultMenu = () => DISHES.slice(0, 3).map((d) => ({ dishId: d.id, price: d.suggest }));
+  let menu = defaultMenu();           // [{ dishId, price }], the dishes on sale
+  /* keeps the menu valid: known, unlocked, unique dishes, prices in range, within the slot count, never empty */
+  function sanitizeMenu(list) {
+    const out = [], seen = {};
+    if (!Array.isArray(list)) list = defaultMenu();
+    for (const m of list) {
+      const d = m && DISH_BY_ID[m.dishId];
+      if (!d || seen[d.id] || d.unlock > level || out.length >= menuSlots()) continue;
+      seen[d.id] = 1;
+      out.push({ dishId: d.id, price: clamp(Math.round(+m.price) || d.suggest, priceMin(d), priceMax(d)) });
+    }
+    return out.length ? out : defaultMenu();
+  }
+  const activeMenu = () => menu.map((m) => ({ dish: DISH_BY_ID[m.dishId], price: m.price }));
   const SHIRTS = ['#ff9fb2', '#7fb8e6', '#f6d27a', '#b39cd0', '#8fd3b6', '#ffb5a7'].map(rgb);
   const PANTS = ['#8e7cc3', '#7a9cc6', '#a98f80', '#6f9e95'].map(rgb);
   const SKINS = ['#ffdcc4', '#f1c3a0', '#d9a07c', '#b57a5a'].map(rgb);
@@ -1895,8 +1981,7 @@
   const BASE_ARRIVAL = 3;          // guests per minute at appeal 1 and rating factor 1
   const APPEAL_SCALE = 40;
   const SEAT_TURNOVER = 2.5;       // guests per dining seat per minute
-  const AVG_COOK = DISHES.reduce((s, d) => s + d.cook, 0) / DISHES.length;
-  const SERVES_PER_COUNTER = 60 / AVG_COOK;
+  const PRICE_ELASTICITY = 1.2;    // guests lost per unit of price above the suggestion
   const DIRT_PENALTY = 0.5;
   const NIGHT_BONUS_PER_LIGHT = 5;
   const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, plant_01: 4, lantern_01: 3 };
@@ -1908,25 +1993,34 @@
     const nightBonus = lights * NIGHT_BONUS_PER_LIGHT * light.night;
     const appeal = 1 + (decor + curbAppeal + nightBonus) / APPEAL_SCALE;
     const ratingFactor = 0.5 + rating / 100;
-    const arrivalRate = BASE_ARRIVAL * appeal * ratingFactor;
+    // menu: guests pick dishes evenly, so plain averages over the dishes on sale
+    const on = activeMenu();
+    const avg = (f) => on.reduce((s, m) => s + f(m), 0) / on.length;
+    const avgMenuPrice = avg((m) => m.price), avgCost = avg((m) => m.dish.cost);
+    const avgSuggest = avg((m) => m.dish.suggest), avgCook = avg((m) => m.dish.cook);
+    const priceRatio = avgMenuPrice / avgSuggest;
+    const priceFactor = clamp(1 - PRICE_ELASTICITY * (priceRatio - 1), 0.5, 1.4);
+    const arrivalRate = BASE_ARRIVAL * appeal * ratingFactor * priceFactor;
     const seats = chairs().filter((ch) => seatTable(ch)).length;
     const kitchens = items.filter((it) => it.id === 'counter_01').length;  // staff replace this in Phase 3
-    const seatCap = seats * SEAT_TURNOVER, kitchenCap = kitchens * SERVES_PER_COUNTER;
+    const servesPerCounter = 60 / avgCook;
+    const seatCap = seats * SEAT_TURNOVER, kitchenCap = kitchens * servesPerCounter;
     const capacity = Math.min(seatCap, kitchenCap);
     const served = Math.min(arrivalRate, capacity);
-    const avgMenuPrice = DISHES.reduce((s, d) => s + d.price, 0) / DISHES.length;
+    const margin = avgMenuPrice - avgCost;
     const cleanFactor = 1 - (dirtLevel / 100) * DIRT_PENALTY;
     const wagesPerMin = 0;           // staff wages arrive in Phase 3
-    const incomePerMin = served * avgMenuPrice * cleanFactor - wagesPerMin;
+    const incomePerMin = served * margin * cleanFactor - wagesPerMin;
     let hint = '';
     if (!seats) hint = 'Turn a chair to face a table to make a dining seat';
     else if (!kitchens) hint = 'Add a counter so the kitchen can cook';
     else if (arrivalRate > capacity) hint = seatCap <= kitchenCap ? 'Not enough seats' : 'Kitchen is busy: add a counter';
-    else if (arrivalRate < capacity * 0.6) hint = 'Low appeal: add plants and lanterns';
-    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, arrivalRate, seats, kitchens, seatCap, kitchenCap, capacity, served, avgMenuPrice, cleanFactor, wagesPerMin, incomePerMin, hint };
+    else if (arrivalRate < capacity * 0.6) hint = priceFactor < 0.8 ? 'Prices are high: fewer guests are coming' : 'Low appeal: add plants and lanterns';
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seats, kitchens, servesPerCounter, seatCap, kitchenCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
   }
   function pay(c) {
-    const price = c.dish.price;
+    // the guest pays the menu price; the dish cost comes out of it, so coins grow by the margin
+    const price = Math.max(0, c.price - c.dish.cost);
     coins += price;
     pops.push({ x: c.hx, y: c.hy, amount: price, t: 0 });
     if (reduced) shownCoins += price;
@@ -1934,7 +2028,7 @@
     saveSoon();
     if (c.seat && c.seat.plate) { c.seat.plate.state = 'dirty'; c.seat.plate.eaten = 1; }
     depart(c, 'happy');
-    announce('A guest paid ' + price + ' coins.');
+    announce('A guest paid ' + c.price + ' coins for ' + c.dish.name + ', ' + price + ' after costs.');
   }
 
   function plateSpot(ch) {
@@ -1967,7 +2061,13 @@
         if (stepPath(c, dt)) {
           c.seated = true;
           c.t = 0;
-          if (c.table) { c.state = 'ordering'; c.dish = pick(DISHES); bubble(c, 'order', ORDER_TIME + 0.4); }
+          if (c.table) {
+            const order = pick(activeMenu());
+            c.dish = order.dish;
+            c.price = order.price;
+            c.state = 'ordering';
+            bubble(c, 'order', ORDER_TIME + 0.4);
+          }
           else c.state = 'waiting';
         }
         break;
@@ -2118,10 +2218,11 @@
     bdRows.innerHTML =
       row('Appeal', 'decor ' + e.decor + (e.nightBonus >= 0.5 ? ' + night lights ' + fmt(e.nightBonus) : '') + ', scale ' + APPEAL_SCALE, '×' + e.appeal.toFixed(2)) +
       row('Rating', starsHtml(rating), '×' + e.ratingFactor.toFixed(2)) +
-      row('Guests arriving', BASE_ARRIVAL + '/min × appeal × rating', n1(e.arrivalRate) + '/min') +
-      row('Can serve', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER + ', ' + plural(e.kitchens, 'counter') + ' × ' + n1(SERVES_PER_COUNTER), n1(e.capacity) + '/min') +
+      row('Prices', Math.round(e.priceRatio * 100) + '% of suggested', '×' + e.priceFactor.toFixed(2)) +
+      row('Guests arriving', BASE_ARRIVAL + '/min × appeal × rating × prices', n1(e.arrivalRate) + '/min') +
+      row('Can serve', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER + ', ' + plural(e.kitchens, 'counter') + ' × ' + n1(e.servesPerCounter), n1(e.capacity) + '/min') +
       row('Served', 'the smaller of the two', n1(e.served) + '/min') +
-      row('Average price', DISHES.length + ' dishes on the menu', fmt(e.avgMenuPrice) + ' coins') +
+      row('Per guest', 'avg price ' + n1(e.avgMenuPrice) + ' − cost ' + n1(e.avgCost) + ', ' + menu.length + ' on the menu', '+' + n1(e.margin)) +
       row('Cleanliness', 'dirt ' + fmt(dirtLevel) + '%', '×' + e.cleanFactor.toFixed(2)) +
       row('Wages', 'staff arrive in a later update', '−' + fmt(e.wagesPerMin) + '/min') +
       row('Income', '', inc, 'sum');
@@ -2661,6 +2762,8 @@
       fitCamera();
       toast(grew ? 'The room grew to ' + N + '×' + N + '!' : 'Room is now ' + N + '×' + N);
     }
+    menu = sanitizeMenu(menu);
+    renderMenu();
     renderLevel();
     layoutChanged();
     saveSoon();
@@ -2708,11 +2811,109 @@
     const name = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[i].name;
     announce((kind === 'wall' ? 'Walls' : 'Floor') + ' changed to ' + name + '.');
   }
-  function setDecorSheet(open) {
-    decorSheet.hidden = !open;
-    decorBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+  /* bottom sheets: at most one open at a time */
+  const menuSheet = document.getElementById('menu-sheet');
+  const menuBtn = document.querySelector('.tool[data-action="menu"]');
+  const SHEETS = { decor: [decorSheet, decorBtn], menu: [menuSheet, menuBtn] };
+  function setSheet(name) {
+    for (const k in SHEETS) {
+      const [el, btn] = SHEETS[k];
+      el.hidden = k !== name;
+      btn.setAttribute('aria-pressed', k === name ? 'true' : 'false');
+    }
+    if (name === 'menu') renderMenu();
   }
-  decorBtn.addEventListener('click', () => setDecorSheet(decorSheet.hidden));
+  const openSheet = () => Object.keys(SHEETS).find((k) => !SHEETS[k][0].hidden) || '';
+  decorBtn.addEventListener('click', () => setSheet(decorSheet.hidden ? 'decor' : ''));
+  menuBtn.addEventListener('click', () => setSheet(menuSheet.hidden ? 'menu' : ''));
+  document.getElementById('menu-close').addEventListener('click', () => { setSheet(''); menuBtn.focus(); });
+
+  /* ---------------- menu panel ---------------- */
+  const menuList = document.getElementById('menu-list');
+  const menuSub = document.getElementById('menu-sub');
+  const lastPrice = {};        // remembers a price while its dish is off the menu
+  const menuRows = DISHES.map((d) => {
+    const li = document.createElement('li');
+    li.className = 'dish';
+    const c = d.hex;
+    li.innerHTML =
+      '<button type="button" class="dish-toggle" aria-pressed="false">' +
+        '<svg viewBox="0 0 34 34" aria-hidden="true"><ellipse cx="17" cy="20" rx="14" ry="8" fill="#eadccd"/><ellipse cx="17" cy="19" rx="10.5" ry="5.6" fill="#fff6ea"/>' +
+        '<g class="food"><ellipse cx="17" cy="16.5" rx="7.5" ry="4.4" fill="' + c[0] + '"/><circle cx="14.6" cy="13.8" r="3.6" fill="' + c[1] + '"/><circle cx="20.4" cy="14.4" r="2.2" fill="' + c[2] + '"/></g>' +
+        '<g class="plus"><circle cx="17" cy="18" r="6" fill="#f2e6da"/><path d="M17 15v6M14 18h6" stroke="#a897a2" stroke-width="1.8" stroke-linecap="round"/></g></svg>' +
+      '</button>' +
+      '<div><p class="dish-name">' + d.name + '</p><p class="dish-meta">Suggested ' + d.suggest + ' · cost ' + d.cost + ' · cooks ' + d.cook + 's</p></div>' +
+      '<div class="dish-price"><button type="button" class="chip down">&minus;</button><span class="price-read"><b></b><small></small></span><button type="button" class="chip up">+</button></div>' +
+      '<span class="lock-read">Lv ' + d.unlock + '</span>';
+    const r = {
+      li, d,
+      toggle: li.querySelector('.dish-toggle'),
+      food: li.querySelector('.food'), plus: li.querySelector('.plus'),
+      price: li.querySelector('.dish-price'), down: li.querySelector('.down'), up: li.querySelector('.up'),
+      read: li.querySelector('.price-read b'), pct: li.querySelector('.price-read small'),
+      lock: li.querySelector('.lock-read')
+    };
+    r.toggle.addEventListener('click', () => toggleDish(d));
+    r.down.addEventListener('click', () => stepPrice(d, -1));
+    r.up.addEventListener('click', () => stepPrice(d, 1));
+    menuList.appendChild(li);
+    return r;
+  });
+  const menuEntry = (d) => menu.find((m) => m.dishId === d.id);
+  function menuChanged(msg) {
+    renderMenu();
+    updateMoneyHud();
+    saveSoon();
+    if (msg) announce(msg);
+  }
+  function toggleDish(d) {
+    const m = menuEntry(d);
+    if (m) {
+      if (menu.length <= 1) { toast('Keep at least one dish on the menu'); return; }
+      lastPrice[d.id] = m.price;
+      menu = menu.filter((x) => x !== m);
+      menuChanged(d.name + ' taken off the menu.');
+    } else {
+      if (d.unlock > level) { toast(d.name + ' unlocks at level ' + d.unlock); return; }
+      if (menu.length >= menuSlots()) { toast('All ' + menuSlots() + ' menu slots are full. More slots at level ' + (Math.floor(level / 5) + 1) * 5); return; }
+      menu.push({ dishId: d.id, price: lastPrice[d.id] || d.suggest });
+      menu.sort((a, b) => DISHES.indexOf(DISH_BY_ID[a.dishId]) - DISHES.indexOf(DISH_BY_ID[b.dishId]));
+      menuChanged(d.name + ' added to the menu.');
+    }
+  }
+  function stepPrice(d, dir) {
+    const m = menuEntry(d);
+    if (!m) return;
+    const p = clamp(m.price + dir, priceMin(d), priceMax(d));
+    if (p === m.price) { toast('Prices stay within ' + Math.round(PRICE_RANGE * 100) + '% of the suggested ' + d.suggest + ' (' + priceMin(d) + '–' + priceMax(d) + ')'); return; }
+    m.price = p;
+    menuChanged(d.name + ' now costs ' + p + ' coins.');
+  }
+  function renderMenu() {
+    const slots = menuSlots();
+    menuSub.textContent = menu.length + ' of ' + slots + ' slots used · ' + (slots < DISHES.length ? 'next slot at Lv ' + (Math.floor(level / 5) + 1) * 5 : 'all slots open');
+    for (const r of menuRows) {
+      const m = menuEntry(r.d), locked = r.d.unlock > level, on = !!m;
+      r.li.classList.toggle('on', on);
+      r.li.classList.toggle('locked', locked);
+      r.toggle.disabled = locked;
+      r.toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+      r.toggle.setAttribute('aria-label', locked ? r.d.name + ', unlocks at level ' + r.d.unlock : (on ? 'Take ' : 'Put ') + r.d.name + (on ? ' off the menu' : ' on the menu'));
+      r.food.style.display = on ? '' : 'none';
+      r.plus.style.display = on ? 'none' : '';
+      r.price.hidden = locked;
+      r.price.style.display = locked ? 'none' : '';
+      r.lock.style.display = locked ? '' : 'none';
+      const price = on ? m.price : lastPrice[r.d.id] || r.d.suggest;
+      const pct = Math.round((price / r.d.suggest - 1) * 100);
+      r.read.textContent = price;
+      r.pct.textContent = pct === 0 ? 'suggested' : (pct > 0 ? '+' : '') + pct + '%';
+      r.down.disabled = !on || price <= priceMin(r.d);
+      r.up.disabled = !on || price >= priceMax(r.d);
+      r.down.setAttribute('aria-label', 'Lower the price of ' + r.d.name + ', now ' + price);
+      r.up.setAttribute('aria-label', 'Raise the price of ' + r.d.name + ', now ' + price);
+    }
+  }
 
   /* ---------------- furniture variants popup ---------------- */
   const variantPop = document.getElementById('variant-pop');
@@ -3007,7 +3208,7 @@
     if (k === 'r' || k === 'R') { rotate(); return; }
     if (k === 'Escape') {
       if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
-      else if (!decorSheet.hidden) { setDecorSheet(false); decorBtn.focus(); }
+      else if (openSheet()) { const b = SHEETS[openSheet()][1]; setSheet(''); b.focus(); }
       else select(null);
       return;
     }
@@ -3047,7 +3248,7 @@
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       state: () => ({
-        name: shopName, decor: Object.assign({}, decor), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        name: shopName, decor: Object.assign({}, decor), menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
