@@ -301,6 +301,14 @@
   }
   .swatch:active { transform: scale(.92); }
   .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5.5px #a98fc0; }
+  .variant-pop {
+    padding: 8px 12px 10px;
+    border-radius: 20px;
+    max-width: 100%;
+  }
+  .variant-pop[hidden] { display: none; }
+  .variant-pop h2 { margin: 0 0 6px 2px; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
+  .variant-pop .swatch { border-radius: 999px; }
 
   .toast {
     position: fixed;
@@ -441,6 +449,10 @@
       <h2 id="floor-h">Floor</h2>
       <div class="sw-row" id="floor-swatches" role="group" aria-labelledby="floor-h"></div>
     </div>
+  </section>
+  <section class="card variant-pop" id="variant-pop" hidden aria-labelledby="variant-h">
+    <h2 id="variant-h">Colors</h2>
+    <div class="sw-row" id="variant-swatches" role="group" aria-labelledby="variant-h"></div>
   </section>
   <div class="card context" id="context" hidden>
     <span class="lbl" id="ctx-lbl">Table</span>
@@ -654,6 +666,65 @@
     { name: 'Dots', pattern: 'dots', a: '#fbece6', b: '#f4c9bf', c: '#f4c9bf' },
     { name: 'Plain rug', pattern: 'rug', a: '#f2e3d2', b: '#e2d3ec', c: '#cdb4db' }
   ].map((s) => ({ name: s.name, pattern: s.pattern, a: rgb(s.a), b: rgb(s.b), c: rgb(s.c), hex: s }));
+  /* Furniture variants: palette swaps per item type, plus an optional code-drawn
+     pattern. Each entry overrides palette roles that item's draw function reads
+     through pal(it). Entry 0 is the original look. `sw` lists the roles shown
+     in the swatch (main, accent). */
+  const VARIANTS = {
+    table_01: { sw: ['cloth', 'clothHi'], list: [
+      { name: 'Peach', cloth: '#ffb5a7', clothHi: '#ffd3c7' },
+      { name: 'Mint', cloth: '#a9d9c6', clothHi: '#cdeee0' },
+      { name: 'Lavender gingham', cloth: '#cdb4db', clothHi: '#ece0f3', woodDeep: '#b39cc6', pattern: 'gingham' },
+      { name: 'Butter dots', cloth: '#f6d27a', clothHi: '#fbe7b8', pattern: 'dots' },
+      { name: 'Sky', cloth: '#a9cfe8', clothHi: '#d3e8f5', woodDeep: '#a98f80' },
+      { name: 'Rose gingham', cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' }
+    ] },
+    chair_01: { sw: ['cushion', 'wood'], list: [
+      { name: 'Mint', cushion: '#b8e0d2', cushionHi: '#cfeadf' },
+      { name: 'Peach', cushion: '#ffc2b4', cushionHi: '#ffd8cd' },
+      { name: 'Lavender', cushion: '#cdb4db', cushionHi: '#e2d3ec' },
+      { name: 'Butter', cushion: '#f6dc93', cushionHi: '#fbeabc' },
+      { name: 'Sky', cushion: '#b2d6ec', cushionHi: '#d3e8f5', wood: '#cdbcae', woodDeep: '#a98f80' },
+      { name: 'Cocoa', cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' }
+    ] },
+    counter_01: { sw: ['lav', 'blush'], list: [
+      { name: 'Lavender', lav: '#cdb4db', lavDeep: '#b39cc6', blush: '#fcd5ce' },
+      { name: 'Mint', lav: '#b8e0d2', lavDeep: '#9fcab9', blush: '#fcd5ce' },
+      { name: 'Peach', lav: '#ffc9b9', lavDeep: '#f2ad9b', blush: '#b8e0d2' },
+      { name: 'Butter stripe', lav: '#f8e3a4', lavDeep: '#e9cc7e', blush: '#cdb4db', pattern: 'stripes' },
+      { name: 'Sky', lav: '#b9d8ec', lavDeep: '#9cc3d8', blush: '#fff1e2' },
+      { name: 'Honey wood', lav: '#dcb891', lavDeep: '#c4966f', blush: '#b8e0d2', counterTop: '#f7eadb', pattern: 'stripes' }
+    ] },
+    plant_01: { sw: ['pot', 'cloth'], list: [
+      { name: 'Terracotta', pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
+      { name: 'Mint pot', pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
+      { name: 'Lavender pot', pot: '#c9b2dc', potHi: '#dccbe8', cloth: '#fff3e4' },
+      { name: 'Butter pot', pot: '#f4d98a', potHi: '#f9e7b5', cloth: '#ffb5a7' },
+      { name: 'Sky pot', pot: '#a9cfe8', potHi: '#c9e2f2', cloth: '#fcd5ce' },
+      { name: 'Cream pot', pot: '#efe2d2', potHi: '#f8efe4', cloth: '#cdb4db' }
+    ] },
+    lantern_01: { sw: ['paperLamp', 'cloth'], list: [
+      { name: 'Warm paper', paperLamp: '#ffe6bf', glow: '#ffdc9a', cloth: '#ffb5a7' },
+      { name: 'Peach', paperLamp: '#ffd0c0', glow: '#ffc6a8', cloth: '#cdb4db' },
+      { name: 'Mint', paperLamp: '#d4f0e4', glow: '#f2e6b0', cloth: '#ffb5a7' },
+      { name: 'Lavender', paperLamp: '#e8dcf4', glow: '#f6d8ea', cloth: '#f6d27a' },
+      { name: 'Rose', paperLamp: '#ffd3dd', glow: '#ffc4cf', cloth: '#b8e0d2' },
+      { name: 'Butter', paperLamp: '#fbeaa6', glow: '#ffe08a', cloth: '#a9cfe8' }
+    ] }
+  };
+  const VARIANT_COUNT = 6;
+  // merged palettes, built once: PAL[id][variant] = P with that variant's overrides
+  const PAL = {};
+  for (const id in VARIANTS) {
+    PAL[id] = VARIANTS[id].list.map((v) => {
+      const p = Object.assign({}, P, { pattern: v.pattern || '' });
+      for (const k in v) if (k !== 'name' && k !== 'pattern') p[k] = rgb(v[k]);
+      return p;
+    });
+  }
+  const pal = (it) => (PAL[it.id] && PAL[it.id][it.variant | 0]) || P;
+  const clampVariant = (v) => (Number.isInteger(v) && v >= 0 && v < VARIANT_COUNT ? v : 0);
+
   const decor = { wall: 0, floor: 0 };
   const wallStyle = () => WALL_STYLES[decor.wall] || WALL_STYLES[0];
   const floorStyle = () => FLOOR_STYLES[decor.floor] || FLOOR_STYLES[0];
@@ -849,7 +920,7 @@
     let q = 0;
     for (const raw of list) {
       if (!raw || !CATALOG[raw.id]) continue;
-      const it = { id: raw.id, x: raw.x | 0, y: raw.y | 0, rot: ((raw.rot | 0) % 4 + 4) % 4, born: 0, anim: 'pop' };
+      const it = { id: raw.id, x: raw.x | 0, y: raw.y | 0, rot: ((raw.rot | 0) % 4 + 4) % 4, variant: clampVariant(raw.variant), born: 0, anim: 'pop' };
       if (checkPlace(it, null)) continue;
       if (animate && !reduced) it.born = now + 120 + q++ * 70;
       items.push(it);
@@ -863,6 +934,7 @@
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
       d.decor = { wall: 0, floor: 0 };
+      for (const it of d.interior.items) if (it) it.variant = 0;
       d.v = 2;
     }
     return d;
@@ -872,7 +944,7 @@
     const data = {
       v: SAVE_VERSION, name: shopName, decor: { wall: decor.wall, floor: decor.floor }, level, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
-      interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot })) }
+      interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
     store.set(SAVE_KEY, JSON.stringify(data));
   }
@@ -1077,14 +1149,30 @@
      Items
      ================================================================ */
   function drawTable(it) {
+    const C = pal(it);
     const x = it.x, y = it.y;
     contact(x + 0.5, y + 0.5, 0.36);
     const legs = [[0.2, 0.2], [0.74, 0.2], [0.2, 0.74], [0.74, 0.74]];
-    for (const [lx, ly] of legs) box(x + lx, y + ly, x + lx + 0.06, y + ly + 0.06, 0, 13, P.woodDeep);
+    for (const [lx, ly] of legs) box(x + lx, y + ly, x + lx + 0.06, y + ly + 0.06, 0, 13, C.woodDeep);
     // tablecloth with a short skirt
-    box(x + 0.12, y + 0.12, x + 0.88, y + 0.88, 11, 18, P.cloth, { top: P.clothHi });
+    box(x + 0.12, y + 0.12, x + 0.88, y + 0.88, 11, 18, C.cloth, { top: C.clothHi });
+    if (C.pattern === 'gingham') {
+      ctx.fillStyle = lit(C.cloth, 1.02, 0.55);
+      for (let q = 0; q < 4; q++) {
+        const t = 0.12 + q * 0.19 + 0.05;
+        flat(x + t, y + 0.12, x + t + 0.09, y + 0.88, 18.1); ctx.fill();
+        flat(x + 0.12, y + t, x + 0.88, y + t + 0.09, 18.1); ctx.fill();
+      }
+    } else if (C.pattern === 'dots') {
+      ctx.fillStyle = lit(C.cream, 1.02, 0.9);
+      for (let q = 0; q < 3; q++) for (let r = 0; r < 3; r++) {
+        if (q === 1 && r === 1) continue;   // the vase stands in the middle
+        const u = x + 0.25 + q * 0.25, v = y + 0.25 + r * 0.25;
+        ctx.beginPath(); ctx.ellipse(PX(u, v), PY(u, v, 18.1), 2.2, 1.1, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     // scalloped trim on the visible skirt edges
-    ctx.fillStyle = lit(P.cream, 0.98, 0.85);
+    ctx.fillStyle = lit(C.cream, 0.98, 0.85);
     for (let q = 0; q < 4; q++) {
       const t = 0.12 + (q + 0.5) * 0.19;
       ctx.beginPath(); ctx.arc(PX(x + t, y + 0.88), PY(x + t, y + 0.88, 11.6), 1.5, 0, Math.PI * 2); ctx.fill();
@@ -1095,28 +1183,29 @@
     const near = (c) => -DIRS[c.rot][0] - DIRS[c.rot][1] > 0;
     for (const c of seats) if (!near(c)) drawPlate(c);
     // bud vase with a little flower
-    box(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 18, 24, P.cushion);
+    box(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 18, 24, C.cushion);
     const fx = PX(x + 0.5, y + 0.5), fy = PY(x + 0.5, y + 0.5, 28);
-    ctx.strokeStyle = lit(P.leaf, 0.9);
+    ctx.strokeStyle = lit(C.leaf, 0.9);
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(fx, fy + 4); ctx.lineTo(fx, fy); ctx.stroke();
-    ctx.fillStyle = lit(P.cloth, 1.02);
+    ctx.fillStyle = lit(C.cloth, 1.02);
     for (let q = 0; q < 5; q++) {
       const a = q * 1.2566;
       ctx.beginPath(); ctx.arc(fx + Math.cos(a) * 1.9, fy + Math.sin(a) * 1.4, 1.5, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = lit(P.gold, 1);
+    ctx.fillStyle = lit(C.gold, 1);
     ctx.beginPath(); ctx.arc(fx, fy, 1.1, 0, Math.PI * 2); ctx.fill();
     for (const c of seats) if (near(c)) drawPlate(c);
   }
 
   function drawChair(it, now) {
+    const C = pal(it);
     const x = it.x, y = it.y;
     const [dx, dy] = DIRS[it.rot];
     const a = 0.27, b = 0.73, t = 0.08;
     contact(x + 0.5, y + 0.5, 0.26);
     for (const [lx, ly] of [[a, a], [b - 0.05, a], [a, b - 0.05], [b - 0.05, b - 0.05]]) {
-      box(x + lx, y + ly, x + lx + 0.05, y + ly + 0.05, 0, 9, P.woodDeep);
+      box(x + lx, y + ly, x + lx + 0.05, y + ly + 0.05, 0, 9, C.woodDeep);
     }
     let back;
     if (dy === 1) back = [x + a, y + a, x + b, y + a + t];
@@ -1125,38 +1214,46 @@
     else back = [x + b - t, y + a, x + b, y + b];
     const backFar = dy === 1 || dx === 1;
     const drawBack = () => {
-      box(back[0], back[1], back[2], back[3], 12, 26, P.wood);
+      box(back[0], back[1], back[2], back[3], 12, 26, C.wood);
       // cushioned pad on the backrest
       const inset = 0.06;
-      if (dx === 0) box(back[0] + inset, back[1] - 0.005, back[2] - inset, back[3] + 0.005, 16, 23, P.cushion, { top: P.cushionHi });
-      else box(back[0] - 0.005, back[1] + inset, back[2] + 0.005, back[3] - inset, 16, 23, P.cushion, { top: P.cushionHi });
+      if (dx === 0) box(back[0] + inset, back[1] - 0.005, back[2] - inset, back[3] + 0.005, 16, 23, C.cushion, { top: C.cushionHi });
+      else box(back[0] - 0.005, back[1] + inset, back[2] + 0.005, back[3] - inset, 16, 23, C.cushion, { top: C.cushionHi });
     };
     if (backFar) drawBack();
-    box(x + a, y + a, x + b, y + b, 9, 12, P.wood);
-    box(x + a + 0.03, y + a + 0.03, x + b - 0.03, y + b - 0.03, 12, 14, P.cushion, { top: P.cushionHi });
+    box(x + a, y + a, x + b, y + b, 9, 12, C.wood);
+    box(x + a + 0.03, y + a + 0.03, x + b - 0.03, y + b - 0.03, 12, 14, C.cushion, { top: C.cushionHi });
     const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
     if (sitter) drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13, true, now);
     if (!backFar) drawBack();
   }
 
   function drawCounter(it, now) {
+    const C = pal(it);
     const [w, d] = dims(it.id, it.rot);
     const x0 = it.x, y0 = it.y, x1 = x0 + w, y1 = y0 + d;
     ctx.fillStyle = 'rgba(122,82,118,0.16)';
     flat(x0 - 0.02, y0 - 0.02, x1 + 0.06, y1 + 0.06, 0);
     ctx.fill();
-    box(x0 + 0.1, y0 + 0.1, x1 - 0.1, y1 - 0.1, 0, 4, P.lavDeep);
-    box(x0 + 0.06, y0 + 0.06, x1 - 0.06, y1 - 0.06, 4, 28, P.lav);
+    box(x0 + 0.1, y0 + 0.1, x1 - 0.1, y1 - 0.1, 0, 4, C.lavDeep);
+    box(x0 + 0.06, y0 + 0.06, x1 - 0.06, y1 - 0.06, 4, 28, C.lav);
     // pastel band and panel seams on the front faces
-    box(x0 + 0.055, y0 + 0.055, x1 - 0.055, y1 - 0.055, 19, 21.5, P.blush, { noTop: true });
-    ctx.strokeStyle = lit(P.lavDeep, 0.95, 0.7);
+    box(x0 + 0.055, y0 + 0.055, x1 - 0.055, y1 - 0.055, 19, 21.5, C.blush, { noTop: true });
+    if (C.pattern === 'stripes') {
+      // vertical candy stripes on the two visible front faces, below the band
+      for (let u = 0.25; u < Math.max(w, d); u += 0.5) {
+        if (u < w) box(x0 + u - 0.06, y1 - 0.0551, x0 + u + 0.06, y1 - 0.055, 5, 18, C.blush, { noTop: true });
+        if (u < d) box(x1 - 0.0551, y0 + u - 0.06, x1 - 0.055, y0 + u + 0.06, 5, 18, C.blush, { noTop: true });
+      }
+    }
+    ctx.strokeStyle = lit(C.lavDeep, 0.95, 0.7);
     ctx.lineWidth = 0.8;
     if (w > 1) {
       ctx.beginPath(); ctx.moveTo(PX(x0 + 1, y1 - 0.06), PY(x0 + 1, y1 - 0.06, 5)); ctx.lineTo(PX(x0 + 1, y1 - 0.06), PY(x0 + 1, y1 - 0.06, 18)); ctx.stroke();
     } else {
       ctx.beginPath(); ctx.moveTo(PX(x1 - 0.06, y0 + 1), PY(x1 - 0.06, y0 + 1, 5)); ctx.lineTo(PX(x1 - 0.06, y0 + 1), PY(x1 - 0.06, y0 + 1, 18)); ctx.stroke();
     }
-    box(x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02, 28, 31, P.counterTop);
+    box(x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02, 28, 31, C.counterTop);
     // cake under a glass dome on one end, a service bell on the other
     const ends = [[x0 + 0.5, y0 + 0.5], [x0 + (w > 1 ? 1.5 : 0.5), y0 + (d > 1 ? 1.5 : 0.5)]];
     const flip = it.rot >= 2;
@@ -1212,10 +1309,11 @@
   }
 
   function drawPlant(it, now) {
+    const C = pal(it);
     const x = it.x, y = it.y;
     contact(x + 0.5, y + 0.5, 0.24);
-    box(x + 0.33, y + 0.33, x + 0.67, y + 0.67, 0, 13, P.pot);
-    box(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 13, 15.5, P.potHi, { top: P.woodDeep });
+    box(x + 0.33, y + 0.33, x + 0.67, y + 0.67, 0, 13, C.pot);
+    box(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 13, 15.5, C.potHi, { top: C.woodDeep });
     const sx = PX(x + 0.5, y + 0.5), sy = PY(x + 0.5, y + 0.5, 15);
     const sway = reduced ? 0 : Math.sin(now * 0.0011 + x * 1.7 + y * 2.3) * 0.05;
     const leaves = [[-1.15, 15], [1.15, 15], [-0.75, 19], [0.75, 19], [-0.32, 22], [0.32, 22], [0, 24]];
@@ -1225,12 +1323,12 @@
       ctx.save();
       ctx.translate(sx + Math.cos(ang) * L * 0.5, sy + Math.sin(ang) * L * 0.5);
       ctx.rotate(ang);
-      ctx.fillStyle = lit(q % 2 ? P.leaf : P.leafHi, q < 2 ? 0.86 : 1);
+      ctx.fillStyle = lit(q % 2 ? C.leaf : C.leafHi, q < 2 ? 0.86 : 1);
       ctx.beginPath(); ctx.ellipse(0, 0, L * 0.5, 4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
     // two tiny blossoms
-    ctx.fillStyle = lit(P.cloth, 1.04);
+    ctx.fillStyle = lit(C.cloth, 1.04);
     ctx.beginPath(); ctx.arc(sx - 7 + sway * 40, sy - 15, 2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(sx + 8 + sway * 40, sy - 12, 1.7, 0, Math.PI * 2); ctx.fill();
   }
@@ -1240,30 +1338,31 @@
     return clamp(light.night, 0, 1) * flick;
   }
   function drawLantern(it, now) {
+    const C = pal(it);
     const x = it.x, y = it.y;
     contact(x + 0.5, y + 0.5, 0.2);
-    box(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 3, P.woodDeep);
-    box(x + 0.475, y + 0.475, x + 0.525, y + 0.525, 3, 31, P.wood);
+    box(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 3, C.woodDeep);
+    box(x + 0.475, y + 0.475, x + 0.525, y + 0.525, 3, 31, C.wood);
     const sx = PX(x + 0.5, y + 0.5), sy = PY(x + 0.5, y + 0.5, 40);
     const n = lanternGlow(it, now);
-    ctx.fillStyle = lit(P.woodDeep, 1);
+    ctx.fillStyle = lit(C.woodDeep, 1);
     rrect(sx - 4, sy - 11, 8, 3, 1.2); ctx.fill();
     rrect(sx - 4, sy + 8, 8, 3, 1.2); ctx.fill();
-    const day = lit(P.paperLamp, 1);
+    const day = lit(C.paperLamp, 1);
     ctx.fillStyle = day;
     ctx.beginPath(); ctx.ellipse(sx, sy, 7, 9.5, 0, 0, Math.PI * 2); ctx.fill();
     if (n > 0.02) {
-      ctx.fillStyle = css(P.glow, (0.9 * n).toFixed(3));
+      ctx.fillStyle = css(C.glow, (0.9 * n).toFixed(3));
       ctx.beginPath(); ctx.ellipse(sx, sy, 7, 9.5, 0, 0, Math.PI * 2); ctx.fill();
       glows.push(sx, sy, 26, 0.55 * n);
     }
     // paper ribs
-    ctx.strokeStyle = n > 0.3 ? 'rgba(232,170,110,0.55)' : lit(P.woodDeep, 1.05, 0.45);
+    ctx.strokeStyle = n > 0.3 ? 'rgba(232,170,110,0.55)' : lit(C.woodDeep, 1.05, 0.45);
     ctx.lineWidth = 0.8;
     for (const k of [-0.5, 0.5]) {
       ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(0.1, 7 * Math.abs(k) * 1.2), 9.5, 0, -Math.PI / 2, Math.PI / 2, k < 0); ctx.stroke();
     }
-    ctx.fillStyle = lit(P.cloth, 0.95);
+    ctx.fillStyle = lit(C.cloth, 0.95);
     rrect(sx - 0.8, sy + 11, 1.6, 5, 0.8); ctx.fill();
   }
 
@@ -2287,7 +2386,7 @@
     }
   }
 
-  function drawGhost(id, x, y, rot, reason, now) {
+  function drawGhost(id, x, y, rot, variant, reason, now) {
     const [w, d] = dims(id, rot);
     footprintPath(x, y, w, d);
     ctx.fillStyle = reason ? css(P.bad, 0.4) : 'rgba(255,250,240,0.45)';
@@ -2295,7 +2394,7 @@
     if (id === 'chair_01' && !reason) drawFacing({ id, x, y, rot });
     ctx.save();
     ctx.globalAlpha = reason ? 0.35 : 0.62;
-    CATALOG[id].draw({ id, x, y, rot }, now);
+    CATALOG[id].draw({ id, x, y, rot, variant }, now);
     ctx.restore();
   }
 
@@ -2370,12 +2469,12 @@
 
     // ghost previews
     if (drag && drag.tx !== null) {
-      drawGhost(drag.item.id, drag.tx, drag.ty, drag.item.rot, drag.reason, now);
+      drawGhost(drag.item.id, drag.tx, drag.ty, drag.item.rot, drag.item.variant, drag.reason, now);
     } else if (CATALOG[tool]) {
       const c = hover.show ? hover : kbd.show ? kbd : null;
       if (c && inside(c.x, c.y)) {
         const cand = { id: tool, x: c.x, y: c.y, rot: ghostRot };
-        drawGhost(tool, c.x, c.y, ghostRot, checkPlace(cand, null), now);
+        drawGhost(tool, c.x, c.y, ghostRot, nextVariant[tool] || 0, checkPlace(cand, null), now);
       }
     }
 
@@ -2442,7 +2541,7 @@
   }
 
   function placeAt(x, y) {
-    const cand = { id: tool, x, y, rot: ghostRot, born: performance.now(), anim: 'pop' };
+    const cand = { id: tool, x, y, rot: ghostRot, variant: nextVariant[tool] || 0, born: performance.now(), anim: 'pop' };
     const reason = checkPlace(cand, null);
     if (reason) { toast(REASON[reason]); announce(REASON[reason] + '.'); return false; }
     if (reduced) cand.born = performance.now();
@@ -2522,6 +2621,7 @@
     if (it) announce(nameOf(it.id) + ' selected. Drag to move, R to rotate, Delete to remove.');
   }
   function updateContext() {
+    renderVariantPop();
     if (selected) {
       contextEl.hidden = false;
       ctxLbl.textContent = labelOf(selected);
@@ -2613,6 +2713,55 @@
     decorBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
   }
   decorBtn.addEventListener('click', () => setDecorSheet(decorSheet.hidden));
+
+  /* ---------------- furniture variants popup ---------------- */
+  const variantPop = document.getElementById('variant-pop');
+  const variantHead = document.getElementById('variant-h');
+  const variantRow = document.getElementById('variant-swatches');
+  const nextVariant = {};      // variant used for the next placement of each item type
+  let variantFor = '';         // item type the swatch row is currently built for
+  const hexOf = (c) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+  function variantSwatchCss(id, i) {
+    const p = PAL[id][i], [mainRole, accentRole] = VARIANTS[id].sw;
+    const main = hexOf(p[mainRole]), accent = hexOf(p[accentRole]);
+    if (p.pattern === 'gingham') return 'repeating-linear-gradient(90deg, ' + main + '99 0 6px, transparent 6px 12px), repeating-linear-gradient(0deg, ' + main + '99 0 6px, ' + accent + ' 6px 12px)';
+    if (p.pattern === 'dots') return 'radial-gradient(' + hexOf(p.cream) + ' 26%, transparent 29%) 0 0 / 12px 12px, ' + main;
+    if (p.pattern === 'stripes') return 'repeating-linear-gradient(90deg, ' + main + ' 0 7px, ' + accent + ' 7px 11px)';
+    return 'linear-gradient(135deg, ' + main + ' 0 62%, ' + accent + ' 62%)';
+  }
+  function renderVariantPop() {
+    const it = selected && !drag && VARIANTS[selected.id] ? selected : null;
+    variantPop.hidden = !it;
+    if (!it) return;
+    if (variantFor !== it.id) {
+      variantFor = it.id;
+      variantRow.textContent = '';
+      VARIANTS[it.id].list.forEach((v, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.style.background = variantSwatchCss(it.id, i);
+        b.title = v.name;
+        b.setAttribute('aria-label', nameOf(it.id) + ' style: ' + v.name);
+        b.addEventListener('click', () => setVariant(i));
+        variantRow.appendChild(b);
+      });
+    }
+    variantHead.textContent = nameOf(it.id) + ' style';
+    Array.from(variantRow.children).forEach((b, i) => b.setAttribute('aria-pressed', i === (it.variant | 0) ? 'true' : 'false'));
+  }
+  function setVariant(i) {
+    const it = selected;
+    if (!it || !VARIANTS[it.id]) return;
+    nextVariant[it.id] = i;
+    if ((it.variant | 0) !== i) {
+      it.variant = i;
+      if (!reduced) { it.born = performance.now(); it.anim = 'wobble'; }
+      saveSoon();
+      announce(nameOf(it.id) + ' is now ' + VARIANTS[it.id].list[i].name + '.');
+    }
+    renderVariantPop();
+  }
 
   /* ---------------- shop name ---------------- */
   let nameBefore = '';
@@ -2786,6 +2935,7 @@
         else moveItem(drag.item, drag.tx, drag.ty);
       }
       drag = null;
+      updateContext();
     } else if (gesture.mode === 'tap' && up && !gesture.done) {
       handleTap(e.clientX, e.clientY, gesture.button, gesture.hit);
     }
@@ -2899,7 +3049,7 @@
       state: () => ({
         name: shopName, decor: Object.assign({}, decor), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
-        items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
+        items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
       })
     };
