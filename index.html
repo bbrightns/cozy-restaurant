@@ -173,6 +173,9 @@
   .level-read { margin: 0; padding: 0 6px; text-align: right; line-height: 1.1; min-width: 64px; }
   .level-read b { display: block; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .level-read small { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .04em; }
+  .xp-bar { display: block; height: 4px; margin-top: 3px; border-radius: 2px; background: var(--lav); overflow: hidden; }
+  .xp-bar i { display: block; height: 100%; border-radius: 2px; background: var(--text-3); transition: width .3s; }
+  @media (prefers-reduced-motion: reduce) { .xp-bar i { transition: none; } }
   .step { font-size: 20px; font-weight: 800; padding: 0; width: 44px; }
   .step[hidden] { display: none; }
   .step:disabled { opacity: .45; cursor: default; }
@@ -967,7 +970,7 @@
     return t || DEFAULT_NAME;
   }
 
-  let level = 1;
+  let level = 1, xp = 0;               // xp is progress inside the current level
   let N = 5;
   let items = [];   // { id, x, y, rot, born, anim }
   const gridFor = (lv) => Math.min(MAX_GRID, 5 + Math.floor(lv / 5));
@@ -1152,7 +1155,7 @@
   function save() {
     const data = {
       v: SAVE_VERSION, name: shopName, decor: decorSnapshot(),
-      menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, coins, rating: Math.round(rating * 100) / 100,
+      menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, xp, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
@@ -1174,6 +1177,7 @@
       loadDecor(decor.wallB, dc.wallB, 0, WALL_STYLES);
       level = clamp(Math.floor(+d.level) || 1, 1, MAX_LEVEL);
       N = gridFor(level);
+      xp = level >= MAX_LEVEL ? 0 : clamp(Math.floor(+d.xp) || 0, 0, xpNeed(level) - 1);
       menu = sanitizeMenu(d.menu);
       adoptItems(d.interior.items, true);
       coins = Math.max(0, Math.floor(+d.coins) || 0);
@@ -2290,6 +2294,7 @@
     saveSoon();
     if (c.seat && c.seat.plate) { c.seat.plate.state = 'dirty'; c.seat.plate.eaten = 1; }
     depart(c, 'happy');
+    addXp(xpForGuest(c.dish));
     announce('A guest paid ' + c.price + ' coins for ' + c.dish.name + ', ' + price + ' after costs.');
   }
 
@@ -3143,7 +3148,30 @@
     announce((kind === 'wall' ? 'Wallpaper' : 'Floor') + ' ' + style.name + ' selected, ' + (priceOfStyle(style) ? priceOfStyle(style) + ' coins per piece' : 'free') + '. Tap the room to paint.');
   }
 
-  function setLevel(lv) {
+  /* XP (project.md 4): each happy guest gives xp by dish price; a level costs a little more than the last */
+  const xpNeed = (lv) => 15 + 10 * (lv - 1);
+  const xpForGuest = (dish) => 2 + Math.round(dish.suggest / 10);
+  function addXp(n) {
+    if (level >= MAX_LEVEL) return;
+    const before = { lv: level, N, slots: menuSlots() };
+    xp += n;
+    while (level < MAX_LEVEL && xp >= xpNeed(level)) {
+      const carry = xp - xpNeed(level);
+      setLevel(level + 1, true);
+      xp = level >= MAX_LEVEL ? 0 : carry;
+    }
+    renderLevel();
+    saveSoon();
+    if (level === before.lv) return;
+    const perks = [];
+    if (N > before.N) perks.push('room grew to ' + N + '×' + N);
+    if (menuSlots() > before.slots) perks.push('menu slot ' + menuSlots());
+    for (const d of DISHES) if (d.unlock > before.lv && d.unlock <= level) perks.push(d.name + ' unlocked');
+    const msg = 'Level ' + level + (perks.length ? ': ' + perks.join(', ') : '') + '!';
+    toast(msg);
+    announce(msg);
+  }
+  function setLevel(lv, quiet) {
     lv = clamp(lv, 1, MAX_LEVEL);
     const nn = gridFor(lv);
     if (nn < N && items.some((it) => cells(it).some(([cx, cy]) => cx >= nn || cy >= nn))) {
@@ -3152,11 +3180,12 @@
     }
     const grew = nn > N;
     level = lv;
+    xp = 0;
     if (nn !== N) {
       N = nn;
       kbd.x = Math.min(kbd.x, N - 1); kbd.y = Math.min(kbd.y, N - 1);
       fitCamera();
-      toast(grew ? 'The room grew to ' + N + '×' + N + '!' : 'Room is now ' + N + '×' + N);
+      if (!quiet) toast(grew ? 'The room grew to ' + N + '×' + N + '!' : 'Room is now ' + N + '×' + N);
     }
     menu = sanitizeMenu(menu);
     renderMenu();
@@ -3461,7 +3490,8 @@
   });
 
   function renderLevel() {
-    levelRead.innerHTML = '<b>Lv ' + level + '</b><small>' + N + '×' + N + ' room</small>';
+    const pct = level >= MAX_LEVEL ? 100 : Math.round(xp / xpNeed(level) * 100);
+    levelRead.innerHTML = '<b>Lv ' + level + '</b><small>' + N + '×' + N + ' room</small><span class="xp-bar" role="img" aria-label="' + (level >= MAX_LEVEL ? 'Max level' : xp + ' of ' + xpNeed(level) + ' xp') + '"><i style="width:' + pct + '%"></i></span>';
     lvDown.disabled = level <= 1;
     lvUp.disabled = level >= MAX_LEVEL;
   }
@@ -3762,7 +3792,7 @@
         return [cam.x + PX(p[0], p[1]) * cam.zoom, cam.y + PY(p[0], p[1], 40) * cam.zoom];
       },
       state: () => ({
-        name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, xp, xpNeed: xpNeed(level), coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
