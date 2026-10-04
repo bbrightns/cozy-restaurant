@@ -2192,7 +2192,7 @@
     return out.length ? out : defaultMenu();
   }
   const activeMenu = () => menu.map((m) => ({ dish: DISH_BY_ID[m.dishId], price: m.price }));
-  const SHIRTS = ['#ff9fb2', '#7fb8e6', '#f6d27a', '#b39cd0', '#8fd3b6', '#ffb5a7'].map(rgb);
+  const SHIRTS = ['#ff9fb2', '#7fb8e6', '#f6d27a', '#ffb5a7', '#e8a06a', '#a8d58f'].map(rgb);   // none near the staff lavender and mint
   const PANTS = ['#8e7cc3', '#7a9cc6', '#a98f80', '#6f9e95'].map(rgb);
   const SKINS = ['#ffdcc4', '#f1c3a0', '#d9a07c', '#b57a5a'].map(rgb);
   const HAIRS = ['#7a5a6e', '#a9785c', '#5e5a7a', '#e2b38a', '#c97b7b', '#e8a5b4', '#a99bc4'].map(rgb);
@@ -2634,8 +2634,9 @@
   }
   /* Anyone drawn chibi on the floor (big head, face, hair style). Staff have b.role and b.look (uniform, hat); guests carry the
      look parts themselves and wear plain clothes. Sets b.hx and b.hy so bubbles and drawStaffBits keep working; the head centre is 7px below hy. */
-  const STAFF_TOP = { chef: rgb('#fff1e2'), waiter: rgb('#fff1e2'), helper: rgb('#b8e0d2') };
-  const CAP = { white: rgb('#fbf0e3'), whiteDeep: rgb('#efdfcc'), band: rgb('#f6d27a'), bow: rgb('#ffb5a7'), apron: rgb('#8a6f7e'), vest: rgb('#cdb4db'), apronY: rgb('#f6d27a'), blush: rgb('#ff9f96'), mouth: rgb('#b8566a'), cream: rgb('#fff8ef') };
+  const STAFF_TOP = { chef: rgb('#fff1e2'), waiter: rgb('#8e78b8'), helper: rgb('#5fae98') };
+  const GUEST_SCARF = ['#f4978e', '#f6d27a', '#7fb8e6', '#e8a06a', '#c9a0dc'].map(rgb);
+  const CAP = { white: rgb('#fbf0e3'), whiteDeep: rgb('#efdfcc'), band: rgb('#f6d27a'), bow: rgb('#ffb5a7'), apron: rgb('#8a6f7e'), vest: rgb('#6f5c9c'), apronY: rgb('#f6d27a'), blush: rgb('#ff9f96'), mouth: rgb('#b8566a'), cream: rgb('#fff8ef') };
   function drawChibi(b, fx, fy, z, sitting, now) {
     const sx = PX(fx, fy), base = PY(fx, fy, z), p = b.look || b;
     const walk = !sitting && b.moving && !reduced;
@@ -2685,6 +2686,22 @@
     } else if (role === 'helper') {
       ctx.fillStyle = lit(CAP.apronY, 1);
       rrect(sx - 3.8, top + 4, 7.6, 5.6, 1.6); ctx.fill();
+    }
+    if (role) {
+      // staff signature: a cream name badge with a coral dot on the chest, on every uniform
+      ctx.fillStyle = lit(CAP.cream, 1);
+      rrect(sx + 0.6, top + 1.8, 3.6, 2.4, 0.8); ctx.fill();
+      ctx.fillStyle = lit(CAP.bow, 1);
+      ctx.beginPath(); ctx.arc(sx + 1.7, top + 3, 0.6, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // guest signature: a scarf, and a little bag when standing
+      const sc = GUEST_SCARF[Math.floor(b.ph * 7) % GUEST_SCARF.length];
+      ctx.fillStyle = lit(sc, 1);
+      rrect(sx - 4.2, top + 1.2, 8.4, 2, 1); ctx.fill();
+      if (!sitting) {
+        ctx.fillStyle = lit(sc, 0.85);
+        rrect(sx + 3.4, top + 6.2, 3.8, 3.2, 1); ctx.fill();
+      }
     }
     // head, with hair that sits behind it
     const hy = top - 4.6, r = 6.5;
@@ -4004,7 +4021,7 @@
     }
     return o;
   }
-  const OUTFIT = { chef: { top: '#fff1e2', pants: '#7d6470' }, waiter: { top: '#fff1e2', pants: '#5e5a7a' }, helper: { top: '#b8e0d2', pants: '#9fb2d6' } };
+  const OUTFIT = { chef: { top: '#fff1e2', pants: '#7d6470' }, waiter: { top: '#8e78b8', pants: '#5e5a7a' }, helper: { top: '#5fae98', pants: '#9fb2d6' } };
   function bodySvg(p, skin) {
     const f = OUTFIT[p.role];
     let o = '<rect x="37" y="104" width="10" height="16" rx="4" fill="' + f.pants + '"/><rect x="53" y="104" width="10" height="16" rx="4" fill="' + shade(f.pants, 0.9) + '"/>' +
@@ -4016,7 +4033,7 @@
       for (const [x, y] of [[45, 78], [55, 78], [45, 85], [55, 85]]) o += '<circle cx="' + x + '" cy="' + y + '" r="1.6" fill="#c9a98f"/>';
       o += '<path d="M34 92L66 92L68 111Q68 114 65 114L35 114Q32 114 32 111Z" fill="#8a6f7e"/><rect x="32" y="89" width="36" height="4" rx="2" fill="#7d6470"/>';
     } else if (p.role === 'waiter') {
-      o += '<path d="M33 75Q33 70 38 70L45 70L48 108L35 108Q31 108 31 104Z" fill="#cdb4db"/><path d="M55 70L62 70Q67 70 67 75L69 104Q69 108 65 108L52 108Z" fill="#b99fcc"/>' +
+      o += '<path d="M33 75Q33 70 38 70L45 70L48 108L35 108Q31 108 31 104Z" fill="#6f5c9c"/><path d="M55 70L62 70Q67 70 67 75L69 104Q69 108 65 108L52 108Z" fill="#5f4e8a"/>' +
         '<path d="M50 74L43.5 70.5Q42 74 43.5 77.5ZM50 74L56.5 70.5Q58 74 56.5 77.5Z" fill="#ffb5a7"/><circle cx="50" cy="74" r="2" fill="#f49d8f"/>';
     } else {
       o += '<path d="M36 86L64 86L66 108Q66 111 63 111L37 111Q34 111 34 108Z" fill="#f6d27a"/><path d="M44 83q6 4 12 0" stroke="#f6d27a" stroke-width="2.4" fill="none"/><rect x="43" y="93" width="14" height="8" rx="2.5" fill="#f2c25e"/>';
