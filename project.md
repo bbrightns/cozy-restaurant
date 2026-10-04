@@ -197,6 +197,13 @@ Phase 3a is the model, hire list and economy. Staff drawn walking on the floor i
   - If the player is on screen, they can **tap trash to collect it** for a small coin or XP bonus.
   - While offline, cleaning is handled inside the earnings formula (more staff means less dirt penalty).
 
+**Trash on the floor (Phase 3c).**
+- Each happy guest has a `TRASH_CHANCE` (0.55) of dropping one piece near their seat when they pay: a paper ball, a fruit peel or a spill. It lands on the free tile nearest the seat (within 2 tiles), never in the doorway, under furniture, on a stove's front tile or on a tile that already holds trash. At most `TRASH_MAX` (14) pieces lie on the floor.
+- **Dirt level** is the total weight of the pieces, capped at 100: paper ball 6, peel 6, spill 9. Nothing else changes it, so picking a piece up lowers dirt at once. `cleanFactor = 1 - dirt / 100 * DIRT_PENALTY` (0.5) feeds the income formula, and the breakdown row shows dirt and the piece count.
+- At dirt 60 or more (`TRASH_LIMIT`) arriving guests turn around with a trash bubble, which moves the rating down and shows up as the top reason.
+- Trash is saved as the list of pieces (save v7, `trash: [[x, y, kind, ox, oy]]`); dirt is recomputed on load. Furniture placed on a piece, or a smaller room, removes it quietly. Older saves start clean.
+- Until 3d, the player can tap a piece (or press Enter on its tile) to pick it up, with no reward yet. 3d adds the coin or XP bonus, idle staff cleaning and the helper's cleaning first.
+
 ## 8. Economy
 
 ### 8.1 Income per minute
@@ -388,7 +395,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c next |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B done (B0 to B6); polish C1 and C2 done (code-drawn character upgrade and reshape); 3c done (trash and dirt, save v7); 3d next |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -464,7 +471,7 @@ Why: the people still read as flat vector shapes. A painted image approach (laye
 |---|---|---|
 | 3a | Design the staff model: data, hire list UI, staff cap by shop size, wages in income/min, work spots (see 7.1), save v4 and `migrate()`. Write the decisions into this file first. | Opus |
 | 3b | Staff entities: waiter, chef, helper. They reuse A* and depth sorting. Chefs stand at counter work spots and cook. Waiters carry dishes from the pickup spot to tables. | Sonnet |
-| 3c | (starts after polish B is signed off) Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles. | Sonnet |
+| 3c | Trash and dirt: spawn by customers served, dirt 0 to 100, `cleanFactor` in income, trash sprites, "plate" and "trash" bubbles, save v7. Done (see 7.2). A plain tap-to-pick-up is in as a stop-gap so the shop cannot get stuck; the reward and staff cleaning stay in 3d. | Sonnet |
 | 3d | Tap-to-clean for the player and idle cleaning for staff. | Sonnet |
 | 3e | Bottleneck hint in the income panel (staff, seats, appeal, stoves). | Haiku |
 | 3f | Balance pass with fast-forward runs through `cozyDebug`. Wages must stay below the income they enable. | Opus |
@@ -484,7 +491,7 @@ Done when: hiring raises income, ignoring dirt hurts income, old saves load, no 
 |---|---|---|
 | 4a | Scene switcher with shared camera and lighting, street path to the door. | Opus |
 | 4b | Facade drawn in code: building, door, windows, sign with the shop name. | Sonnet |
-| 4c | Exterior decor slots, build-mode shop for them, next free save version (v5 is taken by staff look parts; 3c will likely take v6 if it saves dirt). | Sonnet |
+| 4c | Exterior decor slots, build-mode shop for them, next free save version (v7 is the latest: trash from 3c). | Sonnet |
 | 4d | `curbAppeal` and `nightBonus` feed the appeal formula. | Haiku |
 | 4e | Customers walk in from the street to the door. | Sonnet |
 

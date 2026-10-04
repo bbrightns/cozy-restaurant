@@ -80,6 +80,8 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 
 **Stove** (item id `counter_01`, label Stove, 1x1 tile: one stove per chef). Cabinet with an oven door, window, handle and two knobs under a blush band; a hob with one burner and a pot; a backsplash with a rail and hanging tools on the far edge; a pickup shelf with two plates that shows finished plates waiting for a waiter. While it cooks the burner shows animated flames, the pot steams and a progress ring appears. Rot 1 and 3 draw the mirrored stove (front on the +x face); chefs stand at its visible front. The front tile is kept clear by placement (nothing can be put on it, and a stove cannot go where its front is blocked), and the chef stands only there. Different stove types can come later as new items, each still one chef.
 
+**Trash** (Phase 3c): small pastel pieces lying flat on floor tiles, drawn after the floor and before furniture and people, 1.3 times their base size so they read next to a 45px person: a crumpled paper ball (cream, lighter left and darker right, a few creases), a fruit peel curl in peach with a leaf bit, and a flat spill puddle in butter yellow with a soft highlight. Each has a soft contact shadow (not the spill), pops in with a small squash (a plain fade with reduced motion) and takes the night tint like everything else.
+
 ## 7. Characters and Behavior
 
 - Customer cycle: arrive, walk to a free seat, order, wait, eat, pay (coin pop), leave.
