@@ -444,10 +444,13 @@
   .tool[data-action="staff"] { --tint: #d6eee5; }
   .staff-h3 { margin: 4px 0 0; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
   .staff-split { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .staff-row { grid-template-columns: 40px 1fr auto; background: var(--cream-2); padding-left: 6px; }
+  .staff-row { grid-template-columns: 44px 1fr auto; background: var(--cream-2); padding-left: 6px; }
   .staff-row.cand { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: block; }
-  .avatar svg { width: 40px; height: 40px; display: block; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: block; }
+  .avatar svg { width: 44px; height: 44px; display: block; }
+  .avatar .blink { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
+  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+  @media (prefers-reduced-motion: reduce) { .avatar .blink { animation: none; } }
   .tier { color: #e2b04f; font-size: 12px; letter-spacing: .02em; margin-left: 4px; }
   .staff-row .chip { background: var(--cream); white-space: nowrap; }
   .staff-row .chip.warn { background: #fbd9d2; }
@@ -539,7 +542,7 @@
     .menu-sheet { max-height: none; min-height: 0; flex: 0 1 auto; }
     .dish { grid-template-columns: 44px 1fr; }
     .dish-price, .lock-read { grid-column: 2; justify-self: start; }
-    .staff-row { grid-template-columns: 40px 1fr auto; }
+    .staff-row { grid-template-columns: 44px 1fr auto; }
     .breakdown { max-height: calc(100vh - 110px); }
     .chip .txt { display: none; }
   }
@@ -1194,8 +1197,9 @@
   /* Save format. v1: Phases 1-2. v2 adds name, decor, menu and item variants.
      v3 paints decor per piece: decor is { floor: [tile styles], wallA: [...], wallB: [...] }.
      v4 adds staff: [{ id, role, tier, name, skin, hair }]; speed and wage come from role and tier.
+     v5 adds the look parts hairStyle, eye, face and acc to each person (older people get a random look when the roster is sanitized).
      migrate() upgrades older payloads in place; every field is read defensively. */
-  const SAVE_VERSION = 4;
+  const SAVE_VERSION = 5;
   function migrate(d) {
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
@@ -1216,6 +1220,7 @@
       d.staff = starterCrew();
       d.v = 4;
     }
+    if (d.v === 4) d.v = 5;   // staff look parts are filled in by sanitizeStaff()
     return d;
   }
 
@@ -1224,7 +1229,7 @@
       v: SAVE_VERSION, name: shopName, decor: decorSnapshot(),
       menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, xp, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
-      staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair })),
+      staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair, hairStyle: s.hairStyle, eye: s.eye, face: s.face, acc: s.acc })),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
     store.set(SAVE_KEY, JSON.stringify(data));
@@ -2190,7 +2195,7 @@
   const SHIRTS = ['#ff9fb2', '#7fb8e6', '#f6d27a', '#b39cd0', '#8fd3b6', '#ffb5a7'].map(rgb);
   const PANTS = ['#8e7cc3', '#7a9cc6', '#a98f80', '#6f9e95'].map(rgb);
   const SKINS = ['#ffdcc4', '#f1c3a0', '#d9a07c', '#b57a5a'].map(rgb);
-  const HAIRS = ['#7a5a6e', '#a9785c', '#5e5a7a', '#e2b38a', '#c97b7b'].map(rgb);
+  const HAIRS = ['#7a5a6e', '#a9785c', '#5e5a7a', '#e2b38a', '#c97b7b', '#e8a5b4', '#a99bc4'].map(rgb);
   const PLATE = rgb('#eadccd');
   const DOOR_IN = { x: DOOR.x + 0.5, y: 0.1 };   // threshold, just inside the door
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -2826,9 +2831,19 @@
   let candidates = [];    // the hire list, rerolled freely and never saved
   const staffOf = (role) => staff.filter((p) => p.role === role);
   const newStaffId = () => 'st_' + Math.random().toString(36).slice(2, 8);
+  /* Look parts are cosmetic only. Saved as names or palette indices; sanitizeStaff() clamps them. */
+  const HAIR_STYLES = ['fluffy', 'messy', 'bob', 'bun', 'twin', 'long', 'curly', 'buzz'];
+  const FACES = ['smile', 'grin', 'cat', 'happy'];
+  const ACCS = ['none', 'star', 'flower', 'glasses', 'freckles'];
+  const EYE_COLS = ['#4a3340', '#5a3e2e', '#3f3b5c'];
+  const rollLook = () => ({
+    skin: Math.floor(Math.random() * SKINS.length), hair: Math.floor(Math.random() * HAIRS.length), hairStyle: pick(HAIR_STYLES),
+    eye: Math.floor(Math.random() * EYE_COLS.length), face: pick(FACES), acc: pick(ACCS)
+  });
+  const oneOf = (list, v) => (list.includes(v) ? v : pick(list));
   const starterCrew = () => [
-    { id: 'st_chef01', role: 'chef', tier: 2, name: 'Noon', skin: 1, hair: 0 },
-    { id: 'st_wait01', role: 'waiter', tier: 2, name: 'Wren', skin: 0, hair: 3 }
+    { id: 'st_chef01', role: 'chef', tier: 2, name: 'Noon', skin: 1, hair: 0, hairStyle: 'messy', eye: 0, face: 'grin', acc: 'none' },
+    { id: 'st_wait01', role: 'waiter', tier: 2, name: 'Wren', skin: 0, hair: 5, hairStyle: 'bun', eye: 1, face: 'smile', acc: 'star' }
   ];
   /* keeps the roster valid: known roles, tiers in range, short names, palette indices; an empty team is allowed */
   function sanitizeStaff(list) {
@@ -2842,7 +2857,8 @@
       const name = typeof p.name === 'string' ? clipName(p.name).trim() : '';
       out.push({
         id, role: p.role, tier: clamp(Math.floor(+p.tier) || 2, 1, TIERS.length), name: name || pick(STAFF_NAMES),
-        skin: clamp(p.skin | 0, 0, SKINS.length - 1), hair: clamp(p.hair | 0, 0, HAIRS.length - 1)
+        skin: clamp(p.skin | 0, 0, SKINS.length - 1), hair: clamp(p.hair | 0, 0, HAIRS.length - 1),
+        hairStyle: oneOf(HAIR_STYLES, p.hairStyle), eye: clamp(p.eye | 0, 0, EYE_COLS.length - 1), face: oneOf(FACES, p.face), acc: oneOf(ACCS, p.acc)
       });
     }
     return out;
@@ -2851,8 +2867,7 @@
     const taken = new Set(staff.concat(candidates).map((p) => p.name));
     const names = STAFF_NAMES.filter((n) => !taken.has(n));
     return {
-      id: newStaffId(), role, tier: pick(tiersOpen()), name: pick(names.length ? names : STAFF_NAMES),
-      skin: Math.floor(Math.random() * SKINS.length), hair: Math.floor(Math.random() * HAIRS.length)
+      id: newStaffId(), role, tier: pick(tiersOpen()), name: pick(names.length ? names : STAFF_NAMES), ...rollLook()
     };
   }
   /* always at least one candidate per role, then one more of any role */
@@ -3832,20 +3847,101 @@
   const hireList = document.getElementById('hire-list');
   const hireNote = document.getElementById('hire-note');
   const rerollBtn = document.getElementById('reroll');
-  const ROLE_LOOK = { chef: '#fff1e2', waiter: '#cdb4db', helper: '#b8e0d2' };
   let letGoId = '', letGoTimer = 0;     // "Let go" asks for a second tap
   const tierStars = (p) => '★'.repeat(p.tier);
+  /* Avatar: a chibi portrait drawn from parts (look = skin, hair, hairStyle, eye, face, acc) plus the role uniform. */
+  const toRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const toHex = (c) => '#' + c.map((v) => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+  const shade = (h, f) => { const [r, g, b] = toRgb(h), m = (r + g + b) / 3; return toHex([r, g, b].map((v) => (v + (v - m) * 0.25) * f)); };
+  const tint = (h, f) => toHex(toRgb(h).map((v) => v + (255 - v) * f));
+  const starPath = (cx, cy, r) => {
+    let d = '';
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.48 : r;
+      d += (i ? 'L' : 'M') + (cx + Math.cos(a) * rr).toFixed(1) + ' ' + (cy + Math.sin(a) * rr).toFixed(1);
+    }
+    return d + 'Z';
+  };
+  function hairBackSvg(s, h) {
+    const d = shade(h, 0.82);
+    if (s === 'bob') return '<path d="M20 50C18 18 82 18 80 50L81 74Q81 79 76 79L24 79Q19 79 19 74Z" fill="' + d + '"/>';
+    if (s === 'long') return '<path d="M20 50C18 18 82 18 80 50L83 94Q77 100 71 94Q65 100 59 94L41 94Q35 100 29 94Q23 100 17 94Z" fill="' + d + '"/>';
+    if (s === 'bun') return '<circle cx="68" cy="25" r="10" fill="' + h + '"/><circle cx="65" cy="22" r="3.4" fill="' + tint(h, 0.3) + '" opacity=".6"/>';
+    if (s === 'twin') return '<ellipse cx="16" cy="66" rx="7.5" ry="13" fill="' + d + '"/><ellipse cx="84" cy="66" rx="7.5" ry="13" fill="' + d + '"/>';
+    return '';
+  }
+  function hairFrontSvg(s, h) {
+    const shine = '<ellipse cx="38" cy="30" rx="8" ry="2.6" transform="rotate(-24 38 30)" fill="' + tint(h, 0.35) + '" opacity=".55"/>';
+    let p;
+    if (s === 'messy') p = '<path d="M21 54C17 16 83 16 79 54Q77 47 73 44Q71 40 67 46Q63 36 57 44Q53 33 48 43Q43 34 39 45Q35 37 31 46Q27 42 25 49Z" fill="' + h + '"/><path d="M48 25Q52 14 59 18Q54 19 53 25Z" fill="' + h + '"/>';
+    else if (s === 'bob') p = '<path d="M21 56C17 16 83 16 79 56L77 45Q50 37 23 45Z" fill="' + h + '"/>';
+    else if (s === 'buzz') p = '<path d="M23 50C21 20 79 20 77 50Q74 37 50 35Q26 37 23 50Z" fill="' + h + '"/>';
+    else if (s === 'curly') {
+      p = [[26, 46, 8], [31, 35, 9], [41, 28, 10], [53, 26, 10], [64, 30, 9], [72, 39, 8], [76, 49, 6], [24, 55, 5.5], [47, 38, 7], [58, 38, 7], [36, 41, 6]]
+        .map((c) => '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="' + c[2] + '" fill="' + h + '"/>').join('');
+    } else p = '<path d="M21 56C17 16 83 16 79 56L76 50Q70 38 63 44Q57 33 50 43Q43 33 37 44Q30 38 24 50Z" fill="' + h + '"/>';
+    const ties = s === 'twin' ? '<circle cx="21" cy="54" r="3" fill="#f6d27a"/><circle cx="79" cy="54" r="3" fill="#f6d27a"/>' : '';
+    return p + (s === 'curly' ? '' : shine) + ties;
+  }
+  function faceSvg(p, skin) {
+    const e = EYE_COLS[p.eye], mouth = '#b8566a';
+    let o = p.face === 'happy'
+      ? '<path d="M35.5 56Q39 50.5 42.5 56M57.5 56Q61 50.5 64.5 56" stroke="' + e + '" stroke-width="2.3" fill="none" stroke-linecap="round"/>'
+      : '<g class="blink"><ellipse cx="39" cy="54.5" rx="3.6" ry="4.6" fill="' + e + '"/><ellipse cx="61" cy="54.5" rx="3.6" ry="4.6" fill="' + e + '"/>' +
+        '<circle cx="40.3" cy="52.6" r="1.5" fill="#fff8ef"/><circle cx="62.3" cy="52.6" r="1.5" fill="#fff8ef"/>' +
+        '<circle cx="38" cy="57" r=".7" fill="#fff8ef" opacity=".8"/><circle cx="60" cy="57" r=".7" fill="#fff8ef" opacity=".8"/></g>';
+    o += '<ellipse cx="31.5" cy="62" rx="4.6" ry="2.6" fill="#ff9f96" opacity=".45"/><ellipse cx="68.5" cy="62" rx="4.6" ry="2.6" fill="#ff9f96" opacity=".45"/>';
+    if (p.face === 'grin' || p.face === 'happy') o += '<path d="M45 61.5Q50 70 55 61.5Z" fill="' + mouth + '"/><ellipse cx="50" cy="65.4" rx="2.5" ry="1.4" fill="#ff9f9a"/>';
+    else if (p.face === 'cat') o += '<path d="M45 61.5Q47.5 64.5 50 61.5Q52.5 64.5 55 61.5" stroke="' + mouth + '" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
+    else o += '<path d="M45.5 61.5Q50 66.5 54.5 61.5Q50 63.4 45.5 61.5Z" fill="' + mouth + '"/>';
+    if (p.acc === 'freckles') {
+      const fk = shade(skin, 0.78);
+      for (const [x, y] of [[30, 58.6], [33, 59.8], [27.8, 60], [70, 58.6], [67, 59.8], [72.2, 60]]) o += '<circle cx="' + x + '" cy="' + y + '" r=".75" fill="' + fk + '"/>';
+    }
+    if (p.acc === 'glasses') o += '<g stroke="#8a6f7e" stroke-width="1.4" fill="#fff8ef" fill-opacity=".18"><circle cx="39" cy="54.5" r="6.4"/><circle cx="61" cy="54.5" r="6.4"/></g><path d="M45.4 54Q50 51.6 54.6 54" stroke="#8a6f7e" stroke-width="1.4" fill="none"/>';
+    return o;
+  }
+  function headgearSvg(p) {
+    let o = '';
+    if (p.role === 'chef') {
+      o += '<circle cx="31" cy="14" r="12" fill="#fbf0e3"/><circle cx="69" cy="14" r="12" fill="#f1e2d1"/><circle cx="41" cy="3" r="12" fill="#fbf0e3"/><circle cx="59" cy="3" r="12" fill="#f5e8d9"/><circle cx="50" cy="10" r="14" fill="#fbf0e3"/>' +
+        '<rect x="24" y="19" width="52" height="16" rx="6" fill="#f7eadb"/><rect x="58" y="19" width="18" height="16" rx="6" fill="#efdecb"/><rect x="24" y="30" width="52" height="5" rx="2.5" fill="#e6d1bc"/>' +
+        '<ellipse cx="40" cy="-2" rx="5.5" ry="2.2" fill="#fff8ef"/><ellipse cx="29" cy="10" rx="3.5" ry="1.8" fill="#fff8ef"/>';
+    } else if (p.role === 'helper') {
+      o += '<path d="M23.5 43Q50 15 76.5 43" stroke="#f6d27a" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M71 33l7-5v8zM71 33l-2-8 8 3z" fill="#f2c25e"/>';
+    }
+    if (p.acc === 'star') o += '<path d="' + starPath(72, 38, 4.6) + '" fill="#f6d27a" stroke="#f6d27a" stroke-width="1.2" stroke-linejoin="round"/>';
+    if (p.acc === 'flower') {
+      for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5 - Math.PI / 2; o += '<circle cx="' + (72 + Math.cos(a) * 2.9).toFixed(1) + '" cy="' + (38 + Math.sin(a) * 2.9).toFixed(1) + '" r="2.4" fill="#ffb5a7"/>'; }
+      o += '<circle cx="72" cy="38" r="1.7" fill="#f6d27a"/>';
+    }
+    return o;
+  }
+  const OUTFIT = { chef: { top: '#fff1e2', pants: '#7d6470' }, waiter: { top: '#fff1e2', pants: '#5e5a7a' }, helper: { top: '#b8e0d2', pants: '#9fb2d6' } };
+  function bodySvg(p, skin) {
+    const f = OUTFIT[p.role];
+    let o = '<rect x="37" y="104" width="10" height="16" rx="4" fill="' + f.pants + '"/><rect x="53" y="104" width="10" height="16" rx="4" fill="' + shade(f.pants, 0.9) + '"/>' +
+      '<rect x="22" y="74" width="11" height="25" rx="5.5" transform="rotate(12 27 74)" fill="' + f.top + '"/><rect x="67" y="74" width="11" height="25" rx="5.5" transform="rotate(-12 73 74)" fill="' + shade(f.top, 0.94) + '"/>' +
+      '<circle cx="23" cy="98" r="5" fill="' + skin + '"/><circle cx="77" cy="98" r="5" fill="' + shade(skin, 0.95) + '"/>' +
+      '<path d="M33 75Q33 70 38 70L62 70Q67 70 67 75L69 104Q69 108 65 108L35 108Q31 108 31 104Z" fill="' + f.top + '"/>' +
+      '<path d="M58 70L62 70Q67 70 67 75L69 104Q69 108 65 108L60 108Z" fill="' + shade(f.top, 0.94) + '"/>';
+    if (p.role === 'chef') {
+      for (const [x, y] of [[45, 78], [55, 78], [45, 85], [55, 85]]) o += '<circle cx="' + x + '" cy="' + y + '" r="1.6" fill="#c9a98f"/>';
+      o += '<path d="M34 92L66 92L68 111Q68 114 65 114L35 114Q32 114 32 111Z" fill="#8a6f7e"/><rect x="32" y="89" width="36" height="4" rx="2" fill="#7d6470"/>';
+    } else if (p.role === 'waiter') {
+      o += '<path d="M33 75Q33 70 38 70L45 70L48 108L35 108Q31 108 31 104Z" fill="#cdb4db"/><path d="M55 70L62 70Q67 70 67 75L69 104Q69 108 65 108L52 108Z" fill="#b99fcc"/>' +
+        '<path d="M50 74L43.5 70.5Q42 74 43.5 77.5ZM50 74L56.5 70.5Q58 74 56.5 77.5Z" fill="#ffb5a7"/><circle cx="50" cy="74" r="2" fill="#f49d8f"/>';
+    } else {
+      o += '<path d="M36 86L64 86L66 108Q66 111 63 111L37 111Q34 111 34 108Z" fill="#f6d27a"/><path d="M44 83q6 4 12 0" stroke="#f6d27a" stroke-width="2.4" fill="none"/><rect x="43" y="93" width="14" height="8" rx="2.5" fill="#f2c25e"/>';
+    }
+    return o;
+  }
   function avatarSvg(p) {
-    const skin = hexOf(SKINS[p.skin]), hair = hexOf(HAIRS[p.hair]);
-    const mark = {
-      chef: '<ellipse cx="20" cy="8.6" rx="7.6" ry="4.8" fill="#fffaf3"/><rect x="14" y="9.4" width="12" height="4" rx="1.6" fill="#eadccd"/>',
-      waiter: '<path d="M15.6 27.4l4.4 2-4.4 2zM24.4 27.4l-4.4 2 4.4 2z" fill="#ffb5a7"/>',
-      helper: '<path d="M13.4 27.2h13.2l-2.4 3h-8.4z" fill="#f6d27a"/>'
-    }[p.role];
-    return '<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#f2e4d6"/>' +
-      '<path d="M8 42c0-9 5-14 12-14s12 5 12 14z" fill="' + ROLE_LOOK[p.role] + '"/>' +
-      '<circle cx="20" cy="19" r="7.6" fill="' + skin + '"/>' +
-      '<path d="M12.3 18.4a7.7 7.7 0 0 1 15.4 0c-2.6-1.6-5-2.2-7.7-2.2s-5.1.6-7.7 2.2z" fill="' + hair + '"/>' + mark + '</svg>';
+    const skin = hexOf(SKINS[p.skin]), hair = hexOf(HAIRS[p.hair]), style = p.hairStyle;
+    return '<svg viewBox="13 6 74 74" aria-hidden="true"><rect x="0" y="-20" width="100" height="110" fill="#f2e4d6"/>' + bodySvg(p, skin) + hairBackSvg(style, hair) +
+      '<circle cx="24" cy="56" r="5.5" fill="' + skin + '"/><circle cx="76" cy="56" r="5.5" fill="' + shade(skin, 0.95) + '"/><ellipse cx="50" cy="50" rx="27" ry="25" fill="' + skin + '"/>' +
+      '<path d="M50 25A27 25 0 0 1 50 75A30 27 0 0 0 50 25Z" fill="' + shade(skin, 0.97) + '" opacity=".6"/>' +
+      faceSvg(p, skin) + hairFrontSvg(style, hair) + headgearSvg(p) + '</svg>';
   }
   function staffRow(p, cand) {
     const li = document.createElement('li');
