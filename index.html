@@ -96,6 +96,34 @@
     white-space: nowrap;
   }
   .title-card h1 svg { width: 28px; height: 28px; flex: none; }
+  .shop-name, .shop-name-input {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    min-height: 44px;
+    margin: 0 0 0 -6px;
+    padding: 0 6px;
+    border-radius: 12px;
+    max-width: 13em;
+  }
+  .shop-name {
+    background: transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    transition: background .2s ease;
+  }
+  .shop-name:hover { background: var(--cream-2); }
+  .shop-name-input {
+    width: 11em;
+    border: 0;
+    background: var(--cream-2);
+    box-shadow: inset 0 0 0 2px var(--lav);
+    outline: none;
+  }
+  .shop-name-input:focus-visible { box-shadow: inset 0 0 0 2px #9b7fc0; }
+  .shop-name[hidden], .shop-name-input[hidden] { display: none; }
   .clock { display: flex; align-items: center; gap: 8px; }
   .dial { width: 30px; height: 30px; flex: none; }
   .clock-read {
@@ -289,6 +317,8 @@
     .title-card { padding: 4px 6px 4px 10px; gap: 8px; border-radius: 18px; }
     .title-card h1 { font-size: 15px; gap: 6px; }
     .title-card h1 svg { width: 22px; height: 22px; }
+    .shop-name { max-width: 9.5em; }
+    .shop-name-input { width: 9.5em; }
     .dial { width: 24px; height: 24px; }
     .clock-read { font-size: 13px; }
     .clock-read small { font-size: 10px; }
@@ -331,7 +361,8 @@
         <path d="M14 11.7v2.6l5-2.5V9.2z" fill="#e48979"/>
         <circle cx="14" cy="6.4" r="1.6" fill="#b8e0d2"/>
       </svg>
-      Cozy Restaurant
+      <button type="button" class="shop-name" id="shop-name" aria-label="Shop name: Cozy Restaurant. Tap to edit.">Cozy Restaurant</button>
+      <input type="text" class="shop-name-input" id="shop-name-input" hidden autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="Shop name, up to 20 characters">
     </h1>
     <div class="clock">
       <svg class="dial" viewBox="0 0 30 30" aria-hidden="true">
@@ -515,6 +546,8 @@
   const bdHint = document.getElementById('bd-hint');
   const bdNote = document.getElementById('bd-note');
   const bdClose = document.getElementById('bd-close');
+  const nameBtn = document.getElementById('shop-name');
+  const nameInput = document.getElementById('shop-name-input');
 
   const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
   let reduced = reduceMQ.matches;
@@ -578,6 +611,17 @@
   /* ================================================================
      Shop state
      ================================================================ */
+  const DEFAULT_NAME = 'Cozy Restaurant';
+  const NAME_MAX = 20;    // user-perceived characters, so Thai vowel and tone marks don't count extra
+  let shopName = DEFAULT_NAME;
+  const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  const graphemes = (s) => (segmenter ? Array.from(segmenter.segment(s), (g) => g.segment) : Array.from(s));
+  const clipName = (s) => graphemes(String(s).replace(/[\u0000-\u001f\u007f]/g, '')).slice(0, NAME_MAX).join('');
+  function cleanName(s) {
+    const t = typeof s === 'string' ? clipName(s).trim() : '';
+    return t || DEFAULT_NAME;
+  }
+
   let level = 1;
   let N = 5;
   let items = [];   // { id, x, y, rot, born, anim }
@@ -738,9 +782,20 @@
     }
   }
 
+  /* Save format. v1: Phases 1-2. v2 adds name, decor, menu and item variants.
+     migrate() upgrades older payloads in place; every field is read defensively. */
+  const SAVE_VERSION = 2;
+  function migrate(d) {
+    if (d.v === 1) {
+      d.name = DEFAULT_NAME;
+      d.v = 2;
+    }
+    return d;
+  }
+
   function save() {
     const data = {
-      v: 1, level, coins, rating: Math.round(rating * 100) / 100,
+      v: SAVE_VERSION, name: shopName, level, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot })) }
     };
@@ -753,7 +808,9 @@
     if (!raw) return false;
     try {
       const d = JSON.parse(raw);
-      if (!d || d.v !== 1 || !d.interior || !Array.isArray(d.interior.items)) return false;
+      if (!d || !(d.v >= 1 && d.v <= SAVE_VERSION) || !d.interior || !Array.isArray(d.interior.items)) return false;
+      migrate(d);
+      shopName = cleanName(d.name);
       level = clamp(Math.floor(+d.level) || 1, 1, MAX_LEVEL);
       N = gridFor(level);
       adoptItems(d.interior.items, true);
@@ -2327,6 +2384,48 @@
     layoutChanged();
     saveSoon();
   }
+  /* ---------------- shop name ---------------- */
+  let nameBefore = '';
+  function renderName() {
+    nameBtn.textContent = shopName;
+    nameBtn.setAttribute('aria-label', 'Shop name: ' + shopName + '. Tap to edit.');
+    document.title = shopName;
+  }
+  function editName() {
+    nameBefore = shopName;
+    nameInput.value = shopName;
+    nameBtn.hidden = true;
+    nameInput.hidden = false;
+    nameInput.focus();
+    nameInput.select();
+  }
+  function onNameInput() {
+    if (nameInput.composing) return;   // let Thai and other IMEs finish a cluster first
+    const v = clipName(nameInput.value);
+    if (v !== nameInput.value) nameInput.value = v;
+    const t = v.trim();
+    if (t) { shopName = t; renderName(); saveSoon(); }
+  }
+  function endEditName(keep) {
+    if (nameInput.hidden) return;
+    shopName = keep ? cleanName(nameInput.value) : nameBefore;
+    nameInput.hidden = true;
+    nameBtn.hidden = false;
+    renderName();
+    saveSoon();
+    if (keep && shopName !== nameBefore) announce('Shop renamed to ' + shopName + '.');
+  }
+  nameBtn.addEventListener('click', editName);
+  nameInput.addEventListener('compositionstart', () => { nameInput.composing = true; });
+  nameInput.addEventListener('compositionend', () => { nameInput.composing = false; onNameInput(); });
+  nameInput.addEventListener('input', onNameInput);
+  nameInput.addEventListener('blur', () => endEditName(true));
+  nameInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();   // keep game shortcuts (R, 1-7, Delete) out of the text field
+    if (e.key === 'Enter') { e.preventDefault(); endEditName(true); nameBtn.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); endEditName(false); nameBtn.focus(); }
+  });
+
   function renderLevel() {
     levelRead.innerHTML = '<b>Lv ' + level + '</b><small>' + N + '×' + N + ' room</small>';
     lvDown.disabled = level <= 1;
@@ -2566,7 +2665,7 @@
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       state: () => ({
-        N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        name: shopName, N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
@@ -2584,6 +2683,7 @@
     save();
   }
   resize();
+  renderName();
   renderLevel();
   selectTool('move', false);
   updateLight(0);
