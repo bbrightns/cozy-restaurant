@@ -388,7 +388,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 |---|---|
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
-| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B in progress (B0 to B4 done; B5 stove next), then 3c |
+| 3 Staff and cleanliness | In progress: 3a, 3b and polish A done; polish B in progress (B0 to B5 done; B6 sweep next), then 3c |
 | 4 Storefront | Planned |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
