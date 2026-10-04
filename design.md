@@ -75,7 +75,7 @@ A cozy restaurant-management toy. The player builds and decorates a tiny floatin
 
 Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a small unique detail (a steam wisp, a candle, a flower).
 
-**Scale rule.** People are about 28px tall in world units, so furniture is drawn smaller than its tile: table about 21px high, chair 19, counter 27, plant 30, lantern 35 (the `ITEM_SCALE` factors are 0.66 to 0.7 of the original drawing). A counter or table top should sit near waist height of a standing person. Keep new furniture to this scale.
+**Scale rule.** A person is drawn `PERSON_SCALE` = 1.7 times the old chibi: about 45px tall (chef hat about 63px), roughly 0.7 of a 64px tile. Furniture is drawn slightly smaller than its tile (`ITEM_SCALE`: table 0.88, chair 0.78, counter 0.86, plant and lantern 0.88): table top about 16px (waist height) with the vase at 25px, chair seat 11px and back 20px (lower than the table with its vase), counter about 27px, door 64px, wall 74px. Seated guests sink `SIT_DROP` (3px) into the chair so a sitter is no taller than a stander. Keep new furniture to this scale.
 
 ## 7. Characters and Behavior
 

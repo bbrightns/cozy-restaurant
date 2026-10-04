@@ -1002,16 +1002,19 @@
      Catalog
      ================================================================ */
   const CATALOG = {
-    table_01: { name: 'Table', w: 1, d: 1, h: 21, draw: scaled('table_01', drawTable) },
-    chair_01: { name: 'Chair', w: 1, d: 1, h: 19, seat: true, draw: tucked(scaled('chair_01', drawChair)) },
-    counter_01: { name: 'Counter', w: 2, d: 1, h: 27, draw: scaled('counter_01', drawCounter) },
-    plant_01: { name: 'Plant', w: 1, d: 1, h: 30, draw: scaled('plant_01', drawPlant) },
-    lantern_01: { name: 'Lantern', w: 1, d: 1, h: 35, light: true, draw: scaled('lantern_01', drawLantern) }
+    table_01: { name: 'Table', w: 1, d: 1, h: 27, draw: scaled('table_01', drawTable) },
+    chair_01: { name: 'Chair', w: 1, d: 1, h: 23, seat: true, draw: tucked(scaled('chair_01', drawChair)) },
+    counter_01: { name: 'Counter', w: 2, d: 1, h: 35, draw: scaled('counter_01', drawCounter) },
+    plant_01: { name: 'Plant', w: 1, d: 1, h: 38, draw: scaled('plant_01', drawPlant) },
+    lantern_01: { name: 'Lantern', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', drawLantern) }
   };
-  /* Furniture is drawn at a smaller scale than its tile so people read as the right size next to it.
-     Each draw function still works in the old units; scaled() shrinks the whole piece about the centre of its footprint.
-     Heights in the CATALOG above (h) are the shrunken heights, used for picking. */
-  const ITEM_SCALE = { table_01: 0.68, chair_01: 0.66, counter_01: 0.66, plant_01: 0.7, lantern_01: 0.7 };
+  /* Proportions (project.md 12.3, polish B): a person is drawn PERSON_SCALE times the old chibi (about 45px tall, 0.7 of a tile
+     wide), and furniture is drawn a little smaller than its tile so the two read right together: the table top sits at waist
+     height and a chair is lower than the table. Each draw function still works in the old units; scaled() shrinks the whole piece
+     about the centre of its footprint. Heights in the CATALOG above (h) are the shrunken heights, used for picking. */
+  const PERSON_SCALE = 1.7;
+  const SIT_DROP = 3;               // world px a seated guest sinks into the chair, so a sitter is not taller than a stander
+  const ITEM_SCALE = { table_01: 0.88, chair_01: 0.78, counter_01: 0.86, plant_01: 0.88, lantern_01: 0.88 };
   const pivotOf = (it) => {
     const [w, d] = dims(it.id, it.rot || 0);
     return [PX(it.x + w / 2, it.y + d / 2), PY(it.x + w / 2, it.y + d / 2, 0)];
@@ -1027,15 +1030,17 @@
   }
   /* Shrinking a table and a chair about their own tile centres leaves a gap of over half a tile between them, so a dining chair
      (one facing a table) is drawn pushed toward that table by CHAIR_TUCK tiles. The seated guest moves with it. */
-  const CHAIR_TUCK = 0.24;
+  const CHAIR_TUCK = 0.37;
   function tucked(fn) {
     return (it, now) => {
       if (!seatTable(it)) { fn(it, now); return; }
       const [dx, dy] = DIRS[it.rot], t = CHAIR_TUCK;
+      const mx = PX(it.x + dx * t, it.y + dy * t) - PX(it.x, it.y), my = PY(it.x + dx * t, it.y + dy * t, 0) - PY(it.x, it.y, 0);
       ctx.save();
-      ctx.translate(PX(it.x + dx * t, it.y + dy * t) - PX(it.x, it.y), PY(it.x + dx * t, it.y + dy * t, 0) - PY(it.x, it.y, 0));
+      ctx.translate(mx, my);
       fn(it, now);
       ctx.restore();
+      if (it.occupant && it.occupant.seated) { it.occupant.hx += mx; it.occupant.hy += my; }   // bubbles and pops follow the tucked chair
     };
   }
   const TOOL_ORDER = ['move', 'table_01', 'chair_01', 'counter_01', 'plant_01', 'lantern_01', 'remove'];
@@ -1610,7 +1615,7 @@
       const s = ITEM_SCALE.chair_01, [cx, cy] = pivotOf(it);
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
-      drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13 * s, true, now);
+      drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13 * s - SIT_DROP, true, now);
       ctx.restore();
     }
     if (!backFar) drawBack();
@@ -2035,7 +2040,7 @@
   }
   function drawDoor() {
     const WS = wallSeg('A', DOOR.x);
-    const u0 = DOOR.x + 0.14, u1 = DOOR.x + 0.86, zt = 54;
+    const u0 = DOOR.x + 0.14, u1 = DOOR.x + 0.86, zt = 64;
     const q = (a, b, za, zb) => poly([[a, 0, za], [b, 0, za], [b, 0, zb], [a, 0, zb]]);
     q(u0 - 0.06, u1 + 0.06, 0, zt + 4);
     ctx.fillStyle = lit(WS.trim, 1);
@@ -2065,9 +2070,9 @@
     ctx.fill();
     // panels
     ctx.fillStyle = lit(P.doorDeep, 0.98, 0.6);
-    q(u0 + 0.08, u1 - 0.08, 6, 22); ctx.fill();
+    q(u0 + 0.08, u1 - 0.08, 6, 26); ctx.fill();
     // round window showing the sky
-    const cx = PX(DOOR.x + 0.5, 0), cy = PY(DOOR.x + 0.5, 0, 38);
+    const cx = PX(DOOR.x + 0.5, 0), cy = PY(DOOR.x + 0.5, 0, 46);
     ctx.save();
     ctx.translate(cx, cy);
     ctx.transform(1, 0.5, 0, 1, 0, 0);
@@ -2080,7 +2085,7 @@
     ctx.beginPath(); ctx.arc(0, 0, 5.8, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     // knob
-    const k = [u1 - 0.12, 0, 26];
+    const k = [u1 - 0.12, 0, 30];
     ctx.fillStyle = lit(P.gold, 1);
     ctx.beginPath(); ctx.arc(PX(k[0], k[1]), PY(k[0], k[1], k[2]), 1.8, 0, Math.PI * 2); ctx.fill();
   }
@@ -2674,7 +2679,8 @@
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
   /* Anyone drawn chibi on the floor (big head, face, hair style). Staff have b.role and b.look (uniform, hat); guests carry the
-     look parts themselves and wear plain clothes. Sets b.hx and b.hy so bubbles and drawStaffBits keep working; the head centre is 7px below hy. */
+     look parts themselves and wear plain clothes. Everything is drawn in the old chibi units and grown by PERSON_SCALE about the feet.
+     Sets b.hx and b.hy (head top, for bubbles) plus b.hcr and b.hb (raw head centre and feet, for drawStaffBits). */
   const STAFF_TOP = { chef: rgb('#fff1e2'), waiter: rgb('#8e78b8'), helper: rgb('#5fae98') };
   const GUEST_SCARF = ['#f4978e', '#f6d27a', '#7fb8e6', '#e8a06a', '#c9a0dc'].map(rgb);
   const CAP = { white: rgb('#fbf0e3'), whiteDeep: rgb('#efdfcc'), band: rgb('#f6d27a'), bow: rgb('#ffb5a7'), apron: rgb('#8a6f7e'), vest: rgb('#6f5c9c'), apronY: rgb('#f6d27a'), blush: rgb('#ff9f96'), mouth: rgb('#b8566a'), cream: rgb('#fff8ef') };
@@ -2686,6 +2692,7 @@
     const st = walk ? Math.sin(b.ph) * 1.5 : 0;
     const role = b.role, tc = role ? STAFF_TOP[role] : b.shirt, hair = lit(b.hair, 1), hairDeep = lit(b.hair, 0.85), skin = lit(b.skin, 1);
     ctx.save();
+    ctx.translate(sx, base); ctx.scale(PERSON_SCALE, PERSON_SCALE); ctx.translate(-sx, -base);   // grow about the feet
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
     if (!sitting) {
       ctx.fillStyle = 'rgba(122,82,118,0.18)';
@@ -2821,29 +2828,37 @@
       }
     }
     ctx.restore();
+    // b.hy is the top of the head in world px (scaled); b.hcr and b.hb are the unscaled head centre and feet, used by drawStaffBits
     b.hx = sx;
-    b.hy = hy - 7;
+    b.hy = base + (hy - 7 - base) * PERSON_SCALE;
+    b.hcr = hy;
+    b.hb = base;
   }
-  /* hand and plate details drawn over a staff body; b.hx, b.hy were set by drawPerson (head centre is 7px below hy) */
+  /* hand and plate details drawn over a staff body, in the same grown units as drawChibi; b.hx, b.hcr and b.hb were set by it */
   function drawStaffBits(b, now) {
-    const hx = b.hx, hc = b.hy + 7;
+    const hx = b.hx, hc = b.hcr;
     ctx.save();
+    ctx.translate(hx, b.hb); ctx.scale(PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
     if (b.cooking) {
-      // a hand stirring at the counter
+      // a hand stirring, raised to counter-top height
       const a = reduced ? 0 : now * 0.008;
       ctx.fillStyle = lit(b.skin, 1);
-      ctx.beginPath(); ctx.arc(hx + 4.8 + Math.cos(a) * 1.4, hc + 9 + Math.sin(a) * 0.7, 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx + 4.8 + Math.cos(a) * 1.4, hc + 5 + Math.sin(a) * 0.7, 1.7, 0, Math.PI * 2); ctx.fill();
     }
     if (b.carry) {
-      const sx = hx + 6, sy = hc + 8;
+      // the carried plate is drawn at table-plate size on screen (0.6 of its old size, then grown with the person)
+      const sx = hx + 6.5, sy = hc + 8;
+      ctx.save();
+      ctx.translate(sx, sy); ctx.scale(0.6, 0.6);
       ctx.fillStyle = lit(PLATE, 1);
-      ctx.beginPath(); ctx.ellipse(sx, sy, 5.4, 2.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 0, 5.4, 2.7, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = lit(P.cream, 1.02);
-      ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 4, 1.9, 0, 0, Math.PI * 2); ctx.fill();
-      drawFood(sx, sy - 0.3, b.carry, 0.85);
+      ctx.beginPath(); ctx.ellipse(0, -0.3, 4, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+      drawFood(0, -0.3, b.carry, 0.85);
+      ctx.restore();
       ctx.fillStyle = lit(b.skin, 1);
-      ctx.beginPath(); ctx.arc(sx - 3.6, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx - 2.4, sy + 1, 1.6, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -2889,8 +2904,8 @@
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -3.4); ctx.moveTo(0, 0); ctx.lineTo(2.6, 1.2); ctx.stroke();
     }
   };
-  /* true when the bubble (24 wide, 25 tall above the head) sits over a staff head or hat (the hat tops out 8px above b.hy) */
-  const coversStaff = (c) => staffBodies().some((p) => p.hx !== undefined && Math.abs(p.hx - c.hx) < 17 && p.hy - 9 < c.hy && p.hy + 8 > c.hy - 26);
+  /* true when the bubble (24 wide, 25 tall above the head) sits over a staff head or hat (the hat tops out 8 chibi px above b.hy) */
+  const coversStaff = (c) => staffBodies().some((p) => p.hx !== undefined && Math.abs(p.hx - c.hx) < 14 + 4 * PERSON_SCALE && p.hy - 9 * PERSON_SCALE < c.hy && p.hy + 8 * PERSON_SCALE > c.hy - 26);
   function drawBubble(c) {
     const b = c.bubble;
     const k = clamp(b.t / 0.25, 0, 1);
