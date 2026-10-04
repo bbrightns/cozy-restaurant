@@ -10,6 +10,8 @@ The game is `index.html`, a single HTML file opened directly in a browser. There
 
 Staff (Phase 3a, `===== STAFF =====`): each person stores only role, tier, name and look (skin, hair, hairStyle, eye, face, acc; the portrait is drawn by `avatarSvg`); speed and wage come from the `ROLES` and `TIERS` tables, so retuning applies to everyone. Chefs cook at counters, waiters and helpers carry plates, and `economy()` takes capacity as the smallest of seats, kitchen and service (project.md 7.1 and the 8.1 staff rule). Since 3b, staff are drawn (`drawChibi`, shared with guests; staff look comes from the saved parts) and walk the grid: per-person runtime state (`p.body`, `p.home`, `p.counter`, `p.job`) is never saved, `assignStations()` re-plans work spots on every layout or team change, and waiters carry plates in hand (there are no flying plates).
 
+Furniture is drawn shrunk by `ITEM_SCALE` (via `scaled()` in CATALOG) so people read at the right size next to it; `h` in CATALOG is the shrunken height used for picking.
+
 Sections in `index.html` are marked `// ===== NAME =====` (CONFIG, STATE, SAVE, SIM, ACTIONS, INPUT, ...; grep `===== ` for the list). Keep new code inside the matching section and add a marker for any new one. Progression: each happy guest gives XP (`addXp` in SIM, `xpNeed(level)` = 15 + 10 per level); levels drive room size, dish unlocks and menu slots. `xp` is saved beside `level`.
 
 ## Rules

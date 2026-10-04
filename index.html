@@ -998,12 +998,29 @@
      Catalog
      ================================================================ */
   const CATALOG = {
-    table_01: { name: 'Table', w: 1, d: 1, h: 30, draw: drawTable },
-    chair_01: { name: 'Chair', w: 1, d: 1, h: 28, seat: true, draw: drawChair },
-    counter_01: { name: 'Counter', w: 2, d: 1, h: 40, draw: drawCounter },
-    plant_01: { name: 'Plant', w: 1, d: 1, h: 42, draw: drawPlant },
-    lantern_01: { name: 'Lantern', w: 1, d: 1, h: 50, light: true, draw: drawLantern }
+    table_01: { name: 'Table', w: 1, d: 1, h: 21, draw: scaled('table_01', drawTable) },
+    chair_01: { name: 'Chair', w: 1, d: 1, h: 19, seat: true, draw: scaled('chair_01', drawChair) },
+    counter_01: { name: 'Counter', w: 2, d: 1, h: 27, draw: scaled('counter_01', drawCounter) },
+    plant_01: { name: 'Plant', w: 1, d: 1, h: 30, draw: scaled('plant_01', drawPlant) },
+    lantern_01: { name: 'Lantern', w: 1, d: 1, h: 35, light: true, draw: scaled('lantern_01', drawLantern) }
   };
+  /* Furniture is drawn at a smaller scale than its tile so people read as the right size next to it.
+     Each draw function still works in the old units; scaled() shrinks the whole piece about the centre of its footprint.
+     Heights in the CATALOG above (h) are the shrunken heights, used for picking. */
+  const ITEM_SCALE = { table_01: 0.68, chair_01: 0.66, counter_01: 0.66, plant_01: 0.7, lantern_01: 0.7 };
+  const pivotOf = (it) => {
+    const [w, d] = dims(it.id, it.rot || 0);
+    return [PX(it.x + w / 2, it.y + d / 2), PY(it.x + w / 2, it.y + d / 2, 0)];
+  };
+  function scaled(id, fn) {
+    return (it, now) => {
+      const s = ITEM_SCALE[id], [cx, cy] = pivotOf(it);
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+      fn(it, now);
+      ctx.restore();
+    };
+  }
   const TOOL_ORDER = ['move', 'table_01', 'chair_01', 'counter_01', 'plant_01', 'lantern_01', 'remove'];
 
   function dims(id, rot) {
@@ -1571,7 +1588,14 @@
     box(x + a, y + a, x + b, y + b, 9, 12, C.wood);
     box(x + a + 0.03, y + a + 0.03, x + b - 0.03, y + b - 0.03, 12, 14, C.cushion, { top: C.cushionHi });
     const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
-    if (sitter) drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13, true, now);
+    if (sitter) {
+      // the guest is not shrunk with the chair: undo the scale around the same pivot and lift by the scaled seat height
+      const s = ITEM_SCALE.chair_01, [cx, cy] = pivotOf(it);
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
+      drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13 * s, true, now);
+      ctx.restore();
+    }
     if (!backFar) drawBack();
   }
 
