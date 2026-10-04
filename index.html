@@ -537,6 +537,66 @@
     return true;
   }
 
+  function blockedGrid() {
+    const blocked = new Uint8Array(N * N);
+    for (const it of items) for (const [cx, cy] of cells(it)) if (inside(cx, cy)) blocked[cx + cy * N] = 1;
+    return blocked;
+  }
+
+  /* A* on the floor grid, 4-way. The start and goal may be blocked
+     (a customer standing up from a chair, or walking onto one).
+     Returns a list of [x, y] tiles from start to goal, or null. */
+  function astar(sx, sy, gx, gy, blocked) {
+    if (!inside(sx, sy) || !inside(gx, gy)) return null;
+    const total = N * N, start = sx + sy * N, goal = gx + gy * N;
+    const g = new Float32Array(total).fill(Infinity);
+    const came = new Int16Array(total).fill(-1);
+    const closed = new Uint8Array(total);
+    const h = (k) => Math.abs((k % N) - gx) + Math.abs(((k / N) | 0) - gy);
+    const open = [start];
+    g[start] = 0;
+    while (open.length) {
+      let bi = 0, bf = Infinity;
+      for (let q = 0; q < open.length; q++) {
+        const f = g[open[q]] + h(open[q]);
+        if (f < bf) { bf = f; bi = q; }
+      }
+      const k = open[bi];
+      open[bi] = open[open.length - 1];
+      open.pop();
+      if (k === goal) {
+        const path = [];
+        for (let c = goal; c !== -1; c = came[c]) path.push([c % N, (c / N) | 0]);
+        return path.reverse();
+      }
+      if (closed[k]) continue;
+      closed[k] = 1;
+      const x = k % N, y = (k / N) | 0;
+      for (const [dx, dy] of STEPS) {
+        const nx = x + dx, ny = y + dy;
+        if (!inside(nx, ny)) continue;
+        const nk = nx + ny * N;
+        if (closed[nk] || (blocked[nk] && nk !== goal)) continue;
+        const ng = g[k] + 1;
+        if (ng < g[nk]) { g[nk] = ng; came[nk] = k; open.push(nk); }
+      }
+    }
+    return null;
+  }
+
+  /* A chair facing a table is a dining seat; any other chair is a waiting chair. */
+  function seatTable(chair) {
+    const [dx, dy] = DIRS[chair.rot];
+    const t = itemOnTile(chair.x + dx, chair.y + dy);
+    return t && t.id === 'table_01' ? t : null;
+  }
+
+  let layoutVersion = 0;
+  function layoutChanged() {
+    layoutVersion++;
+    updateContext();
+  }
+
   /* Returns '' when the item fits, otherwise a reason key. */
   function checkPlace(cand, ignore) {
     const others = items.filter((it) => it !== ignore);
@@ -1270,11 +1330,49 @@
   }
   function footprintPath(x, y, w, d, z) { flat(x + 0.04, y + 0.04, x + w - 0.04, y + d - 0.04, z || 0.6); }
 
+  /* small floor arrow showing which way a chair faces: mint toward a table, lavender otherwise */
+  function drawFacing(chair) {
+    const [dx, dy] = DIRS[chair.rot];
+    const dining = !!seatTable(chair);
+    const cx = chair.x + 0.5 + dx * 0.62, cy = chair.y + 0.5 + dy * 0.62;
+    const px = -dy, py = dx;
+    poly([
+      [cx + dx * 0.16, cy + dy * 0.16, 0.7],
+      [cx + px * 0.13, cy + py * 0.13, 0.7],
+      [cx - px * 0.13, cy - py * 0.13, 0.7]
+    ]);
+    ctx.fillStyle = dining ? 'rgba(111,180,156,0.9)' : 'rgba(170,140,200,0.9)';
+    ctx.fill();
+  }
+
+  /* dotted walking route from the door to a seat */
+  let routeCache = { v: -1, key: '', path: null };
+  function routeTo(it) {
+    const key = it.x + ',' + it.y;
+    if (routeCache.v !== layoutVersion || routeCache.key !== key) {
+      routeCache = { v: layoutVersion, key, path: astar(DOOR.x, DOOR.y, it.x, it.y, blockedGrid()) };
+    }
+    return routeCache.path;
+  }
+  function drawRoute(path, now) {
+    if (!path || path.length < 2) return;
+    const off = reduced ? 0 : (now * 0.0012) % 0.25;
+    ctx.fillStyle = 'rgba(111,180,156,0.85)';
+    for (let q = 0; q < path.length - 1; q++) {
+      const [ax, ay] = path[q], [bx, by] = path[q + 1];
+      for (let t = off; t < 1; t += 0.25) {
+        const x = lerp(ax, bx, t) + 0.5, y = lerp(ay, by, t) + 0.5;
+        ctx.beginPath(); ctx.ellipse(PX(x, y), PY(x, y, 0.6), 2.6, 1.3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
   function drawGhost(id, x, y, rot, reason, now) {
     const [w, d] = dims(id, rot);
     footprintPath(x, y, w, d);
     ctx.fillStyle = reason ? css(P.bad, 0.4) : 'rgba(255,250,240,0.45)';
     ctx.fill();
+    if (id === 'chair_01' && !reason) drawFacing({ id, x, y, rot });
     ctx.save();
     ctx.globalAlpha = reason ? 0.35 : 0.62;
     CATALOG[id].draw({ id, x, y, rot }, now);
@@ -1333,6 +1431,10 @@
       ctx.lineWidth = 1.6;
       ctx.stroke();
       ctx.setLineDash([]);
+      if (selected.id === 'chair_01') {
+        drawRoute(routeTo(selected), now);
+        drawFacing(selected);
+      }
     }
 
     // items, back to front
@@ -1400,6 +1502,10 @@
     setTimeout(() => { statusEl.textContent = msg; }, 30);
   }
   const nameOf = (id) => CATALOG[id].name;
+  function labelOf(it) {
+    if (it.id === 'chair_01') return seatTable(it) ? 'Dining chair' : 'Waiting chair';
+    return nameOf(it.id);
+  }
 
   function placeAt(x, y) {
     const cand = { id: tool, x, y, rot: ghostRot, born: performance.now(), anim: 'pop' };
@@ -1409,6 +1515,7 @@
     items.push(cand);
     const [w, d] = dims(cand.id, cand.rot);
     spawnRing(x, y, w, d);
+    layoutChanged();
     saveSoon();
     announce(nameOf(cand.id) + ' placed at ' + (x + 1) + ', ' + (y + 1) + '.');
     return true;
@@ -1419,6 +1526,7 @@
     spawnPuff(it.x, it.y, w, d);
     items = items.filter((o) => o !== it);
     if (selected === it) select(null);
+    layoutChanged();
     saveSoon();
     announce(nameOf(it.id) + ' removed.');
     try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* ignore */ }
@@ -1432,6 +1540,7 @@
     it.born = performance.now(); it.anim = 'wobble';
     const [w, d] = dims(it.id, it.rot);
     spawnRing(x, y, w, d);
+    layoutChanged();
     saveSoon();
     announce(nameOf(it.id) + ' moved to ' + (x + 1) + ', ' + (y + 1) + '.');
     return true;
@@ -1444,6 +1553,7 @@
       if (reason) { toast(reason === 'outside' || reason === 'taken' ? 'No room to turn it here' : REASON[reason]); return; }
       it.rot = cand.rot;
       it.born = performance.now(); it.anim = 'wobble';
+      layoutChanged();
       saveSoon();
       announce(nameOf(it.id) + ' rotated.');
     } else if (CATALOG[tool]) {
@@ -1459,7 +1569,7 @@
   function updateContext() {
     if (selected) {
       contextEl.hidden = false;
-      ctxLbl.textContent = nameOf(selected.id);
+      ctxLbl.textContent = labelOf(selected);
       ctxRemove.hidden = false;
       ctxDone.hidden = false;
       ctxRotate.setAttribute('aria-label', 'Rotate ' + nameOf(selected.id));
@@ -1497,6 +1607,7 @@
       toast(grew ? 'The room grew to ' + N + '×' + N + '!' : 'Room is now ' + N + '×' + N);
     }
     renderLevel();
+    layoutChanged();
     saveSoon();
   }
   function renderLevel() {
