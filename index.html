@@ -1631,6 +1631,7 @@
       const s = ITEM_SCALE.chair_01, [cx, cy] = pivotOf(it);
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
+      sitter.fdx = dx; sitter.fdy = dy;   // seated guests face their table
       drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13 * s - SIT_DROP, true, now);
       ctx.restore();
     }
@@ -2289,6 +2290,10 @@
     });
   }
   const chairs = () => items.filter((it) => it.id === 'chair_01');
+  /* turns a body to look at a point; its sprite picks one of four views from this (see drawChibi) */
+  function faceToward(b, tx, ty) {
+    if (Math.hypot(tx - b.x, ty - b.y) > 0.01) { b.fdx = tx - b.x; b.fdy = ty - b.y; }
+  }
   const tileOf = (c) => [clamp(Math.floor(c.x), 0, N - 1), clamp(Math.floor(c.y), 0, N - 1)];
 
   function walkTo(c, gx, gy) {
@@ -2306,6 +2311,7 @@
     const s = (speed || WALK_SPEED) * dt;
     c.moving = true;
     c.ph += dt * 10;
+    if (d > 1e-6) { c.fdx = dx / d; c.fdy = dy / d; }
     if (d <= s) {
       c.x = tx; c.y = ty;
       c.path.shift();
@@ -2714,7 +2720,7 @@
     if (lk !== spriteLight || spriteCache.size > SPRITE_MAX) { spriteCache.clear(); spriteLight = lk; }
     const p = b.look || b;
     const scarf = b.role ? 0 : Math.floor(b.ph * 7) % GUEST_SCARF.length;
-    const key = [b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.pants, p.hairStyle, p.eye, p.face, p.acc, scarf, sitting ? 1 : 0, pose.st, pose.eat, pose.blink ? 1 : 0].join('|');
+    const key = [b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.pants, p.hairStyle, p.eye, p.face, p.acc, scarf, sitting ? 1 : 0, pose.back ? 1 : 0, pose.st, pose.eat, pose.blink ? 1 : 0].join('|');
     let spr = spriteCache.get(key);
     if (!spr) {
       spr = document.createElement('canvas');
@@ -2732,7 +2738,7 @@
   /* paints one figure with the feet at (0, 0), y up is negative */
   function paintChibi(g, b, sitting, pose, scarf) {
     const p = b.look || b, role = b.role, tc = role ? STAFF_TOP[role] : b.shirt;
-    const stp = pose.st * 1.5, sw = pose.st * 1.4;
+    const stp = pose.st * 1.5, sw = pose.st * 1.4, back = !!pose.back;
     const top = sitting ? -10 : -15.5;
     const rr = (x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
     const ci = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); };
@@ -2766,15 +2772,24 @@
     part(tc, () => rr(-4.6, top, 9.2, sitting ? 10 : 9.6, 3.4));
     if (pose.eat >= 0) part(b.skin, () => ci(5.2, top + 6 - (pose.eat / 3) * 3.4, 1.7));
     if (role === 'chef') {
-      part(CAP.apron, () => rr(-4.2, top + 4.4, 8.4, 5.2, 1.6));
-      flatFill(CAP.cream, () => { g.beginPath(); g.arc(-1.4, top + 2, 0.6, 0, Math.PI * 2); g.moveTo(2, top + 2); g.arc(1.4, top + 2, 0.6, 0, Math.PI * 2); });
+      if (back) part(CAP.apron, () => rr(-4.6, top + 4.6, 9.2, 1, 0.5));   // apron strings
+      else {
+        part(CAP.apron, () => rr(-4.2, top + 4.4, 8.4, 5.2, 1.6));
+        flatFill(CAP.cream, () => { g.beginPath(); g.arc(-1.4, top + 2, 0.6, 0, Math.PI * 2); g.moveTo(2, top + 2); g.arc(1.4, top + 2, 0.6, 0, Math.PI * 2); });
+      }
     } else if (role === 'waiter') {
-      part(CAP.vest, () => rr(-4.4, top + 0.4, 3.2, 8.8, 1.6));
-      part(CAP.vest, () => rr(1.2, top + 0.4, 3.2, 8.8, 1.6));
+      if (back) part(CAP.vest, () => rr(-4.4, top + 0.4, 8.8, 8.8, 1.8));
+      else {
+        part(CAP.vest, () => rr(-4.4, top + 0.4, 3.2, 8.8, 1.6));
+        part(CAP.vest, () => rr(1.2, top + 0.4, 3.2, 8.8, 1.6));
+      }
     } else if (role === 'helper') {
-      part(CAP.apronY, () => rr(-3.8, top + 4, 7.6, 5.6, 1.6));
+      if (back) part(CAP.apronY, () => rr(-4.6, top + 4.6, 9.2, 1, 0.5));
+      else part(CAP.apronY, () => rr(-3.8, top + 4, 7.6, 5.6, 1.6));
     }
-    if (role) {
+    if (role && back) {
+      // nothing on a staff back
+    } else if (role) {
       // staff signature: a cream name badge with a coral dot on the chest, on every uniform
       part(CAP.cream, () => rr(0.6, top + 1.8, 3.6, 2.4, 0.8));
       flatFill(CAP.bow, () => ci(1.7, top + 3, 0.6));
@@ -2791,7 +2806,18 @@
     else if (style === 'twin') part(hairDeep, () => { g.beginPath(); g.ellipse(-r - 0.8, hy + 4, 2.4, 4, 0, 0, Math.PI * 2); g.moveTo(r + 0.8 + 2.4, hy + 4); g.ellipse(r + 0.8, hy + 4, 2.4, 4, 0, 0, Math.PI * 2); }, false);
     else if (style === 'bun') part(b.hair, () => ci(4.8, hy - 5.8, 3.3));
     part(b.skin, () => ci(0, hy, r));
-    // face: an eye with one highlight, soft blush, a short mouth
+    if (back) {
+      // seen from behind the head is all hair; bob and long hair fall over the shoulders
+      part(b.hair, () => ci(0, hy, r + 0.45));
+      if (style === 'bob') part(hairDeep, () => rr(-r - 0.6, hy - 1, r * 2 + 1.2, 9, 3.6));
+      else if (style === 'long') part(hairDeep, () => rr(-r - 0.6, hy - 1, r * 2 + 1.2, 13, 3.4));
+      else if (style === 'buzz') part(dimRgb(b.hair, 0.94), () => ci(0, hy, r + 0.45));
+      else if (style === 'messy') part(b.hair, () => { g.beginPath(); g.moveTo(-1, hy - r - 0.6); g.lineTo(1.8, hy - r - 2.6); g.lineTo(3, hy - r); g.closePath(); });
+    }
+    // face (front views only): an eye with one highlight, soft blush, a short mouth; shifted a little toward the way it looks
+    g.save();
+    g.translate(back ? 0 : 0.8, 0);
+    if (!back) {
     const ey = hy + 0.8, ec = rgb(EYE_COLS[p.eye] || EYE_COLS[0]);
     const happy = p.face === 'happy';
     g.lineWidth = 0.9;
@@ -2820,10 +2846,12 @@
     } else if (p.acc === 'freckles') {
       flatFill(dimRgb(b.skin, 0.78), () => { g.beginPath(); for (const [x, y] of [[-4.6, 3.6], [-3.4, 4.1], [-3.3, 2.8], [4.6, 3.6], [3.4, 4.1], [3.3, 2.8]]) { g.moveTo(x + 0.4, hy + y); g.arc(x, hy + y, 0.4, 0, Math.PI * 2); } }, 0.9);
     }
+    }
+    g.restore();
     // hair in front
     if (style === 'curly') {
       part(b.hair, () => { g.beginPath(); for (const [ox, oy, rr_] of [[-5.4, -1.2, 2.6], [-4, -4.6, 2.9], [0, -6.4, 3.1], [4, -4.6, 2.9], [5.4, -1.2, 2.6], [-1.8, -4, 2.4], [2, -4, 2.4]]) { g.moveTo(ox + rr_, hy + oy); g.arc(ox, hy + oy, rr_, 0, Math.PI * 2); } }, false);
-    } else {
+    } else if (!back) {
       const cap = style === 'buzz' ? 0.55 : 0.82;
       part(b.hair, () => {
         g.beginPath(); g.arc(0, hy - 0.2, r + 0.5, Math.PI * 1.04, Math.PI * 1.96);
@@ -2839,7 +2867,7 @@
     } else if (role === 'helper') {
       g.strokeStyle = lit(CAP.band, 1); g.lineWidth = 1.7;
       g.beginPath(); g.arc(0, hy - 0.6, r + 0.2, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
-    } else if (role === 'waiter') {
+    } else if (role === 'waiter' && !back) {
       const y = top + 0.8;
       part(CAP.bow, () => { g.beginPath(); g.moveTo(0, y); g.lineTo(-3, y - 1.7); g.lineTo(-3, y + 1.7); g.closePath(); g.moveTo(0, y); g.lineTo(3, y - 1.7); g.lineTo(3, y + 1.7); g.closePath(); });
     }
@@ -2859,7 +2887,12 @@
     const walk = !sitting && b.moving && !reduced;
     const bob = walk ? Math.abs(Math.sin(b.ph)) * 1.2 : 0;
     const breathe = !walk && !reduced ? Math.sin(now * 0.003 + b.ph) * 0.35 : 0;
+    // four views from the way the body looks: front or back (toward or away from the camera), mirrored for left or right
+    const fdx = b.fdx || 0, fdy = b.fdx === undefined && b.fdy === undefined ? 1 : b.fdy || 0;
+    const lr = fdx - fdy;
+    if (lr > 0.01) b.faceR = true; else if (lr < -0.01) b.faceR = false; else if (b.faceR === undefined) b.faceR = false;
     const pose = {
+      back: fdx + fdy < -0.01,
       st: walk ? Math.round(Math.sin(b.ph) * 2) / 2 : 0,
       eat: b.state === 'eating' && !reduced ? Math.round(Math.abs(Math.sin(now * 0.007)) * 3) : -1,
       blink: !reduced && ((now * 0.001 + b.ph * 3) % 4.6) > 4.42
@@ -2873,6 +2906,7 @@
     }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+    if (!b.faceR) { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.translate(-sx, 0); }
     ctx.drawImage(spr, sx - SPR_OX * ps, base - (SPR_OY + bob - breathe) * ps, SPR_W * ps, SPR_H * ps);
     ctx.restore();
     // b.hy is the top of the head in world px (scaled); b.hcr and b.hb are the unscaled head centre and feet, used by drawStaffBits
@@ -2886,7 +2920,7 @@
   function drawStaffBits(b, now) {
     const hx = b.hx, hc = b.hcr;
     ctx.save();
-    ctx.translate(hx, b.hb); ctx.scale(PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
+    ctx.translate(hx, b.hb); ctx.scale(b.faceR ? PERSON_SCALE : -PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
     ctx.globalAlpha *= clamp(b.alpha, 0, 1);
     if (b.cooking) {
       // a hand stirring, raised to counter-top height
@@ -3226,6 +3260,7 @@
       if (p.role === 'chef') {
         if (arrived && !atStation(p)) goHome(p);
         b.cooking = !!(p.counter && p.counter.cook) && atStation(p);
+        if (p.counter && atStation(p)) { const [w, d] = dims(p.counter.id, p.counter.rot); faceToward(b, p.counter.x + w / 2, p.counter.y + d / 2); }
         continue;
       }
       const j = p.job;
@@ -3256,11 +3291,13 @@
       if (!arrived) continue;
       if (j.pause > 0) { j.pause -= dt; continue; }      // a short hand-off, so the plate is seen in hand
       if (j.kind === 'pickup') {
+        { const [w, d] = dims(j.counter.id, j.counter.rot); faceToward(b, j.counter.x + w / 2, j.counter.y + d / 2); }
         b.carry = j.dish;
         j.kind = 'deliver';
         j.pause = HANDOFF;
         if (!walkNear(b, j.cust.seat)) b.path = [];
       } else if (j.kind === 'deliver' && !j.placed) {
+        faceToward(b, j.cust.seat.x + 0.5, j.cust.seat.y + 0.5);
         j.placed = true;
         j.pause = HANDOFF;
       } else if (j.kind === 'deliver') {
@@ -3268,6 +3305,7 @@
         p.job = null;
         servePlate(j.cust, j.dish);
       } else if (j.kind === 'clear') {
+        faceToward(b, j.chair.x + 0.5, j.chair.y + 0.5);
         p.job = null;
         const ch = j.chair;
         if (items.includes(ch) && !ch.occupant && ch.plate && ch.plate.state === 'dirty') clearPlate(ch);
