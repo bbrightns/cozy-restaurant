@@ -1,8 +1,10 @@
-# Scans assets/characters for .webp or .png layers and writes manifest.js next to this script.
+# Scans the art folders (head, body and cast) under assets/characters for .webp or .png files and writes manifest.js next to this script.
+# Other folders (source sheets such as removed-bg or white-bg) are ignored.
 # Usage (from the repo root):  powershell -ExecutionPolicy Bypass -File assets/characters/make-manifest.ps1
 # Use one format only (all .webp or all .png). With no art files found, the manifest turns art off.
 $root = $PSScriptRoot
-$files = Get-ChildItem -Path $root -Recurse -File | Where-Object { $_.Extension -in '.webp', '.png' }
+$dirs = @('head', 'body', 'cast') | ForEach-Object { Join-Path $root $_ } | Where-Object { Test-Path $_ }
+$files = @($dirs | ForEach-Object { Get-ChildItem -Path $_ -Recurse -File } | Where-Object { $_.Extension -in '.webp', '.png' })
 $exts = @($files | ForEach-Object { $_.Extension.TrimStart('.') } | Sort-Object -Unique)
 if ($exts.Count -gt 1) { Write-Error "Mixed formats found ($($exts -join ', ')). Use one format only."; exit 1 }
 $ext = if ($exts.Count -eq 1) { $exts[0] } else { 'webp' }
