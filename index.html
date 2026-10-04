@@ -2348,22 +2348,34 @@
     const keep = trash.filter((t) => inside(t.x, t.y) && !itemOnTile(t.x, t.y) && !(t.x === DOOR.x && t.y === DOOR.y));
     if (keep.length !== trash.length) { trash = keep; recomputeDirt(); saveSoon(); }
   }
-  /* the piece nearest to a screen point, within about 0.8 of a tile */
-  function trashNear(sx, sy) {
+  /* the piece nearest to a screen point, within reach tiles (0.8 by default) */
+  function trashNear(sx, sy, reach) {
     const [fx, fy] = floorAt(sx, sy, 3);
-    let best = null, bd = 0.8;
+    let best = null, bd = reach || 0.8;
     for (const t of trash) {
       const d = Math.hypot(t.x + t.ox - fx, t.y + t.oy - fy);
       if (d < bd) { bd = d; best = t; }
     }
     return best;
   }
-  function collectTrash(t) {
+  const TRASH_COIN = { crumple: 1, peel: 1, spill: 2 };   // the player's tip for tapping a piece, plus 1 XP
+  /* byPlayer: the player tapped it (a small coin and XP bonus); otherwise a staff member swept it up (no bonus) */
+  function collectTrash(t, byPlayer) {
     trash = trash.filter((q) => q !== t);
     recomputeDirt();
-    spawnRing(t.x + t.ox - 0.2, t.y + t.oy - 0.2, 0.4, 0.4);
+    const cx = t.x + t.ox, cy = t.y + t.oy;
+    spawnRing(cx - 0.2, cy - 0.2, 0.4, 0.4);
+    if (byPlayer) {
+      const n = TRASH_COIN[t.kind];
+      coins += n;
+      const px = PX(cx, cy), py = PY(cx, cy, 0);
+      pops.push({ x: px, y: py + 22, amount: n, t: 0 });
+      if (reduced) shownCoins += n;
+      else coinFlights.push({ sx: cam.x + px * cam.zoom, sy: cam.y + (py - 8) * cam.zoom, amount: n, t: 0 });
+      addXp(1);
+      announce('Picked up trash for ' + n + (n === 1 ? ' coin' : ' coins') + '. The shop is ' + fmt(dirtLevel) + '% dirty.');
+    }
     saveSoon();
-    announce('Picked up trash. The shop is ' + fmt(dirtLevel) + '% dirty.');
   }
   let doorOpen = 0;
   let spawnTimer = 2;
@@ -3831,6 +3843,21 @@
     spawnRing(px - 0.2, py - 0.2, 0.4, 0.4);
   }
   const dirtyFor = () => chairs().find((ch) => !ch.occupant && ch.plate && ch.plate.state === 'dirty' && !staff.some((p) => p.job && p.job.chair === ch));
+  /* sweeping (project.md 7.2): an idle waiter or helper walks to the nearest piece of trash nobody has claimed and sweeps it up.
+     A piece that cannot be reached is skipped until the layout changes. */
+  const SWEEP_TIME = 0.9;
+  function startSweep(p, b) {
+    let best = null, bd = Infinity;
+    for (const t of trash) {
+      if (t.noRoute === layoutVersion || staff.some((q) => q.job && q.job.trash === t)) continue;
+      const d = Math.hypot(t.x + 0.5 - b.x, t.y + 0.5 - b.y);
+      if (d < bd) { bd = d; best = t; }
+    }
+    if (!best) return false;
+    if (!walkTo(b, best.x, best.y)) { best.noRoute = layoutVersion; return false; }
+    p.job = { kind: 'sweep', trash: best };
+    return true;
+  }
 
   function updateStaff(dt) {
     for (const p of staff) {
@@ -3847,6 +3874,8 @@
       }
       const j = p.job;
       if (!j) {
+        // helpers clean first, unless there is no waiter to carry plates
+        if (p.role === 'helper' && staffOf('waiter').length && startSweep(p, b)) continue;
         let r = null;
         while (p.busy <= 0 && ready.length && !r) {
           r = ready.shift();
@@ -3866,10 +3895,12 @@
           if (!walkNear(b, ch)) b.path = [];
           continue;
         }
+        if (startSweep(p, b)) continue;
         if (arrived && !atStation(p)) goHome(p);
         continue;
       }
-      if (j.kind !== 'clear' && !j.cust) { dropJob(p); continue; }   // the guest left
+      if (j.kind === 'sweep' && !trash.includes(j.trash)) { p.job = null; continue; }   // the player got it first
+      if (j.kind !== 'clear' && j.kind !== 'sweep' && !j.cust) { dropJob(p); continue; }   // the guest left
       if (!arrived) continue;
       if (j.pause > 0) { j.pause -= dt; continue; }      // a short hand-off, so the plate is seen in hand
       if (j.kind === 'pickup') {
@@ -3886,6 +3917,9 @@
         b.carry = null;
         p.job = null;
         servePlate(j.cust, j.dish);
+      } else if (j.kind === 'sweep') {
+        if (!j.swept) { j.swept = true; j.pause = SWEEP_TIME; faceToward(b, j.trash.x + j.trash.ox, j.trash.y + j.trash.oy); }
+        else { p.job = null; collectTrash(j.trash, false); }
       } else if (j.kind === 'clear') {
         faceToward(b, j.chair.x + 0.5, j.chair.y + 0.5);
         p.job = null;
@@ -3909,6 +3943,8 @@
       if (!j) { if (!atStation(p)) goHome(p); continue; }
       if (j.kind === 'clear') {
         if (items.includes(j.chair) && j.chair.plate) walkNear(b, j.chair); else p.job = null;
+      } else if (j.kind === 'sweep') {
+        if (!trash.includes(j.trash) || !walkTo(b, j.trash.x, j.trash.y)) p.job = null;
       } else if (!j.cust) {
         dropJob(p);
       } else if (j.kind === 'pickup') {
@@ -5158,11 +5194,10 @@
       }
       return;
     }
-    // tapping trash on the floor picks it up (stop-gap until 3d adds the reward and idle cleaning)
-    if (!(hit || itemAt(sx, sy))) {
-      const tr = trashNear(sx, sy);
-      if (tr) { collectTrash(tr); return; }
-    }
+    // tapping trash on the floor picks it up for a small tip
+    // (a piece right under the finger wins over a tall item that overlaps it on screen)
+    const tr = trashNear(sx, sy, (hit || itemAt(sx, sy)) ? 0.55 : 0.8);
+    if (tr) { collectTrash(tr, true); return; }
     // tapping a table with dirty plates clears them, whatever the tool (except Remove)
     if (tool !== 'remove') {
       const h = hit || itemAt(sx, sy);
@@ -5268,7 +5303,7 @@
       kbd.show = true;
       const it = itemOnTile(kbd.x, kbd.y);
       const tr = !it && trashAtTile(kbd.x, kbd.y);
-      if (tr) { collectTrash(tr); return; }
+      if (tr) { collectTrash(tr, true); return; }
       if (tool !== 'remove' && it && it.id === 'table_01' && clearPlates(it)) return;
       if (tool === 'move') {
         if (it) select(selected === it ? null : it);
