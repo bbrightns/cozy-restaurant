@@ -280,6 +280,7 @@
   .tool[data-tool="plant_01"] { --tint: #d3ead0; }
   .tool[data-tool="lantern_01"] { --tint: #fbe7b8; }
   .tool[data-tool="remove"] { --tint: #fbd9d2; }
+  .tool[data-action]:active svg { transform: rotate(90deg); }
 
   .toast {
     position: fixed;
@@ -483,6 +484,16 @@
       </svg>
       <span>Lantern</span>
     </button>
+    <button type="button" class="tool" data-action="rotate" aria-label="Rotate the selected item 90 degrees (R)">
+      <svg viewBox="0 0 40 34" aria-hidden="true">
+        <path d="M27.5 11.5A9.5 9.5 0 1 0 29 20" fill="none" stroke="#a98fc0" stroke-width="3" stroke-linecap="round"/>
+        <path d="M30.5 5.5v8.2h-8.2z" fill="#a98fc0"/>
+        <path d="M20 13l5.5 2.8-5.5 2.8-5.5-2.8z" fill="#e6d8ef"/>
+        <path d="M14.5 15.8l5.5 2.8v4l-5.5-2.8z" fill="#cdb4db"/>
+        <path d="M25.5 15.8L20 18.6v4l5.5-2.8z" fill="#b39cc6"/>
+      </svg>
+      <span>Rotate</span>
+    </button>
     <button type="button" class="tool" data-tool="remove" aria-pressed="false" aria-label="Remove tool (7)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
         <path d="M11 9h18" stroke="#e8968a" stroke-width="2.6" stroke-linecap="round"/>
@@ -535,7 +546,8 @@
   const ctxRotate = document.getElementById('ctx-rotate');
   const ctxRemove = document.getElementById('ctx-remove');
   const ctxDone = document.getElementById('ctx-done');
-  const toolBtns = Array.from(document.querySelectorAll('.tool'));
+  const toolBtns = Array.from(document.querySelectorAll('.tool[data-tool]'));
+  const rotateBtn = document.querySelector('.tool[data-action="rotate"]');
   const statsBtn = document.getElementById('stats-btn');
   const coinIcon = document.getElementById('coin-icon');
   const coinRead = document.getElementById('coin-read');
@@ -1469,10 +1481,11 @@
   function animOf(it, now) {
     if (!it.born) return null;
     if (now < it.born) return [1, 1, 0];
-    const dur = reduced ? 260 : it.anim === 'wobble' ? 380 : 540;
+    const dur = reduced ? 260 : it.anim === 'wobble' ? 380 : it.anim === 'nope' ? 320 : 540;
     const t = (now - it.born) / dur;
     if (t >= 1) { it.born = 0; return null; }
-    if (reduced) return [1, 1, it.anim === 'wobble' ? 1 : t];
+    if (reduced) return [1, 1, it.anim === 'pop' ? t : 1];
+    if (it.anim === 'nope') return [1 + 0.07 * Math.sin(t * Math.PI * 4) * (1 - t), 1, 1];
     if (it.anim === 'wobble') {
       const s = 1 + 0.12 * Math.sin(t * Math.PI * 3) * (1 - t);
       return [1 / Math.sqrt(s), s, 1];
@@ -2319,12 +2332,27 @@
     announce(nameOf(it.id) + ' moved to ' + (x + 1) + ', ' + (y + 1) + '.');
     return true;
   }
+  /* why a turn is blocked, in words; names the item in the way when there is one */
+  function rotateBlockedText(cand, it, reason) {
+    if (reason === 'outside') return 'Can’t turn it here: it would stick out of the room';
+    if (reason === 'taken') {
+      const other = cells(cand).map(([cx, cy]) => itemOnTile(cx, cy)).find((o) => o && o !== it);
+      return 'Can’t turn it here: it would bump into the ' + (other ? labelOf(other).toLowerCase() : 'furniture');
+    }
+    return REASON[reason];
+  }
   function rotate() {
     if (selected) {
       const it = selected;
       const cand = { id: it.id, x: it.x, y: it.y, rot: (it.rot + 1) % 4 };
       const reason = checkPlace(cand, it);
-      if (reason) { toast(reason === 'outside' || reason === 'taken' ? 'No room to turn it here' : REASON[reason]); return; }
+      if (reason) {
+        const msg = rotateBlockedText(cand, it, reason);
+        toast(msg);
+        announce(msg + '.');
+        if (!reduced) { it.born = performance.now(); it.anim = 'nope'; }
+        return;
+      }
       it.rot = cand.rot;
       it.born = performance.now(); it.anim = 'wobble';
       layoutChanged();
@@ -2333,6 +2361,9 @@
     } else if (CATALOG[tool]) {
       ghostRot = (ghostRot + 1) % 4;
       announce(nameOf(tool) + ' will face a new direction.');
+    } else {
+      toast('Tap an item first, then rotate it');
+      announce('Select an item to rotate.');
     }
   }
   function select(it) {
@@ -2600,6 +2631,7 @@
 
   for (const b of toolBtns) b.addEventListener('click', () => selectTool(b.dataset.tool, true));
   ctxRotate.addEventListener('click', rotate);
+  rotateBtn.addEventListener('click', rotate);
   ctxRemove.addEventListener('click', () => { if (selected) removeItem(selected); });
   ctxDone.addEventListener('click', () => { select(null); world.focus({ preventScroll: true }); });
   statsBtn.addEventListener('click', () => setBreakdown(breakdownEl.hidden));
