@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cozy pastel isometric restaurant-decorating game (working title TBD). Repo: https://github.com/bbrightns/cozy-restaurant
 
-The repo currently holds design docs only; no game code exists yet. There is no build, lint, or test tooling. The game is a single HTML file, opened directly in a browser.
+The game is `index.html`, a single HTML file opened directly in a browser. There is no build, lint, or test tooling. Phase 1 (decorate sandbox) is done.
 
 ## Rules
 
