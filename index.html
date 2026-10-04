@@ -707,14 +707,13 @@
     </button>
     <button type="button" class="tool" data-tool="counter_01" aria-pressed="false" aria-label="Stove (4)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M16 1l20 10v5L16 6z" fill="#fcd5ce"/>
-        <path d="M6 11l20 10v10L6 21z" fill="#cdb4db"/>
-        <path d="M36 16l-10 5v10l10-5z" fill="#b39cc6"/>
-        <path d="M16 6l20 10-10 5L6 11z" fill="#9d92ab"/>
-        <ellipse cx="15" cy="11" rx="3.4" ry="1.7" fill="#6f6179"/>
-        <ellipse cx="25" cy="16" rx="3.4" ry="1.7" fill="#6f6179"/>
-        <path d="M13.6 10.4q1.4-3 2.8 0zM23.6 15.4q1.4-3 2.8 0z" fill="#ffb27a"/>
-        <path d="M10 18l12 6v3l-12-6z" fill="#ffe3bd"/>
+        <path d="M20 8l12 6V9L20 3z" fill="#fcd5ce"/>
+        <path d="M8 14l12 6v10L8 24z" fill="#cdb4db"/>
+        <path d="M32 14l-12 6v10l12-6z" fill="#b39cc6"/>
+        <path d="M20 8l12 6-12 6L8 14z" fill="#9d92ab"/>
+        <ellipse cx="20" cy="14" rx="4.4" ry="2.2" fill="#6f6179"/>
+        <path d="M18.4 13.4q1.6-3.4 3.2 0z" fill="#ffb27a"/>
+        <path d="M11 20.5l7 3.5v3l-7-3.5z" fill="#ffe3bd"/>
       </svg>
       <span>Stove</span>
     </button>
@@ -802,6 +801,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <p class="sr-only" id="status" aria-live="polite"></p>
 
+<!-- Character art manifest (assets/characters/manifest.js); with enabled:false the game draws everyone in code -->
+<script src="assets/characters/manifest.js"></script>
 <!-- ===== SCRIPT: the whole game; sections below ===== -->
 <script>
 (() => {
@@ -1007,7 +1008,7 @@
   const CATALOG = {
     table_01: { name: 'Table', w: 1, d: 1, h: 27, draw: scaled('table_01', drawTable) },
     chair_01: { name: 'Chair', w: 1, d: 1, h: 23, seat: true, draw: tucked(scaled('chair_01', drawChair)) },
-    counter_01: { name: 'Stove', w: 2, d: 1, h: 40, draw: scaled('counter_01', drawStove) },
+    counter_01: { name: 'Stove', w: 1, d: 1, h: 40, draw: scaled('counter_01', drawStove) },
     plant_01: { name: 'Plant', w: 1, d: 1, h: 38, draw: scaled('plant_01', drawPlant) },
     lantern_01: { name: 'Lantern', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', drawLantern) }
   };
@@ -1641,16 +1642,15 @@
     if (!backFar) drawBack();
   }
 
-  /* ---------- the kitchen: a stove (the item id stays counter_01 so older saves still load) ----------
-     Long axis along x (rot 0 and 2) or along y (rot 1 and 3); the visible front is always the +y or +x face, the backsplash stands
-     on the far edge. Burners sit at u = 0.5 and 1.5 along the long axis. Flames, steam and the progress ring show while it cooks;
-     rot 2 and 3 swap the pot and pan and put the pickup shelf at the other end. */
+  /* ---------- the kitchen: a stove, one tile per chef (the item id stays counter_01 so older saves still load) ----------
+     One burner with a pot, an oven door, and a backsplash with a pickup shelf on the far edge. The visible front is the +y face
+     (rot 0 and 2) or the +x face (rot 1 and 3, the mirrored drawing). Flames, steam and the progress ring show while it cooks. */
   const HOB = rgb('#9d92ab'), BURNER = rgb('#6f6179'), BURNER_IN = rgb('#5d5067'), OVEN_GLOW = rgb('#ffe3bd');
   function drawStove(it, now) {
     const C = pal(it);
     const [w, d] = dims(it.id, it.rot);
-    const alongX = w >= d, L = alongX ? w : d, x0 = it.x, y0 = it.y;
-    const cooking = !!it.cook, flip = it.rot >= 2, fv = 0.94;
+    const alongX = it.rot % 2 === 0, L = 1, x0 = it.x, y0 = it.y;
+    const cooking = !!it.cook, fv = 0.94;
     const X = (u, v) => (alongX ? x0 + u : x0 + v), Y = (u, v) => (alongX ? y0 + v : y0 + u);
     const B = (u0, v0, u1, v1, z0, z1, col, o) => (alongX ? box(x0 + u0, y0 + v0, x0 + u1, y0 + v1, z0, z1, col, o) : box(x0 + v0, y0 + u0, x0 + v1, y0 + u1, z0, z1, col, o));
     const SX = (u, v) => PX(X(u, v), Y(u, v)), SY = (u, v, z) => PY(X(u, v), Y(u, v), z);
@@ -1665,10 +1665,10 @@
     if (C.pattern === 'stripes') {
       for (let v = 0.25; v < 0.9; v += 0.5) B(L - 0.0551, v - 0.06, L - 0.055, v + 0.06, 5, 21.5, C.blush, { noTop: true });
     }
-    B(0.26, fv - 0.02, L - 0.26, fv + 0.012, 6, 19.5, C.lavDeep, { noTop: true });
-    B(0.5, fv, L - 0.5, fv + 0.02, 9.5, 16.5, OVEN_GLOW, { noTop: true });
-    B(0.6, fv + 0.012, L - 0.6, fv + 0.045, 20.3, 21.6, C.gold, { noTop: true });
-    for (const u of [0.32, 0.6, L - 0.6, L - 0.32]) {
+    B(0.18, fv - 0.02, L - 0.18, fv + 0.012, 6, 19.5, C.lavDeep, { noTop: true });
+    B(0.36, fv, L - 0.36, fv + 0.02, 9.5, 16.5, OVEN_GLOW, { noTop: true });
+    B(0.34, fv + 0.012, L - 0.34, fv + 0.045, 20.3, 21.6, C.gold, { noTop: true });
+    for (const u of [0.3, 0.7]) {
       ctx.fillStyle = lit(C.cream, 1);
       ctx.beginPath(); ctx.arc(SX(u, fv + 0.012), SY(u, fv + 0.012, 24.2), 1.7, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = lit(C.lavDeep, 1);
@@ -1678,8 +1678,8 @@
     B(0.02, 0.02, L - 0.02, 0.98, 27, 29.5, HOB);
     B(0.06, 0.02, L - 0.06, 0.12, 29.5, 46, C.blush, { top: C.cream });
     ctx.strokeStyle = lit(C.gold, 1); ctx.lineWidth = 1.1; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(SX(0.2, 0.125), SY(0.2, 0.125, 41)); ctx.lineTo(SX(L - 0.2, 0.125), SY(L - 0.2, 0.125, 41)); ctx.stroke();
-    [[0.5, 0], [0.85, 1], [1.2, 2], [1.55, 0]].forEach(([u, k]) => {
+    ctx.beginPath(); ctx.moveTo(SX(0.12, 0.125), SY(0.12, 0.125, 41)); ctx.lineTo(SX(L - 0.12, 0.125), SY(L - 0.12, 0.125, 41)); ctx.stroke();
+    [[0.3, 0], [0.7, 2]].forEach(([u, k]) => {
       const hx = SX(u, 0.13), hy = SY(u, 0.13, 41);
       ctx.strokeStyle = lit(C.woodDeep, 1); ctx.lineWidth = 0.9;
       ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy + 6 + k); ctx.stroke();
@@ -1688,26 +1688,26 @@
     });
     // pickup shelf on the backsplash: finished plates wait here for a waiter
     {
-      const s0 = flip ? 0.08 : L - 0.78, s1 = s0 + 0.7;
+      const s0 = 0.1, s1 = 0.9;
       B(s0 + 0.04, 0.12, s0 + 0.1, 0.22, 33, 37, C.woodDeep, { noTop: true });
       B(s1 - 0.1, 0.12, s1 - 0.04, 0.22, 33, 37, C.woodDeep, { noTop: true });
-      B(s0, 0.12, s1, 0.46, 37, 38.4, C.wood);
+      B(s0, 0.12, s1, 0.42, 37, 38.4, C.wood);
       const done = ready.filter((r) => r.counter === it);
-      [0.2, 0.5].forEach((fu, q) => {
-        const px = SX(s0 + 0.7 * fu + 0.08, 0.3), py = SY(s0 + 0.7 * fu + 0.08, 0.3, 38.4);
+      [0.3, 0.7].forEach((fu, q) => {
+        const px = SX(fu, 0.28), py = SY(fu, 0.28, 38.4);
         ctx.fillStyle = lit(PLATE, 1); ctx.beginPath(); ctx.ellipse(px, py, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = lit(C.cream, 1.02); ctx.beginPath(); ctx.ellipse(px, py - 0.3, 4.4, 2.1, 0, 0, Math.PI * 2); ctx.fill();
         if (q < done.length) drawFood(px, py - 0.3, done[q].dish, 0.9);
       });
     }
     // burners: dark rings, and flames around them while cooking
-    const potU = flip ? 1.5 : 0.5, panU = flip ? 0.5 : 1.5, bv = 0.58;
-    [0.5, 1.5].forEach((u, bi) => {
+    const potU = 0.5, bv = 0.6;
+    [0.5].forEach((u, bi) => {
       const sx = SX(u, bv), sy = SY(u, bv, 29.6);
       ctx.fillStyle = lit(BURNER, 1); ctx.beginPath(); ctx.ellipse(sx, sy, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = lit(BURNER_IN, 1); ctx.beginPath(); ctx.ellipse(sx, sy, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
       if (!cooking) return;
-      const n = 9, big = u === potU ? 1 : 0.7;
+      const n = 9, big = 1;
       for (let q = 0; q < n; q++) {
         const a = q / n * Math.PI * 2, px = sx + Math.cos(a) * 10, py = sy + Math.sin(a) * 5;
         const h = (3.2 + (reduced ? 0 : 1.6 * Math.sin(t * 9 + q * 1.7 + bi * 2))) * big;
@@ -1717,7 +1717,7 @@
         ctx.beginPath(); ctx.moveTo(px - 0.8, py); ctx.quadraticCurveTo(px, py - h * 1.2, px + 0.8, py); ctx.closePath(); ctx.fill();
       }
     });
-    // a pot and a pan, drawn far to near
+    // the pot
     const drawPot = () => {
       const sx = SX(potU, bv), sy = SY(potU, bv, 30.5);
       const g = ctx.createLinearGradient(sx - 10, 0, sx + 10, 0);
@@ -1728,16 +1728,7 @@
       ctx.fillStyle = lit(cooking ? rgb('#f2b09c') : C.cushion, 1); ctx.beginPath(); ctx.ellipse(sx, sy - 10, 8.2, 3.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = lit(C.lavDeep, 1); rrect(sx - 13, sy - 8.5, 3.4, 2, 1); ctx.fill(); rrect(sx + 9.6, sy - 8.5, 3.4, 2, 1); ctx.fill();
     };
-    const drawPan = () => {
-      const sx = SX(panU, bv), sy = SY(panU, bv, 30.2);
-      ctx.strokeStyle = lit(C.apron || rgb('#8a6f7e'), 1); ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(sx + 9, sy - 3.4); ctx.lineTo(sx + 19, sy - 6); ctx.stroke();
-      ctx.fillStyle = lit(rgb('#b9a6cf'), 0.9); ctx.beginPath(); ctx.ellipse(sx, sy - 2, 11, 5.4, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = lit(rgb('#b9a6cf'), 1.06); ctx.beginPath(); ctx.ellipse(sx, sy - 3.4, 11, 5.4, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = lit(C.cream, 1); ctx.beginPath(); ctx.ellipse(sx - 1, sy - 3.4, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
-      if (cooking) { ctx.fillStyle = lit(C.gold, 1); ctx.beginPath(); ctx.ellipse(sx - 1, sy - 3.8, 2.4, 1.3, 0, 0, Math.PI * 2); ctx.fill(); }
-    };
-    if (potU < panU) { drawPot(); drawPan(); } else { drawPan(); drawPot(); }
+    drawPot();
     if (cooking) drawSteam(X(potU, bv), Y(potU, bv), 41, it.cook.t / it.cook.dur, now);
   }
   /* soft steam wisps over a cooking pot, plus a small progress ring */
@@ -2738,6 +2729,154 @@
     ctx.fillStyle = lit(dish.cols[2], 1);
     ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
   }
+  // ===== CHARACTER ART =====
+  /* ================================================================
+     Optional painted character art (assets/SPEC.md). window.COZY_ART comes from assets/characters/manifest.js; with enabled:false
+     (or any missing layer for a look) the person is drawn by paintChibi below, so art can arrive a layer at a time.
+     A person is a stack of layers: head layers (skin and hair are grey and multiplied by the saved colour, the rest are final colour)
+     and body layers (skin, outfit). Layers are composited once into the same cached sprite the code-drawn people use.
+     Art is authored at ART_PX px per chibi unit (a 272 x 384 body canvas, a 272 x 272 head canvas) or an exact multiple of that.
+     ================================================================ */
+  const ART_ROOT = 'assets/characters/';
+  const ART_PX = 8;                       // art pixels per chibi unit
+  const ART_RES = 6;                      // sprite pixels per chibi unit when art is used
+  const ART_BODY = [272, 384], ART_HEAD = 272;
+  const ART_HEAD_CY = 20;                 // the head canvas centre sits this many units below its top edge
+  const ART_HEAD_AT = { stand: -20.1, sit: -14.6 };   // head centre above the feet, in chibi units (torso top -15.5 and -10, minus 4.6)
+  const ART_POSES = { idle: 1, walk: 4, sit: 1 };
+  const ART_BACK_HAIR = ['bob', 'long', 'twin', 'bun'];   // styles with a hair layer behind the head in the front view
+  const EYE_NAMES = ['plum', 'cocoa', 'dusk'];            // art names for EYE_COLS, same order
+  const EYE_STATES = ['open', 'blink', 'happy'];
+  // outfit layers, bottom to top: [folder under body/outfit, which saved colour tints it (none = painted in final colour)]
+  const ART_OUTFIT = {
+    chef: [['chef']], waiter: [['waiter']], helper: [['helper']],
+    guest: [['guest_pants', 'pants'], ['guest_shoes'], ['guest_shirt', 'shirt'], ['guest_scarf', 'scarf']]
+  };
+  const art = { on: false, pending: 0, ext: 'webp', files: new Set(), img: new Map() };
+  const artMiss = new Set();              // sprite keys that lack a layer; the code-drawn figure is used for them
+  const artTmp = document.createElement('canvas');
+
+  function artInit() {
+    const m = window.COZY_ART;
+    if (!m || !m.enabled || !Array.isArray(m.files) || !m.files.length) return;
+    art.ext = m.ext === 'png' ? 'png' : 'webp';
+    for (const f of m.files) if (typeof f === 'string' && /^[a-z0-9_\/]+$/.test(f)) art.files.add(f);
+    art.on = true;
+    art.pending = art.files.size;
+    for (const f of art.files) {
+      const im = new Image();
+      im.onload = () => {
+        const w = im.naturalWidth, h = im.naturalHeight, base = f.startsWith('head/') ? [ART_HEAD, ART_HEAD] : ART_BODY;
+        if (w % base[0] === 0 && h * base[0] === w * base[1]) art.img.set(f, im);
+        else console.warn('Character art ' + f + ' is ' + w + 'x' + h + ', expected ' + base[0] + 'x' + base[1] + ' or an exact multiple');
+        artDone();
+      };
+      im.onerror = () => { console.warn('Character art missing: ' + f); artDone(); };
+      im.src = ART_ROOT + f + '.' + art.ext;
+    }
+  }
+  function artDone() {
+    if (--art.pending > 0) return;
+    artMiss.clear();
+    spriteCache.clear();
+  }
+  /* every layer path a full set needs, from the live look tables; also the checklist assets/SPEC.md is built from */
+  function artRequired() {
+    const out = ['head/skin/f', 'head/skin/b'];
+    for (const s of HAIR_STYLES) {
+      if (ART_BACK_HAIR.includes(s)) out.push('head/hair/' + s + '/back_f');
+      out.push('head/hair/' + s + '/front_f', 'head/hair/' + s + '/b');
+    }
+    for (const e of EYE_NAMES) for (const st of EYE_STATES) out.push('head/eyes/' + e + '_' + st);
+    for (const f of FACES) out.push('head/face/' + f);
+    for (const a of ACCS) {
+      if (a === 'glasses' || a === 'freckles') out.push('head/acc/' + a + '_f');
+      else if (a !== 'none') out.push('head/acc/' + a + '_f', 'head/acc/' + a + '_b');
+    }
+    for (const r of ['chef', 'helper']) out.push('head/hat/' + r + '_f', 'head/hat/' + r + '_b');
+    const bodies = [];
+    for (const v of ['f', 'b']) for (const pn of Object.keys(ART_POSES)) for (let n = 0; n < ART_POSES[pn]; n++) bodies.push(v + '_' + pn + '_' + n);
+    for (const bn of bodies) out.push('body/skin/' + bn);
+    for (const set of Object.values(ART_OUTFIT)) for (const [dir] of set) for (const bn of bodies) out.push('body/outfit/' + dir + '/' + bn);
+    return out;
+  }
+  /* the layers one person needs right now, as { back, body, head } lists of { path, tint } */
+  function artLayers(b, sitting, pose, scarf) {
+    const p = b.look || b, role = b.role, view = pose.back ? 'b' : 'f', front = view === 'f';
+    const pn = sitting ? 'sit' : pose.walk ? 'walk' : 'idle';
+    const bn = view + '_' + pn + '_' + (pn === 'walk' ? pose.fr : 0);
+    const eyeState = p.face === 'happy' ? 'happy' : pose.blink ? 'blink' : 'open';
+    const back = [], body = [], head = [];
+    const add = (list, path, tint) => list.push({ path, tint: tint || null });
+    if (front && ART_BACK_HAIR.includes(p.hairStyle)) add(back, 'head/hair/' + p.hairStyle + '/back_f', b.hair);
+    add(body, 'body/skin/' + bn, b.skin);
+    for (const [dir, tk] of ART_OUTFIT[role || 'guest']) {
+      add(body, 'body/outfit/' + dir + '/' + bn, tk === 'shirt' ? b.shirt : tk === 'pants' ? b.pants : tk === 'scarf' ? GUEST_SCARF[scarf] : null);
+    }
+    add(head, 'head/skin/' + view, b.skin);
+    if (front) {
+      add(head, 'head/face/' + p.face);
+      add(head, 'head/eyes/' + (EYE_NAMES[p.eye] || EYE_NAMES[0]) + '_' + eyeState);
+      if (p.acc === 'glasses' || p.acc === 'freckles') add(head, 'head/acc/' + p.acc + '_f');
+      add(head, 'head/hair/' + p.hairStyle + '/front_f', b.hair);
+    } else add(head, 'head/hair/' + p.hairStyle + '/b', b.hair);
+    if (role === 'chef' || role === 'helper') add(head, 'head/hat/' + role + '_' + view);
+    if (p.acc === 'star' || p.acc === 'flower') add(head, 'head/acc/' + p.acc + '_' + view);
+    return { back, body, head };
+  }
+  /* a layer multiplied by a colour (the lit colour, so the day and night tint is baked in), alpha kept; returns the shared scratch canvas */
+  function artTint(im, color) {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    if (artTmp.width !== w || artTmp.height !== h) { artTmp.width = w; artTmp.height = h; }
+    const t = artTmp.getContext('2d');
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(0, 0, w, h);
+    t.drawImage(im, 0, 0);
+    t.globalCompositeOperation = 'multiply';
+    t.fillStyle = color;
+    t.fillRect(0, 0, w, h);
+    t.globalCompositeOperation = 'destination-in';
+    t.drawImage(im, 0, 0);
+    t.globalCompositeOperation = 'source-over';
+    return artTmp;
+  }
+  /* the cached sprite for a person made from art, or null when any layer is missing or still loading */
+  function artSprite(b, sitting, pose) {
+    if (art.pending > 0) return null;
+    const p = b.look || b;
+    const scarf = b.role ? 0 : Math.floor(b.ph * 7) % GUEST_SCARF.length;
+    const key = ['A', b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.role ? '' : b.pants, scarf, p.hairStyle, p.eye, p.face, p.acc,
+      sitting ? 1 : 0, pose.back ? 1 : 0, pose.walk ? pose.fr : -1, pose.blink ? 1 : 0].join('|');
+    let spr = spriteCache.get(key);
+    if (spr) return spr;
+    if (artMiss.has(key)) return null;
+    const lay = artLayers(b, sitting, pose, scarf);
+    const all = lay.back.concat(lay.body, lay.head);
+    if (all.some((l) => !art.img.has(l.path))) {
+      if (artMiss.size > 2000) artMiss.clear();
+      artMiss.add(key);
+      return null;
+    }
+    spr = document.createElement('canvas');
+    spr.width = SPR_W * ART_RES;
+    spr.height = SPR_H * ART_RES;
+    const g = spr.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    const white = lit([255, 255, 255], 1);
+    const headTop = (SPR_OY + ART_HEAD_AT[sitting ? 'sit' : 'stand'] - ART_HEAD_CY) * ART_RES;
+    const put = (l, top) => {
+      const im = art.img.get(l.path), t = artTint(im, l.tint ? lit(l.tint, 1) : white);
+      const dw = SPR_W * ART_RES;
+      g.drawImage(t, 0, top, dw, im.naturalHeight * dw / im.naturalWidth);
+    };
+    for (const l of lay.back) put(l, headTop);
+    for (const l of lay.body) put(l, 0);
+    for (const l of lay.head) put(l, headTop);
+    spriteCache.set(key, spr);
+    return spr;
+  }
+
   /* Characters are painted once into a small offscreen sprite (SPRITE_RES px per chibi unit, so they stay crisp when zoomed) and
      stamped every frame. The cache key is the look, the pose and a quantised ambient light, so the night tint is baked in and the
      cache resets when the light moves a step. Every part has a light-to-dark gradient (left lightest, right darkest) and an edge
@@ -2756,6 +2895,7 @@
   function spriteFor(b, sitting, pose) {
     const lk = light.amb.map((v) => Math.round(v * 24)).join(',');
     if (lk !== spriteLight || spriteCache.size > SPRITE_MAX) { spriteCache.clear(); spriteLight = lk; }
+    if (art.on) { const made = artSprite(b, sitting, pose); if (made) return made; }
     const p = b.look || b;
     const scarf = b.role ? 0 : Math.floor(b.ph * 7) % GUEST_SCARF.length;
     const key = [b.role || 'g', b.skin, b.hair, b.role ? '' : b.shirt, b.pants, p.hairStyle, p.eye, p.face, p.acc, scarf, sitting ? 1 : 0, pose.back ? 1 : 0, pose.st, pose.eat, pose.blink ? 1 : 0].join('|');
@@ -2932,6 +3072,8 @@
     const pose = {
       back: fdx + fdy < -0.01,
       st: walk ? Math.round(Math.sin(b.ph) * 2) / 2 : 0,
+      walk,
+      fr: walk ? Math.floor(((b.ph / (Math.PI * 2)) % 1 + 0.875) % 1 * 4) : 0,   // painted art: 4 walk frames per stride
       eat: b.state === 'eating' && !reduced ? Math.round(Math.abs(Math.sin(now * 0.007)) * 3) : -1,
       blink: !reduced && ((now * 0.001 + b.ph * 3) % 4.6) > 4.42
     };
@@ -4743,6 +4885,8 @@
     lvDown.hidden = false;
     lvUp.hidden = false;
     window.cozyDebug = {
+      // character art: whether it is on, still loading, and which layers a full set still lacks
+      art: () => ({ on: art.on, pending: art.pending, loaded: art.img.size, missing: artRequired().filter((f) => !art.img.has(f)) }),
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       // centre of a wall piece on screen: side 'A' (right wall, along x) or 'B' (left wall, along y)
       wallScreen: (side, i) => {
@@ -4774,6 +4918,7 @@
     adoptItems(defaultLayout(), true);
     save();
   }
+  artInit();             // painted character art, if the manifest turns it on
   staffOnLayout();       // stations for the saved team; everyone starts at their spot
   renderName();
   buildDecorRow();
