@@ -8,6 +8,8 @@ Cozy pastel isometric restaurant-decorating game (working title TBD). Repo: http
 
 The game is `index.html`, a single HTML file opened directly in a browser. There is no build, lint, or test tooling. Phases 1 (decorate sandbox) and 2 (customers and money) are done. Furniture, wallpaper and floor are bought with coins (see project.md section 8.4); `DEV_MODE` in index.html, or `?free` in the URL, makes everything free. Opening the page with `?debug` (or `?debug=1`) shows the Lv −/+ buttons and exposes a read-only `window.cozyDebug` (state snapshot and tile-to-screen mapping) for browser tests. Saves are versioned (`v` in the payload, currently 3: v3 stores floor and wall decor per tile and per wall segment); add a step to `migrate()` when the format changes so older saves keep loading.
 
+Sections in `index.html` are marked `// ===== NAME =====` (CONFIG, STATE, SAVE, SIM, ACTIONS, INPUT, ...; grep `===== ` for the list). Keep new code inside the matching section and add a marker for any new one. Progression: each happy guest gives XP (`addXp` in SIM, `xpNeed(level)` = 15 + 10 per level); levels drive room size, dish unlocks and menu slots. `xp` is saved beside `level`.
+
 ## Rules
 
 1. **Read `project.md` and `design.md` before every task.** `project.md` is the source of truth for game systems, the economy formulas, the data model and the phase roadmap. `design.md` covers visual style, palette, animation, UI and interaction.

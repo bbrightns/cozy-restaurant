@@ -7,6 +7,7 @@
 <meta name="description" content="Decorate a tiny pastel isometric restaurant. Place, move, rotate and remove tables, chairs, counters, plants and lanterns. The sky follows your real clock.">
 <meta name="theme-color" content="#cfe6f2">
 <link rel="icon" href="data:,">
+<!-- ===== STYLES (CSS) ===== -->
 <style>
   :root {
     --grass: #a8d5a2;
@@ -527,6 +528,7 @@
   }
 </style>
 </head>
+<!-- ===== MARKUP (HTML) ===== -->
 <body>
 <main id="world" tabindex="0" aria-label="Restaurant room. Tap a tile to place the selected item, which costs coins. With Move, tap an item to select it or drag it to a new spot. With a wallpaper or floor design chosen, tap a wall piece or floor tile to paint it, which costs coins per piece. Right-click or long-press removes an item. Drag empty space to pan, scroll or pinch to zoom. Arrow keys move the cursor, Enter acts, R rotates, Delete removes." aria-describedby="status">
   <canvas id="scene" aria-hidden="true"></canvas>
@@ -739,10 +741,12 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <p class="sr-only" id="status" aria-live="polite"></p>
 
+<!-- ===== SCRIPT: the whole game; sections below ===== -->
 <script>
 (() => {
   'use strict';
 
+  // ===== CONFIG =====
   /* ================================================================
      Cozy Restaurant, Phase 1: decorate sandbox
      Isometric room, place / move / rotate / remove, level-based room
@@ -830,6 +834,7 @@
     bad: rgb('#f2998c')
   };
 
+  // ===== DECOR DATA =====
   /* ---------------- room decor: data only, drawn by code ----------------
      Entry 0 of each list is the original look. */
   const WALL_STYLES = [
@@ -926,6 +931,7 @@
   }
   const decorSnapshot = () => ({ floor: Array.from(decor.floor), wallA: Array.from(decor.wallA), wallB: Array.from(decor.wallB) });
 
+  // ===== PRICING =====
   /* ---------------- money rules ----------------
      Every placement, restyle and paint click is bought. Paid-for pieces are not
      refunded when replaced or removed. DEV_MODE makes everything free. */
@@ -933,6 +939,7 @@
   const priceOfStyle = (s) => (DEV_MODE ? 0 : s.price);
   const priceText = (n) => (n === 0 ? 'Free' : String(n));
 
+  // ===== CATALOG =====
   /* ================================================================
      Catalog
      ================================================================ */
@@ -956,6 +963,7 @@
     return out;
   }
 
+  // ===== STATE =====
   /* ================================================================
      Shop state
      ================================================================ */
@@ -1023,6 +1031,7 @@
     return blocked;
   }
 
+  // ===== PATHFINDING =====
   /* A* on the floor grid, 4-way. The start and goal may be blocked
      (a customer standing up from a chair, or walking onto one).
      Returns a list of [x, y] tiles from start to goal, or null. */
@@ -1130,6 +1139,7 @@
     }
   }
 
+  // ===== SAVE =====
   /* Save format. v1: Phases 1-2. v2 adds name, decor, menu and item variants.
      v3 paints decor per piece: decor is { floor: [tile styles], wallA: [...], wallB: [...] }.
      migrate() upgrades older payloads in place; every field is read defensively. */
@@ -1189,6 +1199,7 @@
     } catch (e) { return false; }
   }
 
+  // ===== LIGHT =====
   /* ================================================================
      Real-time sky and light
      ================================================================ */
@@ -1255,6 +1266,7 @@
   }
   const css = (c, a) => 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ',' + a + ')';
 
+  // ===== CAMERA =====
   /* ================================================================
      Camera
      ================================================================ */
@@ -1351,6 +1363,7 @@
     placeToast();
   }
 
+  // ===== DRAW PRIMITIVES =====
   /* ================================================================
      Drawing primitives. World: x, y in tiles, z in px (up).
      ================================================================ */
@@ -1414,6 +1427,7 @@
   const glows = [];
   const pools = [];
 
+  // ===== ITEMS =====
   /* ================================================================
      Items
      ================================================================ */
@@ -1635,6 +1649,7 @@
     rrect(sx - 0.8, sy + 11, 1.6, 5, 0.8); ctx.fill();
   }
 
+  // ===== ROOM SHELL =====
   /* ================================================================
      Room shell: slab, floor, walls, door, windows
      ================================================================ */
@@ -1965,6 +1980,7 @@
     ctx.beginPath(); ctx.arc(PX(k[0], k[1]), PY(k[0], k[1], k[2]), 1.8, 0, Math.PI * 2); ctx.fill();
   }
 
+  // ===== SKY =====
   /* ================================================================
      Sky backdrop (screen space)
      ================================================================ */
@@ -2023,6 +2039,7 @@
     }
   }
 
+  // ===== EFFECTS =====
   /* ================================================================
      Effects: pop-in, ground ring, dust puffs
      ================================================================ */
@@ -2070,6 +2087,7 @@
     return [sx, Math.max(0.01, sy), Math.min(1, t * 5)];
   }
 
+  // ===== SIM =====
   /* ================================================================
      Customers and kitchen
      Customer cycle: enter -> find seat -> order -> wait for food ->
@@ -2670,6 +2688,7 @@
     ctx.globalAlpha = 1;
   }
 
+  // ===== INTERACTION STATE =====
   /* ================================================================
      Interaction state
      ================================================================ */
@@ -2723,6 +2742,7 @@
     return null;
   }
 
+  // ===== FRAME =====
   /* ================================================================
      Frame
      ================================================================ */
@@ -2924,6 +2944,7 @@
     drawCoinFlights();
   }
 
+  // ===== ACTIONS =====
   /* ================================================================
      Actions
      ================================================================ */
@@ -3496,6 +3517,7 @@
     lvUp.disabled = level >= MAX_LEVEL;
   }
 
+  // ===== LOOP =====
   /* ================================================================
      Loop
      ================================================================ */
@@ -3533,6 +3555,7 @@
   function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); save(); } else start(); });
 
+  // ===== INPUT =====
   /* ================================================================
      Input: tap to place, drag items to move, drag floor to pan,
      long-press / right-click to remove, wheel / pinch to zoom
@@ -3800,6 +3823,7 @@
     };
   }
 
+  // ===== START =====
   /* ================================================================
      Start
      ================================================================ */
