@@ -1449,9 +1449,62 @@
     c.state = 'leaving';
     if (!walkTo(c, DOOR.x, DOOR.y)) c.path = [];
   }
+  /* satisfaction moves the rating slowly, never in sudden drops (project.md 6.1) */
+  let rating = 50;                     // 0..100, shown as 0..5 stars
+  let recent = [];                     // last outcomes, for the "top reason" hint
+  function ratingCap() { return Math.min(100, 50 + level * 2 + decorValue() * 0.5); }
   function recordOutcome(outcome) {
-    if (outcome === 'happy') stats.served++;
-    else stats.left++;
+    if (outcome === 'happy') {
+      stats.served++;
+      rating = Math.min(ratingCap(), rating + 1.2);
+    } else {
+      stats.left++;
+      rating = Math.max(0, rating - 1.6);
+    }
+    recent.push(outcome);
+    if (recent.length > 20) recent.shift();
+  }
+  function topReason() {
+    const n = {};
+    for (const r of recent) if (r !== 'happy') n[r] = (n[r] || 0) + 1;
+    let best = null;
+    for (const k in n) if (!best || n[k] > n[best]) best = k;
+    return best;
+  }
+
+  /* ---------------- economy, project.md 8.1 ---------------- */
+  const BASE_ARRIVAL = 3;          // guests per minute at appeal 1 and rating factor 1
+  const APPEAL_SCALE = 40;
+  const SEAT_TURNOVER = 2.5;       // guests per dining seat per minute
+  const AVG_COOK = DISHES.reduce((s, d) => s + d.cook, 0) / DISHES.length;
+  const SERVES_PER_COUNTER = 60 / AVG_COOK;
+  const DIRT_PENALTY = 0.5;
+  const NIGHT_BONUS_PER_LIGHT = 5;
+  const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, plant_01: 4, lantern_01: 3 };
+  function decorValue() { return items.reduce((s, it) => s + (APPEAL[it.id] || 0), 0); }
+  function economy() {
+    const decor = decorValue();
+    const curbAppeal = 0;            // storefront arrives in Phase 4
+    const lights = items.filter((it) => CATALOG[it.id].light).length;
+    const nightBonus = lights * NIGHT_BONUS_PER_LIGHT * light.night;
+    const appeal = 1 + (decor + curbAppeal + nightBonus) / APPEAL_SCALE;
+    const ratingFactor = 0.5 + rating / 100;
+    const arrivalRate = BASE_ARRIVAL * appeal * ratingFactor;
+    const seats = chairs().filter((ch) => seatTable(ch)).length;
+    const kitchens = items.filter((it) => it.id === 'counter_01').length;  // staff replace this in Phase 3
+    const seatCap = seats * SEAT_TURNOVER, kitchenCap = kitchens * SERVES_PER_COUNTER;
+    const capacity = Math.min(seatCap, kitchenCap);
+    const served = Math.min(arrivalRate, capacity);
+    const avgMenuPrice = DISHES.reduce((s, d) => s + d.price, 0) / DISHES.length;
+    const cleanFactor = 1 - (dirtLevel / 100) * DIRT_PENALTY;
+    const wagesPerMin = 0;           // staff wages arrive in Phase 3
+    const incomePerMin = served * avgMenuPrice * cleanFactor - wagesPerMin;
+    let hint = '';
+    if (!seats) hint = 'Turn a chair to face a table to make a dining seat';
+    else if (!kitchens) hint = 'Add a counter so the kitchen can cook';
+    else if (arrivalRate > capacity) hint = seatCap <= kitchenCap ? 'Not enough seats' : 'Kitchen is busy: add a counter';
+    else if (arrivalRate < capacity * 0.6) hint = 'Low appeal: add plants and lanterns';
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, arrivalRate, seats, kitchens, seatCap, kitchenCap, capacity, served, avgMenuPrice, cleanFactor, wagesPerMin, incomePerMin, hint };
   }
   function pay(c) {
     const price = c.dish.price;
@@ -1557,10 +1610,13 @@
   }
 
   function simUpdate(dt) {
-    // Phase 2b: one guest at a time
-    if (!customers.length) {
-      spawnTimer -= dt;
-      if (spawnTimer <= 0) { spawnCustomer(); spawnTimer = 3; }
+    // arrivals follow arrivalRate from the income formula, so the live shop matches the estimate
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnTimer = 0.25;
+      const e = economy();
+      const room = chairs().length + 3;
+      if (customers.length < room && Math.random() < (e.arrivalRate / 60) * 0.25) spawnCustomer();
     }
     for (const c of customers.slice()) updateCustomer(c, dt);
     customers = customers.filter((c) => !(c.state === 'exit' && c.alpha <= 0));
@@ -2322,7 +2378,8 @@
     window.cozyDebug = {
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
       state: () => ({
-        N, level, coins, stats: Object.assign({}, stats), orders: orders.length,
+        N, level, coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
+        stats: Object.assign({}, stats), orders: orders.length,
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
       })
