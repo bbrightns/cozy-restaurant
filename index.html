@@ -594,6 +594,7 @@
   let layoutVersion = 0;
   function layoutChanged() {
     layoutVersion++;
+    simOnLayout();
     updateContext();
   }
 
@@ -857,6 +858,10 @@
       ctx.beginPath(); ctx.arc(PX(x + t, y + 0.88), PY(x + t, y + 0.88, 11.6), 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(PX(x + 0.88, y + t), PY(x + 0.88, y + t, 11.6), 1.5, 0, Math.PI * 2); ctx.fill();
     }
+    // plates for the chairs facing this table: far ones before the vase, near ones after
+    const seats = items.filter((c) => c.id === 'chair_01' && c.plate && seatTable(c) === it);
+    const near = (c) => -DIRS[c.rot][0] - DIRS[c.rot][1] > 0;
+    for (const c of seats) if (!near(c)) drawPlate(c);
     // bud vase with a little flower
     box(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 18, 24, P.cushion);
     const fx = PX(x + 0.5, y + 0.5), fy = PY(x + 0.5, y + 0.5, 28);
@@ -870,9 +875,10 @@
     }
     ctx.fillStyle = lit(P.gold, 1);
     ctx.beginPath(); ctx.arc(fx, fy, 1.1, 0, Math.PI * 2); ctx.fill();
+    for (const c of seats) if (near(c)) drawPlate(c);
   }
 
-  function drawChair(it) {
+  function drawChair(it, now) {
     const x = it.x, y = it.y;
     const [dx, dy] = DIRS[it.rot];
     const a = 0.27, b = 0.73, t = 0.08;
@@ -896,10 +902,12 @@
     if (backFar) drawBack();
     box(x + a, y + a, x + b, y + b, 9, 12, P.wood);
     box(x + a + 0.03, y + a + 0.03, x + b - 0.03, y + b - 0.03, 12, 14, P.cushion, { top: P.cushionHi });
+    const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
+    if (sitter) drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13, true, now);
     if (!backFar) drawBack();
   }
 
-  function drawCounter(it) {
+  function drawCounter(it, now) {
     const [w, d] = dims(it.id, it.rot);
     const x0 = it.x, y0 = it.y, x1 = x0 + w, y1 = y0 + d;
     ctx.fillStyle = 'rgba(122,82,118,0.16)';
@@ -926,6 +934,22 @@
       if (e === cakeAt) drawCake(e[0], e[1]);
       else drawBell(e[0], e[1]);
     }
+    if (it.cook) drawSteam(x0 + w / 2, y0 + d / 2, 31, it.cook.t / it.cook.dur, now);
+  }
+  /* soft steam wisps over a cooking counter, plus a small progress pip */
+  function drawSteam(cx, cy, z, prog, now) {
+    const sx = PX(cx, cy), sy = PY(cx, cy, z);
+    for (let q = 0; q < 3; q++) {
+      const ph = reduced ? q / 3 : ((now * 0.0006) + q / 3) % 1;
+      const a = Math.sin(ph * Math.PI) * 0.55;
+      ctx.fillStyle = 'rgba(255,250,244,' + a.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(sx + Math.sin(ph * 6 + q * 2) * 3 + (q - 1) * 5, sy - 6 - ph * 22, 2.5 + ph * 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255,250,244,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sx, sy - 34, 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(prog, 0, 1)); ctx.stroke();
   }
   function drawCake(cx, cy) {
     const sx = PX(cx, cy), sy = PY(cx, cy, 31);
@@ -1156,6 +1180,23 @@
     ctx.fillStyle = lit(P.trim, 1);
     ctx.fill();
     q(u0, u1, 0, zt);
+    if (doorOpen > 0.02) {
+      // the sky outside, and the door swung in on its hinge
+      const sg = ctx.createLinearGradient(0, PY(DOOR.x + 0.5, 0, zt), 0, PY(DOOR.x + 0.5, 0, 0));
+      sg.addColorStop(0, css(light.top, 1));
+      sg.addColorStop(1, css(light.low, 1));
+      ctx.fillStyle = sg;
+      ctx.fill();
+      q(u0, u1, 0, 6);
+      ctx.fillStyle = lit(P.slab, 1);
+      ctx.fill();
+      const L = u1 - u0, th = doorOpen * 1.35;
+      const ex = u0 + L * Math.cos(th), ey = L * Math.sin(th);
+      poly([[u0, 0, 0], [ex, ey, 0], [ex, ey, zt], [u0, 0, zt]]);
+      ctx.fillStyle = lit(P.door, 0.94);
+      ctx.fill();
+      return;
+    }
     const g = ctx.createLinearGradient(0, PY(DOOR.x + 0.5, 0, zt), 0, PY(DOOR.x + 0.5, 0, 0));
     g.addColorStop(0, lit(P.door, 1));
     g.addColorStop(1, lit(P.doorDeep, 0.95));
@@ -1215,12 +1256,17 @@
     halo.addColorStop(1, 'rgba(255,236,190,0)');
     ctx.fillStyle = halo;
     ctx.fillRect(bx - r * 3, by - r * 3, r * 6, r * 6);
+    ctx.save();
+    if (!isDay) {
+      // crescent: clip away an offset disc so the sky glow shows through the bite
+      ctx.beginPath();
+      ctx.rect(bx - r * 2, by - r * 2, r * 4, r * 4);
+      ctx.arc(bx + r * 0.45, by - r * 0.25, r * 0.85, 0, Math.PI * 2, true);
+      ctx.clip('evenodd');
+    }
     ctx.fillStyle = isDay ? '#ffe7a8' : '#f3eedd';
     ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fill();
-    if (!isDay) {
-      ctx.fillStyle = css(mix3(light.top, light.low, clamp(by / H, 0, 1)), 1);
-      ctx.beginPath(); ctx.arc(bx + r * 0.45, by - r * 0.25, r * 0.85, 0, Math.PI * 2); ctx.fill();
-    }
+    ctx.restore();
     // drifting clouds, tinted by the sky
     const cc = mix3([255, 248, 242], light.low, 0.35);
     for (const c of clouds) {
@@ -1280,6 +1326,429 @@
     const sy = 1 - Math.cos(t * Math.PI * 2.5) * Math.pow(1 - t, 2);
     const sx = clamp(1 / Math.sqrt(Math.max(0.3, sy)), 0.85, 1.4);
     return [sx, Math.max(0.01, sy), Math.min(1, t * 5)];
+  }
+
+  /* ================================================================
+     Customers and kitchen
+     Customer cycle: enter -> find seat -> order -> wait for food ->
+     eat -> pay -> leave. Counters are the kitchen until staff arrive
+     in Phase 3: each counter cooks one dish at a time.
+     ================================================================ */
+  const WALK_SPEED = 1.6;                 // tiles per second
+  const ORDER_TIME = 2.2, EAT_TIME = 9;   // seconds
+  const FOOD_PATIENCE = 32, WAIT_PATIENCE = 20;
+  const DISHES = [
+    { id: 'dish_01', name: 'Sunny Rice Bowl', price: 12, cook: 5, cols: [rgb('#fff6ea'), rgb('#f6d27a'), rgb('#94c98d')] },
+    { id: 'dish_02', name: 'Peach Pancake Stack', price: 18, cook: 7, cols: [rgb('#f2c99a'), rgb('#ffb5a7'), rgb('#fff6ea')] },
+    { id: 'dish_03', name: 'Mint Noodle Soup', price: 24, cook: 9, cols: [rgb('#b8e0d2'), rgb('#fff1d6'), rgb('#f2b09c')] }
+  ];
+  const SHIRTS = ['#ff9fb2', '#7fb8e6', '#f6d27a', '#b39cd0', '#8fd3b6', '#ffb5a7'].map(rgb);
+  const PANTS = ['#8e7cc3', '#7a9cc6', '#a98f80', '#6f9e95'].map(rgb);
+  const SKINS = ['#ffdcc4', '#f1c3a0', '#d9a07c', '#b57a5a'].map(rgb);
+  const HAIRS = ['#7a5a6e', '#a9785c', '#5e5a7a', '#e2b38a', '#c97b7b'].map(rgb);
+  const PLATE = rgb('#eadccd');
+  const DOOR_IN = { x: DOOR.x + 0.5, y: 0.1 };   // threshold, just inside the door
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  function shuffle(a) {
+    for (let q = a.length - 1; q > 0; q--) { const r = Math.floor(Math.random() * (q + 1)); const t = a[q]; a[q] = a[r]; a[r] = t; }
+    return a;
+  }
+
+  let customers = [];
+  let orders = [];          // customers whose order waits for a free counter
+  const flights = [];       // plates floating from a counter to a table
+  const pops = [];          // "+coins" pops
+  let coins = 0;
+  let dirtLevel = 0;        // 0..100, fed by the trash system in Phase 3
+  const TRASH_LIMIT = 60;
+  let doorOpen = 0;
+  let spawnTimer = 2;
+  const stats = { served: 0, left: 0 };
+
+  function spawnCustomer() {
+    customers.push({
+      x: DOOR_IN.x, y: DOOR_IN.y, alpha: 0, state: 'enter', path: [[DOOR.x + 0.5, DOOR.y + 0.5]],
+      seat: null, rec: '', table: null, dish: null, t: 0, seated: false, moving: false,
+      shirt: pick(SHIRTS), pants: pick(PANTS), skin: pick(SKINS), hair: pick(HAIRS),
+      ph: Math.random() * 6, bubble: null, hx: 0, hy: 0
+    });
+  }
+  const chairs = () => items.filter((it) => it.id === 'chair_01');
+  const tileOf = (c) => [clamp(Math.floor(c.x), 0, N - 1), clamp(Math.floor(c.y), 0, N - 1)];
+
+  function walkTo(c, gx, gy) {
+    const [sx, sy] = tileOf(c);
+    const p = astar(sx, sy, gx, gy, blockedGrid());
+    if (!p) return false;
+    c.path = p.length > 1 ? p.slice(1).map(([x, y]) => [x + 0.5, y + 0.5]) : [[gx + 0.5, gy + 0.5]];
+    return true;
+  }
+  /* moves along the path; true once the last point is reached */
+  function stepPath(c, dt) {
+    if (!c.path.length) { c.moving = false; return true; }
+    const [tx, ty] = c.path[0];
+    const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
+    const s = WALK_SPEED * dt;
+    c.moving = true;
+    c.ph += dt * 10;
+    if (d <= s) {
+      c.x = tx; c.y = ty;
+      c.path.shift();
+      if (!c.path.length) { c.moving = false; return true; }
+      return false;
+    }
+    c.x += (dx / d) * s;
+    c.y += (dy / d) * s;
+    return false;
+  }
+
+  function claim(c, ch) {
+    ch.occupant = c;
+    c.seat = ch;
+    c.table = seatTable(ch);
+    c.rec = ch.x + ',' + ch.y + ',' + ch.rot;
+  }
+  function release(c) {
+    if (c.seat && c.seat.occupant === c) c.seat.occupant = null;
+    c.seat = null;
+    c.table = null;
+    c.seated = false;
+  }
+  const freeDining = () => chairs().filter((ch) => !ch.occupant && !ch.plate && seatTable(ch));
+  const freeWaiting = () => chairs().filter((ch) => !ch.occupant && !seatTable(ch));
+  function noSeatReason() {
+    return chairs().some((ch) => !ch.occupant && ch.plate && ch.plate.state === 'dirty' && seatTable(ch)) ? 'plate' : 'chair';
+  }
+  function trySeat(c, list) {
+    for (const ch of shuffle(list)) {
+      if (walkTo(c, ch.x, ch.y)) { claim(c, ch); c.state = 'toSeat'; return true; }
+    }
+    return false;
+  }
+  function decide(c) {
+    if (dirtLevel >= TRASH_LIMIT) { depart(c, 'trash'); return; }
+    if (trySeat(c, freeDining())) return;
+    if (trySeat(c, freeWaiting())) return;
+    depart(c, noSeatReason());
+  }
+  function bubble(c, type, dur) { c.bubble = { type, t: 0, dur }; }
+
+  /* outcome: 'happy', a reason key ('trash' | 'chair' | 'plate' | 'clock'), or null to leave quietly */
+  function depart(c, outcome) {
+    orders = orders.filter((o) => o !== c);
+    for (const it of items) if (it.cook && it.cook.cust === c) it.cook = null;
+    for (const f of flights) if (f.cust === c) f.cust = null;
+    if (outcome) {
+      recordOutcome(outcome);
+      bubble(c, outcome === 'happy' ? 'heart' : outcome, 2.4);
+    }
+    const seat = c.seat;
+    if (seat && seat.plate && seat.plate.state === 'full') seat.plate.state = 'dirty';
+    release(c);
+    if (seat) { c.x = seat.x + 0.5; c.y = seat.y + 0.5; }
+    c.state = 'leaving';
+    if (!walkTo(c, DOOR.x, DOOR.y)) c.path = [];
+  }
+  function recordOutcome(outcome) {
+    if (outcome === 'happy') stats.served++;
+    else stats.left++;
+  }
+  function pay(c) {
+    const price = c.dish.price;
+    coins += price;
+    pops.push({ x: c.hx, y: c.hy, amount: price, t: 0 });
+    if (c.seat && c.seat.plate) { c.seat.plate.state = 'dirty'; c.seat.plate.eaten = 1; }
+    depart(c, 'happy');
+    announce('A guest paid ' + price + ' coins.');
+  }
+
+  function plateSpot(ch) {
+    const t = seatTable(ch);
+    const [dx, dy] = DIRS[ch.rot];
+    return t ? [t.x + 0.5 - dx * 0.25, t.y + 0.5 - dy * 0.25] : [ch.x + 0.5, ch.y + 0.5];
+  }
+  function clearPlates(table) {
+    let n = 0;
+    for (const ch of chairs()) {
+      if (!ch.plate || ch.plate.state !== 'dirty' || seatTable(ch) !== table) continue;
+      const [px, py] = plateSpot(ch);
+      ch.plate = null;
+      spawnRing(px - 0.2, py - 0.2, 0.4, 0.4);
+      n++;
+    }
+    if (n) announce(n === 1 ? 'Cleared a plate.' : 'Cleared ' + n + ' plates.');
+    return n;
+  }
+
+  function updateCustomer(c, dt) {
+    c.t += dt;
+    if (c.bubble) { c.bubble.t += dt; if (c.bubble.t >= c.bubble.dur) c.bubble = null; }
+    switch (c.state) {
+      case 'enter':
+        c.alpha = Math.min(1, c.alpha + dt * 3);
+        if (stepPath(c, dt)) decide(c);
+        break;
+      case 'toSeat':
+        if (stepPath(c, dt)) {
+          c.seated = true;
+          c.t = 0;
+          if (c.table) { c.state = 'ordering'; c.dish = pick(DISHES); bubble(c, 'order', ORDER_TIME + 0.4); }
+          else c.state = 'waiting';
+        }
+        break;
+      case 'waiting': {
+        const free = freeDining();
+        if (free.length) {
+          const prev = c.seat;
+          release(c);
+          if (!trySeat(c, free)) { claim(c, prev); c.seated = true; }
+        } else if (c.t > WAIT_PATIENCE) depart(c, noSeatReason());
+        break;
+      }
+      case 'ordering':
+        if (c.t > ORDER_TIME) { orders.push(c); c.state = 'waitFood'; c.t = 0; }
+        break;
+      case 'waitFood':
+        if (c.t > FOOD_PATIENCE) depart(c, 'clock');
+        break;
+      case 'eating':
+        if (c.seat && c.seat.plate) c.seat.plate.eaten = clamp(c.t / EAT_TIME, 0, 1);
+        if (c.t > EAT_TIME) pay(c);
+        break;
+      case 'leaving':
+        if (stepPath(c, dt)) { c.state = 'exit'; c.path = [[DOOR_IN.x, DOOR_IN.y]]; }
+        break;
+      case 'exit':
+        if (stepPath(c, dt)) c.alpha -= dt * 3;
+        break;
+    }
+  }
+
+  function updateKitchen(dt) {
+    for (const it of items) {
+      if (it.id !== 'counter_01') continue;
+      if (!it.cook && orders.length) {
+        const cust = orders.shift();
+        it.cook = { cust, t: 0, dur: cust.dish.cook };
+      }
+      if (!it.cook) continue;
+      it.cook.t += dt;
+      if (it.cook.t < it.cook.dur) continue;
+      const cust = it.cook.cust;
+      it.cook = null;
+      if (cust && cust.state === 'waitFood' && cust.seat) {
+        const [w, d] = dims(it.id, it.rot);
+        flights.push({ cust, dish: cust.dish, fx: it.x + w / 2, fy: it.y + d / 2, t: 0 });
+        cust.state = 'served';
+      }
+    }
+    for (let q = flights.length - 1; q >= 0; q--) {
+      const f = flights[q];
+      f.t += dt / (reduced ? 0.4 : 0.8);
+      if (f.t < 1) continue;
+      flights.splice(q, 1);
+      const c = f.cust;
+      if (c && c.state === 'served' && c.seat && seatTable(c.seat)) {
+        c.seat.plate = { dish: f.dish, state: 'full', eaten: 0, table: seatTable(c.seat) };
+        c.state = 'eating';
+        c.t = 0;
+      }
+    }
+  }
+
+  function simUpdate(dt) {
+    // Phase 2b: one guest at a time
+    if (!customers.length) {
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) { spawnCustomer(); spawnTimer = 3; }
+    }
+    for (const c of customers.slice()) updateCustomer(c, dt);
+    customers = customers.filter((c) => !(c.state === 'exit' && c.alpha <= 0));
+    updateKitchen(dt);
+    for (let q = pops.length - 1; q >= 0; q--) { pops[q].t += dt; if (pops[q].t > 1.3) pops.splice(q, 1); }
+    const near = customers.some((c) => Math.hypot(c.x - DOOR_IN.x, c.y - DOOR_IN.y) < 0.7);
+    doorOpen = reduced ? (near ? 1 : 0) : clamp(doorOpen + (near ? dt : -dt) * 4, 0, 1);
+  }
+
+  /* layout edits: guests whose seat moved or vanished leave quietly, walkers re-path */
+  function simOnLayout() {
+    for (const ch of chairs()) if (ch.plate && ch.plate.table !== seatTable(ch)) ch.plate = null;
+    for (const c of customers.slice()) {
+      if (c.seat) {
+        const ch = c.seat;
+        const same = items.includes(ch) && c.rec === ch.x + ',' + ch.y + ',' + ch.rot && seatTable(ch) === c.table;
+        if (!same) { depart(c, null); continue; }
+        if (c.state === 'toSeat') walkTo(c, ch.x, ch.y);
+      } else if (c.state === 'leaving' && c.path.length) walkTo(c, DOOR.x, DOOR.y);
+    }
+    for (const c of customers) {
+      if (c.state === 'waitFood' && !orders.includes(c) && !items.some((it) => it.cook && it.cook.cust === c)) orders.unshift(c);
+    }
+  }
+
+  /* ---------------- drawing guests, plates, bubbles ---------------- */
+  function drawPerson(c, fx, fy, z, sitting, now) {
+    const sx = PX(fx, fy), base = PY(fx, fy, z);
+    const walk = !sitting && c.moving && !reduced;
+    const bob = walk ? Math.abs(Math.sin(c.ph)) * 1.3 : 0;
+    ctx.save();
+    ctx.globalAlpha *= clamp(c.alpha, 0, 1);
+    if (!sitting) {
+      ctx.fillStyle = 'rgba(122,82,118,0.18)';
+      ctx.beginPath(); ctx.ellipse(sx, base, 5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      const st = walk ? Math.sin(c.ph) * 1.6 : 0;
+      ctx.fillStyle = lit(c.pants, 0.95);
+      rrect(sx - 3.4, base - 8, 2.9, 8 - Math.max(0, st), 1.2); ctx.fill();
+      rrect(sx + 0.5, base - 8, 2.9, 8 - Math.max(0, -st), 1.2); ctx.fill();
+    }
+    const top = base - (sitting ? 11 : 19) - bob;
+    const g = ctx.createLinearGradient(sx - 5, 0, sx + 5, 0);
+    g.addColorStop(0, lit(c.shirt, 1.04));
+    g.addColorStop(1, lit(c.shirt, 0.82));
+    ctx.fillStyle = g;
+    rrect(sx - 4.6, top, 9.2, sitting ? 11 : 12, 3.6); ctx.fill();
+    if (c.state === 'eating' && !reduced) {
+      ctx.fillStyle = lit(c.skin, 1);
+      ctx.beginPath(); ctx.arc(sx + 4.6, top + 5 - Math.abs(Math.sin(now * 0.007)) * 3, 1.7, 0, Math.PI * 2); ctx.fill();
+    }
+    const hy = top - 4.2;
+    ctx.fillStyle = lit(c.skin, 1);
+    ctx.beginPath(); ctx.arc(sx, hy, 4.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(c.hair, 1);
+    ctx.beginPath(); ctx.arc(sx, hy - 0.4, 4.7, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    c.hx = sx;
+    c.hy = hy - 7;
+  }
+
+  function drawPlate(ch) {
+    const [px, py] = plateSpot(ch);
+    const sx = PX(px, py), sy = PY(px, py, 18.3);
+    ctx.fillStyle = lit(PLATE, 1);
+    ctx.beginPath(); ctx.ellipse(sx, sy, 6.4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(P.cream, 1.02);
+    ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 4.8, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+    if (ch.plate.state === 'full') drawFood(sx, sy - 0.3, ch.plate.dish, 1 - ch.plate.eaten);
+    else {
+      ctx.fillStyle = lit(P.woodDeep, 1, 0.8);
+      for (const [ox, oy] of [[-1.8, -0.3], [1.2, 0.5], [0.4, -0.9]]) { ctx.beginPath(); ctx.arc(sx + ox, sy + oy, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+  function drawFood(sx, sy, dish, amt) {
+    if (amt <= 0.03) return;
+    const s = 0.45 + 0.55 * amt;
+    ctx.fillStyle = lit(dish.cols[0], 1);
+    ctx.beginPath(); ctx.ellipse(sx, sy - 1.2 * s, 3.8 * s, 2.2 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(dish.cols[1], 1);
+    ctx.beginPath(); ctx.arc(sx - 0.8, sy - 2.4 * s, 1.7 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(dish.cols[2], 1);
+    ctx.beginPath(); ctx.arc(sx + 1.6, sy - 2 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawFlights() {
+    for (const f of flights) {
+      if (!f.cust || !f.cust.seat) continue;
+      const [tx, ty] = plateSpot(f.cust.seat);
+      const e = f.t * f.t * (3 - 2 * f.t);
+      const x = lerp(f.fx, tx, e), y = lerp(f.fy, ty, e), z = lerp(32, 18.3, e) + Math.sin(f.t * Math.PI) * 26;
+      const sx = PX(x, y), sy = PY(x, y, z);
+      ctx.fillStyle = 'rgba(122,82,118,0.12)';
+      ctx.beginPath(); ctx.ellipse(PX(x, y), PY(x, y, lerp(31, 18, e)), 5, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(PLATE, 1);
+      ctx.beginPath(); ctx.ellipse(sx, sy, 6.4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(P.cream, 1.02);
+      ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 4.8, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+      drawFood(sx, sy - 0.3, f.dish, 1);
+    }
+  }
+
+  const BUBBLE_ICON = {
+    heart() {
+      ctx.fillStyle = '#f4978e';
+      ctx.beginPath(); ctx.moveTo(0, 4.5);
+      ctx.bezierCurveTo(-7.5, -0.5, -4.5, -7.5, 0, -3);
+      ctx.bezierCurveTo(4.5, -7.5, 7.5, -0.5, 0, 4.5); ctx.fill();
+    },
+    trash() {
+      ctx.fillStyle = '#a99bbd';
+      rrect(-5.5, -6, 11, 2, 1); ctx.fill();
+      rrect(-1.6, -7.6, 3.2, 2, 1); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-4.4, -3.4); ctx.lineTo(4.4, -3.4); ctx.lineTo(3.4, 5.5); ctx.lineTo(-3.4, 5.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d9cfe6';
+      rrect(-2.2, -1.6, 1.2, 5, 0.6); ctx.fill();
+      rrect(1, -1.6, 1.2, 5, 0.6); ctx.fill();
+    },
+    chair() {
+      ctx.fillStyle = '#c4966f';
+      rrect(-4.5, -7, 2.4, 13, 1); ctx.fill();
+      rrect(-4.5, 0, 9, 2.4, 1); ctx.fill();
+      rrect(2.6, 1, 2, 5, 0.8); ctx.fill();
+      ctx.fillStyle = '#9fd2c1';
+      rrect(-4, -1.2, 8, 1.8, 0.8); ctx.fill();
+    },
+    plate() {
+      ctx.fillStyle = '#e2d2c0';
+      ctx.beginPath(); ctx.ellipse(0, 1, 7.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff6ea';
+      ctx.beginPath(); ctx.ellipse(0, 0.6, 5.4, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c4966f';
+      for (const [ox, oy] of [[-2, 0], [1.5, 1], [0.6, -0.8]]) { ctx.beginPath(); ctx.arc(ox, oy, 0.9, 0, Math.PI * 2); ctx.fill(); }
+    },
+    clock() {
+      ctx.fillStyle = '#cdb4db';
+      ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff6ea';
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#5b4b57'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -3.4); ctx.moveTo(0, 0); ctx.lineTo(2.6, 1.2); ctx.stroke();
+    }
+  };
+  function drawBubble(c) {
+    const b = c.bubble;
+    const k = clamp(b.t / 0.25, 0, 1);
+    const s = reduced ? 1 : k < 1 ? 0.4 + 0.75 * k - 0.15 * Math.sin(k * Math.PI) : 1;
+    const fade = clamp((b.dur - b.t) / 0.3, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = clamp(c.alpha, 0, 1) * fade * (reduced ? Math.min(1, b.t * 5) : 1);
+    ctx.translate(c.hx, c.hy);
+    ctx.scale(s, s);
+    ctx.fillStyle = 'rgba(122,82,118,0.16)';
+    rrect(-12, -24, 24, 21, 9); ctx.fill();
+    ctx.fillStyle = '#fff8ef';
+    rrect(-12, -25.5, 24, 21, 9); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-3.5, -5); ctx.lineTo(0, 0); ctx.lineTo(3.5, -5); ctx.closePath(); ctx.fill();
+    ctx.translate(0, -15);
+    if (b.type === 'order') {
+      ctx.fillStyle = '#e2d2c0';
+      ctx.beginPath(); ctx.ellipse(0, 2.5, 7.5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+      drawFoodIcon(c.dish);
+    } else if (BUBBLE_ICON[b.type]) BUBBLE_ICON[b.type]();
+    ctx.restore();
+  }
+  function drawFoodIcon(dish) {
+    ctx.fillStyle = css(dish.cols[0], 1);
+    ctx.beginPath(); ctx.ellipse(0, 0.6, 5.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = css(dish.cols[1], 1);
+    ctx.beginPath(); ctx.arc(-1.2, -1.2, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = css(dish.cols[2], 1);
+    ctx.beginPath(); ctx.arc(2.2, -0.6, 1.4, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawPops() {
+    if (!drawPops.font) drawPops.font = '800 9px ' + getComputedStyle(document.body).fontFamily;
+    ctx.font = drawPops.font;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (const p of pops) {
+      const k = p.t / 1.3;
+      const y = p.y - 26 - (reduced ? 4 : 22) * Math.sqrt(k);
+      ctx.globalAlpha = clamp((1 - k) * 2.2, 0, 1);
+      ctx.fillStyle = '#e9b44c';
+      ctx.beginPath(); ctx.arc(p.x - 7, y, 4.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f6d27a';
+      ctx.beginPath(); ctx.arc(p.x - 7, y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b7843a';
+      ctx.fillText('+' + p.amount, p.x - 1.5, y + 0.5);
+    }
+    ctx.globalAlpha = 1;
   }
 
   /* ================================================================
@@ -1438,8 +1907,15 @@
     }
 
     // items, back to front
-    const sorted = items.slice().sort((a, b) => depthOf(a) - depthOf(b) || a.y - b.y);
-    for (const it of sorted) drawItem(it, now, drag && drag.item === it ? 0.3 : 1);
+    // items and walking guests, back to front (seated guests are drawn by their chair)
+    const list = items.map((it) => [depthOf(it), it.y, it, null]);
+    for (const c of customers) if (!c.seated) list.push([c.x + c.y + 0.02, c.y, null, c]);
+    list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const [, , it, c] of list) {
+      if (it) drawItem(it, now, drag && drag.item === it ? 0.3 : 1);
+      else drawPerson(c, c.x, c.y, 0, false, now);
+    }
+    drawFlights();
 
     // ghost previews
     if (drag && drag.tx !== null) {
@@ -1465,6 +1941,10 @@
       }
       ctx.globalCompositeOperation = 'source-over';
     }
+
+    // speech bubbles and coin pops float above everything
+    for (const c of customers) if (c.bubble) drawBubble(c);
+    drawPops();
 
     // dust
     for (const p of puffs) {
@@ -1626,6 +2106,7 @@
     last = now;
     updateLight(dt);
     updateEffects(dt);
+    simUpdate(dt);
     frame(now, dt);
     hudTimer -= dt;
     if (hudTimer <= 0) { hudTimer = 0.5; updateClock(); }
@@ -1753,6 +2234,11 @@
       if (h) removeItem(h.item);
       return;
     }
+    // tapping a table with dirty plates clears them, whatever the tool (except Remove)
+    if (tool !== 'remove') {
+      const h = hit || itemAt(sx, sy);
+      if (h && h.item.id === 'table_01' && clearPlates(h.item)) return;
+    }
     if (tool === 'move') {
       if (hit) select(selected === hit.item ? null : hit.item);
       else if (selected) select(null);
@@ -1813,6 +2299,7 @@
       e.preventDefault();
       kbd.show = true;
       const it = itemOnTile(kbd.x, kbd.y);
+      if (tool !== 'remove' && it && it.id === 'table_01' && clearPlates(it)) return;
       if (tool === 'move') {
         if (it) select(selected === it ? null : it);
         else if (selected) moveItem(selected, kbd.x, kbd.y);
@@ -1829,6 +2316,18 @@
   window.addEventListener('resize', resize);
   if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', (e) => { reduced = e.matches; });
   window.addEventListener('pagehide', save);
+
+  /* read-only test hook, only with ?debug in the URL */
+  if (/[?&]debug\b/.test(location.search)) {
+    window.cozyDebug = {
+      screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
+      state: () => ({
+        N, level, coins, stats: Object.assign({}, stats), orders: orders.length,
+        items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
+        customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
+      })
+    };
+  }
 
   /* ================================================================
      Start
