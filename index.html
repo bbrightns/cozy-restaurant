@@ -440,6 +440,25 @@
   .price-read b { display: block; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .price-read small { font-size: 10.5px; font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums; }
   .lock-read { font-size: 12px; font-weight: 800; color: var(--text-2); padding: 0 8px; white-space: nowrap; }
+  /* staff sheet: team and hire list */
+  .tool[data-action="staff"] { --tint: #d6eee5; }
+  .staff-h3 { margin: 4px 0 0; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
+  .staff-split { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .staff-row { grid-template-columns: 40px 1fr auto; background: var(--cream-2); padding-left: 6px; }
+  .staff-row.cand { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: block; }
+  .avatar svg { width: 40px; height: 40px; display: block; }
+  .tier { color: #e2b04f; font-size: 12px; letter-spacing: .02em; margin-left: 4px; }
+  .staff-row .chip { background: var(--cream); white-space: nowrap; }
+  .staff-row .chip.warn { background: #fbd9d2; }
+  .staff-row .chip.warn:hover { background: #f8c9bf; }
+  .chip.hire { background: var(--peach); color: var(--text); }
+  .chip.hire:hover { background: #fca898; }
+  .chip.hire::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: inset 0 0 0 2px #e9b44c; }
+  .chip.hire.free::before { display: none; }
+  .chip.hire.poor { background: var(--cream-2); color: #c0665a; }
+  .chip.hire.full { background: var(--cream-2); color: var(--text-3); }
+  .empty-note { margin: 0; padding: 8px 4px; font-size: 12.5px; font-weight: 700; color: var(--text-2); }
 
   .toast {
     position: fixed;
@@ -520,6 +539,7 @@
     .menu-sheet { max-height: none; min-height: 0; flex: 0 1 auto; }
     .dish { grid-template-columns: 44px 1fr; }
     .dish-price, .lock-read { grid-column: 2; justify-self: start; }
+    .staff-row { grid-template-columns: 40px 1fr auto; }
     .breakdown { max-height: calc(100vh - 110px); }
     .chip .txt { display: none; }
   }
@@ -609,6 +629,25 @@
       </button>
     </div>
     <ul class="menu-list" id="menu-list"></ul>
+  </section>
+  <section class="card sheet menu-sheet" id="staff-sheet" hidden aria-labelledby="staff-h">
+    <div class="menu-head">
+      <div>
+        <h2 id="staff-h">Staff</h2>
+        <p class="menu-sub" id="staff-sub" aria-live="polite"></p>
+      </div>
+      <button type="button" class="chip" id="staff-close" aria-label="Close staff">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <h3 class="staff-h3" id="team-h">Your team</h3>
+    <ul class="menu-list" id="team-list" aria-labelledby="team-h"></ul>
+    <div class="staff-split">
+      <h3 class="staff-h3" id="hire-h">Looking for work</h3>
+      <button type="button" class="chip" id="reroll" aria-label="New faces: show different candidates">New faces</button>
+    </div>
+    <ul class="menu-list" id="hire-list" aria-labelledby="hire-h"></ul>
+    <p class="menu-sub" id="hire-note"></p>
   </section>
   <div class="card context" id="context" hidden>
     <div class="ctx-row">
@@ -733,6 +772,18 @@
         <circle cx="30" cy="25" r="3.2" fill="#fbe7b8"/>
       </svg>
       <span>Menu</span>
+    </button>
+    <button type="button" class="tool" data-action="staff" aria-pressed="false" aria-controls="staff-sheet" aria-label="Staff: your team and the hire list">
+      <svg viewBox="0 0 40 34" aria-hidden="true">
+        <path d="M5 32c0-6 3.4-9.4 8-9.4s8 3.4 8 9.4z" fill="#b8e0d2"/>
+        <circle cx="13" cy="17" r="5" fill="#f1c3a0"/>
+        <path d="M8 16.6a5 5 0 0 1 10 0z" fill="#a9785c"/>
+        <path d="M19 32c0-6.6 3.8-10.4 8.8-10.4s8.8 3.8 8.8 10.4z" fill="#fff1e2"/>
+        <circle cx="27.8" cy="15.6" r="5.4" fill="#ffdcc4"/>
+        <ellipse cx="27.8" cy="7.4" rx="5.6" ry="3.6" fill="#fffaf3"/>
+        <rect x="23.4" y="7.6" width="8.8" height="3.4" rx="1.4" fill="#eadccd"/>
+      </svg>
+      <span>Staff</span>
     </button>
     </div>
   </nav>
@@ -1142,8 +1193,9 @@
   // ===== SAVE =====
   /* Save format. v1: Phases 1-2. v2 adds name, decor, menu and item variants.
      v3 paints decor per piece: decor is { floor: [tile styles], wallA: [...], wallB: [...] }.
+     v4 adds staff: [{ id, role, tier, name, skin, hair }]; speed and wage come from role and tier.
      migrate() upgrades older payloads in place; every field is read defensively. */
-  const SAVE_VERSION = 3;
+  const SAVE_VERSION = 4;
   function migrate(d) {
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
@@ -1159,6 +1211,11 @@
       d.decor = { floor: full(MAX_GRID * MAX_GRID, old.floor), wallA: full(MAX_GRID, old.wall), wallB: full(MAX_GRID, old.wall) };
       d.v = 3;
     }
+    if (d.v === 3) {
+      // staff replace the self-cooking counters, so older shops get the free starter crew
+      d.staff = starterCrew();
+      d.v = 4;
+    }
     return d;
   }
 
@@ -1167,6 +1224,7 @@
       v: SAVE_VERSION, name: shopName, decor: decorSnapshot(),
       menu: menu.map((m) => ({ dishId: m.dishId, price: m.price })), level, xp, coins, rating: Math.round(rating * 100) / 100,
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
+      staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair })),
       interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
     };
     store.set(SAVE_KEY, JSON.stringify(data));
@@ -1189,6 +1247,7 @@
       N = gridFor(level);
       xp = level >= MAX_LEVEL ? 0 : clamp(Math.floor(+d.xp) || 0, 0, xpNeed(level) - 1);
       menu = sanitizeMenu(d.menu);
+      staff = sanitizeStaff(d.staff);
       adoptItems(d.interior.items, true);
       coins = Math.max(0, Math.floor(+d.coins) || 0);
       shownCoins = coins;
@@ -2091,8 +2150,8 @@
   /* ================================================================
      Customers and kitchen
      Customer cycle: enter -> find seat -> order -> wait for food ->
-     eat -> pay -> leave. Counters are the kitchen until staff arrive
-     in Phase 3: each counter cooks one dish at a time.
+     eat -> pay -> leave. Each chef works one counter and cooks one dish
+     at a time; a finished plate waits for a free waiter or helper.
      ================================================================ */
   const WALK_SPEED = 1.6;                 // tiles per second
   const ORDER_TIME = 2.2, EAT_TIME = 9;   // seconds
@@ -2142,6 +2201,7 @@
 
   let customers = [];
   let orders = [];          // customers whose order waits for a free counter
+  let ready = [];           // cooked plates waiting for a waiter: { cust, dish, fx, fy }
   const flights = [];       // plates floating from a counter to a table
   const pops = [];          // "+coins" pops
   let coins = 0;
@@ -2224,6 +2284,7 @@
   /* outcome: 'happy', a reason key ('trash' | 'chair' | 'plate' | 'clock'), or null to leave quietly */
   function depart(c, outcome) {
     orders = orders.filter((o) => o !== c);
+    ready = ready.filter((r) => r.cust !== c);
     for (const it of items) if (it.cook && it.cook.cust === c) it.cook = null;
     for (const f of flights) if (f.cust === c) f.cust = null;
     if (outcome) {
@@ -2286,21 +2347,34 @@
     const priceFactor = clamp(1 - PRICE_ELASTICITY * (priceRatio - 1), 0.5, 1.4);
     const arrivalRate = BASE_ARRIVAL * appeal * ratingFactor * priceFactor;
     const seats = chairs().filter((ch) => seatTable(ch)).length;
-    const kitchens = items.filter((it) => it.id === 'counter_01').length;  // staff replace this in Phase 3
-    const servesPerCounter = 60 / avgCook;
-    const seatCap = seats * SEAT_TURNOVER, kitchenCap = kitchens * servesPerCounter;
-    const capacity = Math.min(seatCap, kitchenCap);
+    // staff rule (project.md 8.1): chefs cook at counters, waiters and helpers carry plates
+    const kitchens = items.filter((it) => it.id === 'counter_01').length;
+    const chefSpeeds = staffOf('chef').map(speedOf).sort((a, b) => b - a);
+    const chefs = chefSpeeds.length;
+    const chefPower = chefSpeeds.slice(0, kitchens).reduce((s, v) => s + v, 0);
+    const waiters = staffOf('waiter').length, helpers = staffOf('helper').length;
+    const servePower = staff.reduce((s, p) => s + (p.role === 'chef' ? 0 : powerOf(p)), 0);
+    const servesPerChef = 60 / avgCook;
+    const seatCap = seats * SEAT_TURNOVER, kitchenCap = chefPower * servesPerChef, serviceCap = servePower * SERVES_PER_WAITER;
+    const capacity = Math.min(seatCap, kitchenCap, serviceCap);
     const served = Math.min(arrivalRate, capacity);
     const margin = avgMenuPrice - avgCost;
     const cleanFactor = 1 - (dirtLevel / 100) * DIRT_PENALTY;
-    const wagesPerMin = 0;           // staff wages arrive in Phase 3
+    const wagesPerMin = wagesNow();
     const incomePerMin = served * margin * cleanFactor - wagesPerMin;
     let hint = '';
     if (!seats) hint = 'Turn a chair to face a table to make a dining seat';
     else if (!kitchens) hint = 'Add a counter so the kitchen can cook';
-    else if (arrivalRate > capacity) hint = seatCap <= kitchenCap ? 'Not enough seats' : 'Kitchen is busy: add a counter';
+    else if (!chefs) hint = 'Hire a chef so the kitchen can cook';
+    else if (!servePower) hint = 'Hire a waiter to carry plates';
+    else if (arrivalRate > capacity) {
+      if (capacity === seatCap) hint = 'Not enough seats';
+      else if (capacity === kitchenCap) hint = chefs < kitchens ? 'Kitchen is busy: hire a chef' : 'Kitchen is busy: add a counter and a chef';
+      else hint = 'Waiters are busy: hire a waiter or helper';
+    }
+    else if (chefs > kitchens) hint = 'A chef has no counter: add a counter';
     else if (arrivalRate < capacity * 0.6) hint = priceFactor < 0.8 ? 'Prices are high: fewer guests are coming' : 'Low appeal: add plants and lanterns';
-    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seats, kitchens, servesPerCounter, seatCap, kitchenCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
   }
   function pay(c) {
     // the guest pays the menu price; the dish cost comes out of it, so coins grow by the margin
@@ -2385,22 +2459,40 @@
   }
 
   function updateKitchen(dt) {
+    // fastest chefs take the counters in layout order; a counter with no chef stands idle
+    const crew = staffOf('chef').sort((a, b) => speedOf(b) - speedOf(a));
+    let k = 0;
     for (const it of items) {
       if (it.id !== 'counter_01') continue;
+      const chef = crew[k++];
+      if (!chef) {
+        if (it.cook) { if (it.cook.cust && it.cook.cust.state === 'waitFood') orders.unshift(it.cook.cust); it.cook = null; }
+        continue;
+      }
       if (!it.cook && orders.length) {
         const cust = orders.shift();
         it.cook = { cust, t: 0, dur: cust.dish.cook };
       }
       if (!it.cook) continue;
-      it.cook.t += dt;
+      it.cook.t += dt * speedOf(chef);
       if (it.cook.t < it.cook.dur) continue;
       const cust = it.cook.cust;
       it.cook = null;
       if (cust && cust.state === 'waitFood' && cust.seat) {
         const [w, d] = dims(it.id, it.rot);
-        flights.push({ cust, dish: cust.dish, fx: it.x + w / 2, fy: it.y + d / 2, t: 0 });
-        cust.state = 'served';
+        ready.push({ cust, dish: cust.dish, fx: it.x + w / 2, fy: it.y + d / 2 });
       }
+    }
+    // each delivery keeps one waiter or helper busy for 60 / (SERVES_PER_WAITER * power) seconds
+    for (const p of staff) {
+      if (p.role === 'chef') continue;
+      p.busy = Math.max(0, (p.busy || 0) - dt);
+      if (p.busy > 0 || !ready.length) continue;
+      const r = ready.shift();
+      if (!r.cust || r.cust.state !== 'waitFood' || !r.cust.seat) continue;
+      flights.push({ cust: r.cust, dish: r.dish, fx: r.fx, fy: r.fy, t: 0 });
+      r.cust.state = 'served';
+      p.busy = 60 / (SERVES_PER_WAITER * powerOf(p));
     }
     for (let q = flights.length - 1; q >= 0; q--) {
       const f = flights[q];
@@ -2428,6 +2520,7 @@
     for (const c of customers.slice()) updateCustomer(c, dt);
     customers = customers.filter((c) => !(c.state === 'exit' && c.alpha <= 0));
     updateKitchen(dt);
+    payWages(dt);
     for (let q = pops.length - 1; q >= 0; q--) { pops[q].t += dt; if (pops[q].t > 1.3) pops.splice(q, 1); }
     for (let q = coinFlights.length - 1; q >= 0; q--) {
       const f = coinFlights[q];
@@ -2456,7 +2549,7 @@
       } else if (c.state === 'leaving' && c.path.length) walkTo(c, DOOR.x, DOOR.y);
     }
     for (const c of customers) {
-      if (c.state === 'waitFood' && !orders.includes(c) && !items.some((it) => it.cook && it.cook.cust === c)) orders.unshift(c);
+      if (c.state === 'waitFood' && !orders.includes(c) && !ready.some((r) => r.cust === c) && !items.some((it) => it.cook && it.cook.cust === c)) orders.unshift(c);
     }
   }
 
@@ -2506,11 +2599,13 @@
       row('Rating', starsHtml(rating), '×' + e.ratingFactor.toFixed(2)) +
       row('Prices', Math.round(e.priceRatio * 100) + '% of suggested', '×' + e.priceFactor.toFixed(2)) +
       row('Guests arriving', BASE_ARRIVAL + '/min × appeal × rating × prices', n1(e.arrivalRate) + '/min') +
-      row('Can serve', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER + ', ' + plural(e.kitchens, 'counter') + ' × ' + n1(e.servesPerCounter), n1(e.capacity) + '/min') +
-      row('Served', 'the smaller of the two', n1(e.served) + '/min') +
+      row('Seats', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER, n1(e.seatCap) + '/min') +
+      row('Kitchen', plural(e.chefs, 'chef') + ', ' + plural(e.kitchens, 'counter') + ', ' + n1(e.servesPerChef) + ' dishes/min at speed 1', n1(e.kitchenCap) + '/min') +
+      row('Service', plural(e.waiters, 'waiter') + (e.helpers ? ' + ' + plural(e.helpers, 'helper') + ' at half pace' : '') + ', ' + SERVES_PER_WAITER + ' plates/min at speed 1', n1(e.serviceCap) + '/min') +
+      row('Served', 'guests arriving, up to the smallest of the three',n1(e.served) + '/min') +
       row('Per guest', 'avg price ' + n1(e.avgMenuPrice) + ' − cost ' + n1(e.avgCost) + ', ' + menu.length + ' on the menu', '+' + n1(e.margin)) +
       row('Cleanliness', 'dirt ' + fmt(dirtLevel) + '%', '×' + e.cleanFactor.toFixed(2)) +
-      row('Wages', 'staff arrive in a later update', '−' + fmt(e.wagesPerMin) + '/min') +
+      row('Wages', staff.length + (staff.length === 1 ? ' person' : ' people') + ' on the team', '−' + fmt(e.wagesPerMin) + '/min') +
       row('Income', '', inc, 'sum');
     bdHint.hidden = !e.hint;
     bdHint.textContent = e.hint;
@@ -2686,6 +2781,96 @@
       ctx.fillText((p.amount < 0 ? '−' : '+') + Math.abs(p.amount), p.x - 1.5, y + 0.5);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // ===== STAFF =====
+  /* ================================================================
+     Staff model (project.md 7.1 and the 8.1 staff rule)
+     Speed and wage come from role and tier, never stored per person,
+     so retuning a number applies to the whole team.
+     ================================================================ */
+  // power: share of speed that counts as work (helpers carry plates at half pace)
+  const ROLES = {
+    chef: { name: 'Chef', job: 'cooks at a counter', power: 1, wage: [2, 3, 4, 6] },
+    waiter: { name: 'Waiter', job: 'carries plates', power: 1, wage: [1, 2, 3, 4] },
+    helper: { name: 'Helper', job: 'helps with plates at half pace', power: 0.5, wage: [1, 1, 2, 3] }
+  };
+  const ROLE_ORDER = ['chef', 'waiter', 'helper'];
+  const TIERS = [
+    { name: 'Steady', speed: 0.8, unlock: 1 },
+    { name: 'Brisk', speed: 1, unlock: 1 },
+    { name: 'Swift', speed: 1.25, unlock: 5 },
+    { name: 'Zippy', speed: 1.5, unlock: 12 }
+  ];
+  const SERVES_PER_WAITER = 6;        // plates carried per minute at speed 1
+  const HIRE_FEE_PER_WAGE = 25;       // one-time fee = 25 × wage
+  const CANDIDATE_COUNT = 4;
+  const MAX_STAFF = MAX_GRID - 2;
+  const STAFF_NAMES = ['Noon', 'Wren', 'Pim', 'Juno', 'Tawan', 'Lumi', 'Ploy', 'Otto', 'Fah', 'Hazel', 'Kai', 'Bea',
+    'Nell', 'Sora', 'Pip', 'Remy', 'Ivy', 'Tam', 'Cass', 'Mali', 'Bo', 'Tilly', 'Arun', 'Fern'];
+  const staffCap = () => Math.min(MAX_STAFF, N - 2);
+  const speedOf = (p) => TIERS[p.tier - 1].speed;
+  const powerOf = (p) => speedOf(p) * ROLES[p.role].power;
+  const baseWage = (p) => ROLES[p.role].wage[p.tier - 1];
+  const wageOf = (p) => (DEV_MODE ? 0 : baseWage(p));
+  const hireFee = (p) => (DEV_MODE ? 0 : baseWage(p) * HIRE_FEE_PER_WAGE);
+  const tiersOpen = () => TIERS.map((t, i) => i + 1).filter((n) => TIERS[n - 1].unlock <= level);
+  const wagesNow = () => staff.reduce((s, p) => s + wageOf(p), 0);
+
+  let staff = [];         // [{ id, role, tier, name, skin, hair }], plus runtime busy timers
+  let candidates = [];    // the hire list, rerolled freely and never saved
+  const staffOf = (role) => staff.filter((p) => p.role === role);
+  const newStaffId = () => 'st_' + Math.random().toString(36).slice(2, 8);
+  const starterCrew = () => [
+    { id: 'st_chef01', role: 'chef', tier: 2, name: 'Noon', skin: 1, hair: 0 },
+    { id: 'st_wait01', role: 'waiter', tier: 2, name: 'Wren', skin: 0, hair: 3 }
+  ];
+  /* keeps the roster valid: known roles, tiers in range, short names, palette indices; an empty team is allowed */
+  function sanitizeStaff(list) {
+    if (!Array.isArray(list)) return starterCrew();
+    const out = [], ids = {};
+    for (const p of list) {
+      if (!p || !ROLES[p.role] || out.length >= MAX_STAFF) continue;
+      let id = typeof p.id === 'string' && /^[\w-]{1,24}$/.test(p.id) ? p.id : newStaffId();
+      if (ids[id]) id = newStaffId();
+      ids[id] = 1;
+      const name = typeof p.name === 'string' ? clipName(p.name).trim() : '';
+      out.push({
+        id, role: p.role, tier: clamp(Math.floor(+p.tier) || 2, 1, TIERS.length), name: name || pick(STAFF_NAMES),
+        skin: clamp(p.skin | 0, 0, SKINS.length - 1), hair: clamp(p.hair | 0, 0, HAIRS.length - 1)
+      });
+    }
+    return out;
+  }
+  function rollCandidate(role) {
+    const taken = new Set(staff.concat(candidates).map((p) => p.name));
+    const names = STAFF_NAMES.filter((n) => !taken.has(n));
+    return {
+      id: newStaffId(), role, tier: pick(tiersOpen()), name: pick(names.length ? names : STAFF_NAMES),
+      skin: Math.floor(Math.random() * SKINS.length), hair: Math.floor(Math.random() * HAIRS.length)
+    };
+  }
+  /* always at least one candidate per role, then one more of any role */
+  function rollCandidates() {
+    candidates = [];
+    const roles = ROLE_ORDER.concat([pick(ROLE_ORDER)]).slice(0, CANDIDATE_COUNT);
+    for (const r of roles) candidates.push(rollCandidate(r));
+    candidates.sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.tier - b.tier);
+  }
+
+  /* Wages are paid in whole coins as they add up. Coins never go below 0: an unpaid
+     part is forgiven and staff keep working (no fail state, project.md 7.1). */
+  let wageOwed = 0;
+  function payWages(dt) {
+    wageOwed += wagesNow() * dt / 60;
+    if (wageOwed < 1) return;
+    const due = Math.floor(wageOwed);
+    wageOwed -= due;
+    const paid = Math.min(due, coins);
+    if (!paid) return;
+    coins -= paid;
+    shownCoins = Math.max(0, Math.min(coins, shownCoins - paid));
+    saveSoon();
   }
 
   // ===== INTERACTION STATE =====
@@ -3174,7 +3359,7 @@
   const xpForGuest = (dish) => 2 + Math.round(dish.suggest / 10);
   function addXp(n) {
     if (level >= MAX_LEVEL) return;
-    const before = { lv: level, N, slots: menuSlots() };
+    const before = { lv: level, N, slots: menuSlots(), cap: staffCap() };
     xp += n;
     while (level < MAX_LEVEL && xp >= xpNeed(level)) {
       const carry = xp - xpNeed(level);
@@ -3188,6 +3373,8 @@
     if (N > before.N) perks.push('room grew to ' + N + '×' + N);
     if (menuSlots() > before.slots) perks.push('menu slot ' + menuSlots());
     for (const d of DISHES) if (d.unlock > before.lv && d.unlock <= level) perks.push(d.name + ' unlocked');
+    if (staffCap() > before.cap) perks.push('room for ' + staffCap() + ' staff');
+    for (const t of TIERS) if (t.unlock > before.lv && t.unlock <= level) perks.push(t.name + ' staff looking for work');
     const msg = 'Level ' + level + (perks.length ? ': ' + perks.join(', ') : '') + '!';
     toast(msg);
     announce(msg);
@@ -3210,6 +3397,8 @@
     }
     menu = sanitizeMenu(menu);
     renderMenu();
+    if (candidates.some((c) => TIERS[c.tier - 1].unlock > level)) rollCandidates();
+    if (openSheet() === 'staff') renderStaff();
     renderLevel();
     layoutChanged();
     saveSoon();
@@ -3247,6 +3436,7 @@
     if (affordFor === coins) return;
     affordFor = coins;
     for (const b of document.querySelectorAll('.sw-item')) b.classList.toggle('poor', +b.dataset.price > coins);
+    for (const b of document.querySelectorAll('.chip.hire:not(.full)')) b.classList.toggle('poor', +b.dataset.price > coins);
   }
   const decorHost = document.getElementById('decor-swatches');
   const decorNote = document.getElementById('decor-note');
@@ -3309,17 +3499,28 @@
     });
   }
 
-  /* the menu sheet floats over the room */
-  const menuSheet = document.getElementById('menu-sheet');
-  const menuBtn = document.querySelector('.tool[data-action="menu"]');
+  /* the menu and staff sheets float over the room, one at a time */
+  const SHEETS = {
+    menu: { el: document.getElementById('menu-sheet'), btn: document.querySelector('.tool[data-action="menu"]'), render: () => renderMenu() },
+    staff: { el: document.getElementById('staff-sheet'), btn: document.querySelector('.tool[data-action="staff"]'), render: () => renderStaff() }
+  };
   function setSheet(name) {
-    menuSheet.hidden = name !== 'menu';
-    menuBtn.setAttribute('aria-pressed', name === 'menu' ? 'true' : 'false');
-    if (name === 'menu') renderMenu();
+    for (const k in SHEETS) {
+      SHEETS[k].el.hidden = k !== name;
+      SHEETS[k].btn.setAttribute('aria-pressed', k === name ? 'true' : 'false');
+    }
+    if (SHEETS[name]) SHEETS[name].render();
   }
-  const openSheet = () => (menuSheet.hidden ? '' : 'menu');
-  menuBtn.addEventListener('click', () => setSheet(menuSheet.hidden ? 'menu' : ''));
-  document.getElementById('menu-close').addEventListener('click', () => { setSheet(''); menuBtn.focus(); });
+  const openSheet = () => Object.keys(SHEETS).find((k) => !SHEETS[k].el.hidden) || '';
+  function closeSheet() {
+    const was = openSheet();
+    setSheet('');
+    if (was) SHEETS[was].btn.focus();
+  }
+  for (const k in SHEETS) {
+    SHEETS[k].btn.addEventListener('click', () => setSheet(openSheet() === k ? '' : k));
+    document.getElementById(k + '-close').addEventListener('click', closeSheet);
+  }
 
   /* ---------------- menu panel ---------------- */
   const menuList = document.getElementById('menu-list');
@@ -3407,6 +3608,134 @@
       r.up.setAttribute('aria-label', 'Raise the price of ' + r.d.name + ', now ' + price);
     }
   }
+
+  /* ---------------- staff panel: team and hire list ---------------- */
+  const staffSub = document.getElementById('staff-sub');
+  const teamList = document.getElementById('team-list');
+  const hireList = document.getElementById('hire-list');
+  const hireNote = document.getElementById('hire-note');
+  const rerollBtn = document.getElementById('reroll');
+  const ROLE_LOOK = { chef: '#fff1e2', waiter: '#cdb4db', helper: '#b8e0d2' };
+  let letGoId = '', letGoTimer = 0;     // "Let go" asks for a second tap
+  const tierStars = (p) => '★'.repeat(p.tier);
+  function avatarSvg(p) {
+    const skin = hexOf(SKINS[p.skin]), hair = hexOf(HAIRS[p.hair]);
+    const mark = {
+      chef: '<ellipse cx="20" cy="8.6" rx="7.6" ry="4.8" fill="#fffaf3"/><rect x="14" y="9.4" width="12" height="4" rx="1.6" fill="#eadccd"/>',
+      waiter: '<path d="M15.6 27.4l4.4 2-4.4 2zM24.4 27.4l-4.4 2 4.4 2z" fill="#ffb5a7"/>',
+      helper: '<path d="M13.4 27.2h13.2l-2.4 3h-8.4z" fill="#f6d27a"/>'
+    }[p.role];
+    return '<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#f2e4d6"/>' +
+      '<path d="M8 42c0-9 5-14 12-14s12 5 12 14z" fill="' + ROLE_LOOK[p.role] + '"/>' +
+      '<circle cx="20" cy="19" r="7.6" fill="' + skin + '"/>' +
+      '<path d="M12.3 18.4a7.7 7.7 0 0 1 15.4 0c-2.6-1.6-5-2.2-7.7-2.2s-5.1.6-7.7 2.2z" fill="' + hair + '"/>' + mark + '</svg>';
+  }
+  function staffRow(p, cand) {
+    const li = document.createElement('li');
+    li.className = 'dish staff-row' + (cand ? ' cand' : '');
+    const role = ROLES[p.role], tier = TIERS[p.tier - 1], wage = wageOf(p);
+    li.innerHTML = '<span class="avatar">' + avatarSvg(p) + '</span>' +
+      '<div><p class="dish-name"></p><p class="dish-meta">' + role.name + ' · ' + tier.name + ' · ' + (wage ? wage + '/min' : 'no wage') + '</p></div>';
+    li.querySelector('.dish-name').textContent = p.name;      // names are player data on load, so never as HTML
+    const t = document.createElement('span');
+    t.className = 'tier';
+    t.setAttribute('aria-hidden', 'true');
+    t.textContent = tierStars(p);
+    li.querySelector('.dish-name').appendChild(t);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.dataset.key = (cand ? 'hire:' : 'go:') + p.id;
+    const what = p.name + ', ' + tier.name.toLowerCase() + ' ' + role.name.toLowerCase() + ' (' + p.tier + ' of ' + TIERS.length + ' stars, ' + role.job + ', ' + (wage ? wage + ' coins a minute' : 'no wage') + ')';
+    if (cand) {
+      const fee = hireFee(p), full = staff.length >= staffCap();
+      b.classList.add('hire');
+      b.dataset.price = fee;
+      b.classList.toggle('free', !fee);
+      b.classList.toggle('poor', !full && fee > coins);
+      b.classList.toggle('full', full);
+      b.textContent = (fee ? fee : 'Hire');
+      b.setAttribute('aria-label', 'Hire ' + what + (fee ? ' for ' + fee + ' coins' : ', free') + (full ? '. The team is full' : fee > coins ? '. Not enough coins' : ''));
+      b.addEventListener('click', () => hire(p));
+    } else {
+      const sure = letGoId === p.id;
+      b.classList.add('warn');
+      b.textContent = sure ? 'Sure?' : 'Let go';
+      b.setAttribute('aria-label', (sure ? 'Tap again to let go of ' : 'Let go of ') + what);
+      b.addEventListener('click', () => letGo(p));
+    }
+    li.appendChild(b);
+    return li;
+  }
+  function renderStaff() {
+    if (!candidates.length) rollCandidates();
+    const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : '';
+    const cap = staffCap();
+    const next = N < MAX_GRID ? ' · room for more at Lv ' + (Math.floor(level / 5) + 1) * 5 : '';
+    staffSub.textContent = staff.length + ' of ' + cap + ' on the team · wages ' + fmt(wagesNow()) + ' coins/min' + next;
+    teamList.textContent = '';
+    if (!staff.length) {
+      const li = document.createElement('li');
+      li.className = 'empty-note';
+      li.textContent = 'Nobody works here yet. Hire a chef and a waiter to open the kitchen.';
+      teamList.appendChild(li);
+    }
+    for (const p of staff.slice().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))) teamList.appendChild(staffRow(p, false));
+    hireList.textContent = '';
+    for (const p of candidates) hireList.appendChild(staffRow(p, true));
+    const locked = TIERS.find((t) => t.unlock > level);
+    hireNote.textContent = (staff.length >= cap ? 'The team is full for a ' + N + '×' + N + ' room. ' : '') +
+      (locked ? locked.name + ' staff (' + '★'.repeat(TIERS.indexOf(locked) + 1) + ') join at Lv ' + locked.unlock + '.' : 'Every speed is open.');
+    if (focusKey) {
+      const again = document.querySelector('#staff-sheet [data-key="' + focusKey + '"]');
+      (again || rerollBtn).focus();
+    }
+  }
+  function staffChanged(msg) {
+    renderStaff();
+    updateMoneyHud();
+    saveSoon();
+    if (msg) announce(msg);
+  }
+  function hire(p) {
+    if (!candidates.includes(p)) return;
+    if (staff.length >= staffCap()) {
+      const msg = 'The team is full: a ' + N + '×' + N + ' room has room for ' + staffCap() + (N < MAX_GRID ? '. More at Lv ' + (Math.floor(level / 5) + 1) * 5 : '');
+      toast(msg);
+      announce(msg + '.');
+      return;
+    }
+    const fee = hireFee(p);
+    if (!spend(fee, 'Hiring ' + p.name)) return;
+    staff.push(p);
+    // a new face takes the hired one's place, and keyboard focus stays on that spot
+    const fresh = rollCandidate(p.role);
+    candidates[candidates.indexOf(p)] = fresh;
+    const btn = document.activeElement;
+    if (btn && btn.dataset && btn.dataset.key === 'hire:' + p.id) btn.dataset.key = 'hire:' + fresh.id;
+    const msg = p.name + ' joined as a ' + ROLES[p.role].name.toLowerCase() + (fee ? ' for ' + fee + ' coins' : '') + '!';
+    toast(msg);
+    staffChanged(msg);
+  }
+  function letGo(p) {
+    clearTimeout(letGoTimer);
+    if (letGoId !== p.id) {
+      letGoId = p.id;
+      letGoTimer = setTimeout(() => { letGoId = ''; if (openSheet() === 'staff') renderStaff(); }, 3000);
+      renderStaff();
+      return;
+    }
+    letGoId = '';
+    staff = staff.filter((x) => x !== p);
+    const msg = p.name + ' said goodbye. ' + (staffOf(p.role).length ? '' : 'No ' + ROLES[p.role].name.toLowerCase() + ' left on the team.');
+    toast(p.name + ' said goodbye');
+    staffChanged(msg);
+  }
+  rerollBtn.addEventListener('click', () => {
+    rollCandidates();
+    renderStaff();
+    announce('New faces: ' + candidates.map((c) => c.name + ', ' + TIERS[c.tier - 1].name.toLowerCase() + ' ' + ROLES[c.role].name.toLowerCase()).join('; ') + '.');
+  });
 
   /* ---------------- furniture variants popup ---------------- */
   const variantPop = document.getElementById('variant-pop');
@@ -3745,7 +4074,7 @@
     if (k === 'r' || k === 'R') { rotate(); return; }
     if (k === 'Escape') {
       if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
-      else if (openSheet()) { setSheet(''); menuBtn.focus(); }
+      else if (openSheet()) closeSheet();
       else if (tool === 'paint') selectTool('move', true);
       else select(null);
       return;
@@ -3816,7 +4145,9 @@
       },
       state: () => ({
         name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, xp, xpNeed: xpNeed(level), coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
-        stats: Object.assign({}, stats), orders: orders.length,
+        stats: Object.assign({}, stats), orders: orders.length, ready: ready.length,
+        staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2) })),
+        candidates: candidates.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, fee: hireFee(p) })), staffCap: staffCap(),
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
         customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
       })
@@ -3831,6 +4162,7 @@
     level = 1;
     N = gridFor(level);
     coins = shownCoins = START_COINS;
+    staff = starterCrew();
     adoptItems(defaultLayout(), true);
     save();
   }

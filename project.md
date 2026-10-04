@@ -142,6 +142,35 @@ Each customer ends their visit satisfied or unsatisfied. This feeds the shop rat
 - Staff can be dressed in uniforms (cosmetic items).
 - Staff cap depends on shop size.
 
+**Staff model (Phase 3a).** These rules are in use from Phase 3a on.
+
+| Role | Job | Work power |
+|---|---|---|
+| **Chef** | Cooks at a counter. One chef per counter; extra chefs wait for a free counter. | speed |
+| **Waiter** | Carries plates from the kitchen to the table. | speed |
+| **Helper** | Lends a hand with plates at half pace. From Phase 3c, helpers clean first. | 0.5 × speed |
+
+Each person has a **speed tier** (shown as stars). Speed and wage come from role and tier, so they are never stored per person and retuning applies to everyone:
+
+| Tier | Label | Speed | Unlocks at | Chef wage | Waiter wage | Helper wage |
+|---|---|---|---|---|---|---|
+| ★ | Steady | 0.8 | Lv 1 | 2 | 1 | 1 |
+| ★★ | Brisk | 1.0 | Lv 1 | 3 | 2 | 1 |
+| ★★★ | Swift | 1.25 | Lv 5 | 4 | 3 | 2 |
+| ★★★★ | Zippy | 1.5 | Lv 12 | 6 | 4 | 3 |
+
+Wages are coins per minute. Faster staff cost a little more per unit of work but take fewer staff slots, so neither choice is a trap.
+
+- **Hire fee:** a one-time fee of `25 × wage` (a Brisk chef costs 75, a Brisk waiter 50). No refund when letting someone go.
+- **Staff cap:** `staffCap = gridSize - 2`, so 3 at 5x5, 4 at 6x6, up to 10 at 12x12. If the room ever shrinks (debug level buttons), nobody is let go; hiring is blocked until the team fits.
+- **Starter crew:** every shop starts with one Brisk chef and one Brisk waiter, free. Older saves get the same crew when they migrate, so their income does not drop.
+- **Hire list:** the Staff sheet shows the team and 4 candidates looking for work, always at least one per role, with a random unlocked tier and a name and look of their own. "New faces" rerolls the candidates for free; since speed and wage are tied to the tier, rerolling never finds a better deal, only a different person. Candidates are not saved.
+- **Letting go:** a "Let go" button on each team row asks for a second tap. A shop may end up with no chef or no waiter; income then shows the gap and the hint names the fix.
+- **No fail state:** wages are paid in whole coins as they add up (once a coin is owed). If the shop cannot pay, coins stop at 0, the unpaid part is forgiven, and staff keep working.
+- `DEV_MODE` (or `?free`) waives hire fees and wages.
+
+Phase 3a is the model, hire list and economy. Staff drawn walking on the floor is Phase 3b; trash, dirt and cleaning are Phase 3c (section 12).
+
 ### 7.2 Dirt and Trash
 - Trash and spills spawn over time, proportional to number of customers served.
 - Shop has a **dirt level** (0 to 100).
@@ -188,6 +217,24 @@ income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 - In the live sim a guest pays the menu price and the dish cost comes out of it, so coins grow by `price - cost` per guest and match the estimate.
 - Menu slots: `3 + floor(level / 5)`, max 6. Each dish also has its own unlock level.
 
+**Staff rule (in use since Phase 3a).** Staff replace the old "counters cook by themselves" kitchen. `staffCount * servesPerStaff` from the formula above splits into a kitchen side and a service side, and capacity is the smallest of three:
+
+```
+chefPower    = sum of speeds of the fastest min(chefs, counters) chefs
+servePower   = sum(waiter speeds) + 0.5 * sum(helper speeds)
+seatCap      = seats * seatTurnover
+kitchenCap   = chefPower * 60 / avgCookTime
+serviceCap   = servePower * SERVES_PER_WAITER        // 6 plates per minute at speed 1
+capacity     = min(seatCap, kitchenCap, serviceCap)
+wagesPerMin  = sum of every staff member's wage
+income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
+```
+
+- In the live sim, each chef is assigned to one counter (fastest chefs first) and cooks a dish in `cookTime / speed` seconds. A finished plate waits until a waiter or helper is free; each delivery keeps that person busy for `60 / (SERVES_PER_WAITER * power)` seconds. This matches `kitchenCap` and `serviceCap`.
+- Guests still wait with the same patience, so a slow kitchen or too few waiters shows up as "waited too long" (clock bubble).
+- The breakdown shows Seats, Kitchen and Service as separate rows and the hint names the bottleneck: "Not enough seats", "Kitchen is busy: hire a chef" or "add a counter", "Waiters are busy: hire a waiter or helper", "Hire a chef so the kitchen can cook", "Hire a waiter to carry plates", or "A chef has no counter" when a chef is idle.
+- Wage check (8.2): a Brisk waiter fully busy carries 6 guests a minute; even at the cheapest dish and lowest price (margin 5) that is 30 coins/min against a wage of 2. Staff only cost more than they earn when they are idle, and the hint says so.
+
 ### 8.2 Balance principles
 - More seats with too few staff means wasted seats; the UI should hint at the bottleneck ("Not enough staff" / "Not enough seats" / "Low appeal").
 - Raising prices has diminishing returns.
@@ -211,7 +258,7 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 
 ### 8.4 Spending
 - Furniture and decor (coins), see the build-mode rules below
-- Staff hiring
+- Staff hiring (one-time fee, then wages per minute; see 7.1)
 - Recipes and menu upgrades
 - Cosmetics for storefront and staff
 - Island/shop expansion unlocks via level, not money
@@ -276,7 +323,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
     "interior": { "gridSize": 5, "items": [{ "id": "table_01", "x": 2, "y": 3, "rot": 0 }] },
     "storefront": { "items": [{ "id": "sign_02", "slot": "sign" }] },
     "menu": [{ "dishId": "noodle_01", "price": 40 }],
-    "staff": [{ "id": "staff_01", "role": "waiter", "wage": 2 }],
+    "staff": [{ "id": "st_k2x9", "role": "waiter", "tier": 2, "name": "Wren", "skin": 0, "hair": 1 }],
     "dirtLevel": 0,
     "stats": { "likes": 0, "visitors": 0 }
   },
@@ -306,6 +353,9 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | **1** | Decorate sandbox | Isometric interior, place/move/remove items, level-based grid size, real-time day/night, localStorage |
 | **2** | Customers and money | Customers, seats, kitchen, coins from food sales, income/min display, satisfaction bubbles, waiting chairs |
 | **3** | Staff and cleanliness | Hiring, trash system, tap-to-clean, idle staff cleaning |
+| 3a | Staff model | Roles, tiers, wages, hire list, staff cap, wages in income/min, save v4 |
+| 3b | Staff on the floor | Staff drawn and walking (A*), waiters carry plates and clear tables |
+| 3c | Trash and dirt | Trash spawns, dirt level, tap-to-clean, idle staff and helpers clean |
 | **4** | Storefront | 2D facade scene, sign and exterior decor, curb appeal |
 | **5** | Offline earnings | Server time, welcome-back popup, cap and efficiency settings |
 | **6** | Social | Firebase login, friend code, visit shops, likes, guestbook, help-friend cleaning, daily gift, achievements |
@@ -335,7 +385,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 - [ ] Final theme and title
 - [ ] Level-to-size rule: size changes at level 5, 10, 15 (assumed) or 6, 11, 16
 - [ ] Offline cap (8 or 12 hours) and when to introduce the 20% cut
-- [ ] Wages: charged per minute, or ignored in v1
+- [x] Wages: charged per minute (Phase 3a, section 7.1)
 - [ ] Can players have more than one shop or layout slot
 - [ ] Language support at launch (Thai and English)
 - [ ] Mascot and main character design
