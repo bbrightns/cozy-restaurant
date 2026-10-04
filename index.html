@@ -1185,6 +1185,8 @@
   }
 
   /* Returns '' when the item fits, otherwise a reason key. */
+  /* the tile in front of a stove, where its chef stands: +y for rot 0 and 2, +x for rot 1 and 3 (the two faces the camera sees) */
+  const stoveFront = (it) => (it.rot % 2 === 0 ? [it.x, it.y + 1] : [it.x + 1, it.y]);
   function checkPlace(cand, ignore) {
     const others = items.filter((it) => it !== ignore);
     for (const [cx, cy] of cells(cand)) {
@@ -1195,6 +1197,13 @@
         if (cx >= o.x && cx < o.x + w && cy >= o.y && cy < o.y + d) return 'taken';
       }
     }
+    // every stove keeps the tile in front of it clear for its chef
+    for (const o of others.concat([cand])) {
+      if (o.id !== 'counter_01') continue;
+      const [fx, fy] = stoveFront(o);
+      if (!inside(fx, fy) || (fx === DOOR.x && fy === DOOR.y)) { if (o === cand) return 'front'; continue; }
+      if (o === cand ? others.some((q) => cells(q).some(([cx, cy]) => cx === fx && cy === fy)) : cells(cand).some(([cx, cy]) => cx === fx && cy === fy)) return 'front';
+    }
     others.push(cand);
     if (!pathsOk(others)) return 'path';
     return '';
@@ -1203,6 +1212,7 @@
     outside: 'That doesn’t fit inside the room',
     door: 'Keep the doorway clear',
     taken: 'Something is already there',
+    front: 'Keep the tile in front of the stove free for the chef',
     path: 'That would block the way to a chair'
   };
 
@@ -3387,10 +3397,9 @@
     const taken = new Set([start]);
     const free = (x, y) => inside(x, y) && seen[x + y * N] && !taken.has(x + y * N);
     const counters = items.filter((it) => it.id === 'counter_01');
-    // the visible front of the stove first (+y for a stove along x, +x along y), then any other side
+    // the front of the stove first (see stoveFront), then any other side (only older layouts with something in front need that)
     function beside(it) {
-      const [sw, sd] = dims(it.id, it.rot);
-      for (const [sx, sy] of [sw >= sd ? [0, 1] : [1, 0]].concat(STEPS)) for (const [cx, cy] of cells(it)) if (free(cx + sx, cy + sy)) return [cx + sx, cy + sy];
+      for (const [sx, sy] of [it.rot % 2 === 0 ? [0, 1] : [1, 0]].concat(STEPS)) for (const [cx, cy] of cells(it)) if (free(cx + sx, cy + sy)) return [cx + sx, cy + sy];
       return null;
     }
     // nearest free reachable tile, walking out from the counters (or the door)
