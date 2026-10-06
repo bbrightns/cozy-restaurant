@@ -821,6 +821,19 @@
         </svg>
         <span>Lights</span>
       </button>
+      <button type="button" class="cat" role="tab" id="cat-extras" data-cat="extras" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Partitions and games" aria-label="Partitions and games">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M3 13l9 4.5V30l-9-4.5z" fill="#cfeadf"/>
+          <path d="M3 13l9 4.5V19L3 14.5z" fill="#c4966f"/>
+          <path d="M3 24l9 4.5V30l-9-4.5z" fill="#c4966f"/>
+          <path d="M23 12l7 3.5V30l-7-3.5z" fill="#8e78b8"/>
+          <path d="M30 15.5l6-3V27l-6 3z" fill="#74629d"/>
+          <path d="M23 12l7 3.5 6-3-7-3.5z" fill="#f6d27a"/>
+          <path d="M24.8 17.2l3.4 1.7v5l-3.4-1.7z" fill="#4b4468"/>
+          <path d="M25.6 19.4l1.8.9" stroke="#ffb5a7" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <span>Extras</span>
+      </button>
       <button type="button" class="cat" role="tab" id="cat-floor" data-cat="floor" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Floor (8)" aria-label="Floor (8)">
         <svg viewBox="0 0 40 34" aria-hidden="true">
           <path d="M6 17l14 7v4L6 21z" fill="#cfa686"/>
@@ -1087,6 +1100,12 @@
     // stations (3g5): one design each for now; the look is fixed in drawFryer and drawDrinks
     fryer_01: { list: [{ name: 'Steel', price: 85 }] },
     drinks_01: { list: [{ name: 'Soda tanks', price: 75 }] },
+    // extras (3g6): the shapes are fixed in drawPartition (design draw functions) and drawArcade
+    partition_01: { list: [
+      { name: 'Glass partition', price: 38, draw: drawGlassPartition, h: 39, wood: '#d9b08c', woodDeep: '#c4966f', glassTint: '#b8e0d2' },
+      { name: 'Lattice screen', price: 30, draw: drawLatticePartition, h: 47, wood: '#e8cdb0', woodDeep: '#c4966f', pot: '#ffb5a7', leafDeep: '#8fd6bd' }
+    ] },
+    arcade_01: { list: [{ name: 'Arcade cabinet', price: 120 }] },
     plant_01: { list: [
       { name: 'Terracotta', price: 12, pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
       { name: 'Mint pot', price: 14, pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
@@ -1156,6 +1175,9 @@
     counter_01: { name: 'Gas stove', cat: 'stations', station: 'stove', w: 1, d: 1, h: 40, draw: scaled('counter_01', byDesign(drawStove)) },
     fryer_01: { name: 'Fryer', cat: 'stations', station: 'fryer', w: 1, d: 1, h: 40, draw: scaled('fryer_01', byDesign(drawFryer)) },
     drinks_01: { name: 'Drink machine', cat: 'stations', station: 'drinks', w: 1, d: 1, h: 51, draw: scaled('drinks_01', byDesign(drawDrinks)) },
+    // extras (3g6): a partition blocks its tile like any furniture; an arcade cabinet is a player toy with its own coin tray
+    partition_01: { name: 'Partition', cat: 'extras', w: 1, d: 1, h: 39, draw: scaled('partition_01', byDesign(drawGlassPartition)) },
+    arcade_01: { name: 'Arcade cabinet', cat: 'extras', arcade: true, w: 1, d: 1, h: 60, draw: scaled('arcade_01', byDesign(drawArcade)) },
     plant_01: { name: 'Plant', cat: 'plants', w: 1, d: 1, h: 38, draw: scaled('plant_01', byDesign(drawPlant)) },
     lantern_01: { name: 'Lantern', cat: 'lighting', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', byDesign(drawLantern)) }
   };
@@ -1167,6 +1189,7 @@
     { id: 'stations', name: 'Stoves and stations', items: ['counter_01', 'fryer_01', 'drinks_01'] },
     { id: 'plants', name: 'Plants', items: ['plant_01'] },
     { id: 'lighting', name: 'Lighting', items: ['lantern_01'] },
+    { id: 'extras', name: 'Partitions and games', items: ['partition_01', 'arcade_01'] },
     { id: 'floor', name: 'Floor', paint: 'floor' },
     { id: 'wall', name: 'Wallpaper', paint: 'wall' },
     { id: 'tools', name: 'Tools' }
@@ -1185,7 +1208,7 @@
   const PERSON_SCALE = 1.7;
   const SIT_DROP = 3;               // world px a seated guest sinks into the chair, so a sitter is not taller than a stander
   // the fryer and drink machine are drawn at their final size (the approved mockup), so their scale is 1
-  const ITEM_SCALE = { table_01: 0.88, chair_01: 0.78, counter_01: 0.86, fryer_01: 1, drinks_01: 1, plant_01: 0.88, lantern_01: 0.88 };
+  const ITEM_SCALE = { table_01: 0.88, chair_01: 0.78, counter_01: 0.86, fryer_01: 1, drinks_01: 1, partition_01: 1, arcade_01: 1, plant_01: 0.88, lantern_01: 0.88 };
   const pivotOf = (it) => {
     const [w, d] = dims(it.id, it.rot || 0);
     return [PX(it.x + w / 2, it.y + d / 2), PY(it.x + w / 2, it.y + d / 2, 0)];
@@ -1409,6 +1432,13 @@
     ];
   }
 
+  /* an arcade cabinet's saved state [coins, wear, broken]; anything else gives a fresh working cabinet with an empty tray */
+  function sanitizeArcade(a) {
+    const n = (v, hi) => clamp(Math.round(+v) || 0, 0, hi);
+    if (!Array.isArray(a)) return { coins: 0, wear: 0, broken: false };
+    return { coins: n(a[0], ARCADE_TRAY), wear: n(a[1], ARCADE_LIFE), broken: a[2] === 1 || a[2] === true };
+  }
+
   /* Adds items one by one, keeping only ones that are valid. */
   function adoptItems(list, animate) {
     items = [];
@@ -1418,6 +1448,7 @@
       if (!raw || !CATALOG[raw.id]) continue;
       const it = { id: raw.id, x: raw.x | 0, y: raw.y | 0, rot: ((raw.rot | 0) % 4 + 4) % 4, variant: clampVariant(raw.variant, raw.id), born: 0, anim: 'pop' };
       if (checkPlace(it, null)) continue;
+      if (CATALOG[raw.id].arcade) it.arc = sanitizeArcade(raw.a);
       if (animate && !reduced) it.born = now + 120 + q++ * 70;
       items.push(it);
     }
@@ -1430,8 +1461,9 @@
      v5 adds the look parts hairStyle, eye, face and acc to each person (older people get a random look when the roster is sanitized).
      v6 briefly stored a cast number per person for painted art; that art was dropped, so the field is ignored and no longer written.
      v7 adds trash: [[x, y, kind, ox, oy]], the pieces on the floor; dirt is their total weight, so it is not stored.
+     v8 adds a: [coins, wear, broken] to an arcade cabinet's item (its coin tray, seconds worked since the last repair, 0 or 1).
      migrate() upgrades older payloads in place; every field is read defensively. */
-  const SAVE_VERSION = 7;
+  const SAVE_VERSION = 8;
   function migrate(d) {
     if (d.v === 1) {
       d.name = DEFAULT_NAME;
@@ -1458,6 +1490,7 @@
       d.trash = [];           // older shops start clean
       d.v = 7;
     }
+    if (d.v === 7) d.v = 8;   // arcade state is absent in older saves and defaults to an empty tray, no wear, working
     return d;
   }
 
@@ -1468,7 +1501,11 @@
       stats: { served: stats.served, left: stats.left }, recent: recent.slice(),
       trash: trash.map((t) => [t.x, t.y, t.kind, +t.ox.toFixed(2), +t.oy.toFixed(2)]),
       staff: staff.map((s) => ({ id: s.id, role: s.role, tier: s.tier, name: s.name, skin: s.skin, hair: s.hair, hairStyle: s.hairStyle, eye: s.eye, face: s.face, acc: s.acc })),
-      interior: { gridSize: N, items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant })) }
+      interior: { gridSize: N, items: items.map((it) => {
+        const o = { id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant };
+        if (it.arc) o.a = [Math.floor(it.arc.coins), Math.round(it.arc.wear), it.arc.broken ? 1 : 0];
+        return o;
+      }) }
     };
     store.set(SAVE_KEY, JSON.stringify(data));
   }
@@ -2208,6 +2245,77 @@
     ctx.strokeStyle = 'rgba(255,250,244,0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(PX(cx, cy), PY(cx, cy, z), 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(prog, 0, 1)); ctx.stroke();
+  }
+
+  /* ---------- extras (3g6): partitions and the arcade cabinet ----------
+     A partition is a thin panel along u (x for rot 0 and 2, y for rot 1 and 3); the arcade faces +y at rot 0 like the stove (the
+     mirrored drawing at rot 1 and 3), with its side art on the other visible face. */
+  const GLASS_SHINE = rgb('#fff8ef'), LATTICE_LEAF = rgb('#a8d5a2');
+  const ARC_BODY = rgb('#8e78b8'), ARC_SIDE = rgb('#74629d'), ARC_MARQUEE = rgb('#f6d27a'), ARC_SCREEN = rgb('#4b4468'), ARC_PANEL = rgb('#7a65a8');
+  const ARC_MINT = rgb('#8fd6bd'), ARC_PEACH = rgb('#ffb5a7'), ARC_LAV = rgb('#cdb4db'), ARC_GREY = rgb('#a8a0c0'), ARC_STICK = rgb('#8a6f7e');
+  function drawGlassPartition(it) {
+    const C = pal(it), { cx, cy, B, face } = stationKit(it);
+    contact(cx, cy, 0.45);
+    B(-0.5, -0.07, 0.5, 0.07, 0, 7, C.wood);
+    B(-0.5, -0.07, -0.42, 0.07, 7, 39, C.wood);
+    B(0.42, -0.07, 0.5, 0.07, 7, 39, C.wood);
+    // the frosted pane, with two pale streaks of light on it
+    face(0.03, () => {
+      frect(-0.42, 7, 0.84, 29, C.glassTint, 0.55);
+      ctx.fillStyle = lit(GLASS_SHINE, 1, 0.5);
+      ctx.beginPath(); ctx.moveTo(-0.3, 9); ctx.lineTo(-0.18, 9); ctx.lineTo(0.05, 33); ctx.lineTo(-0.07, 33); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0.05, 9); ctx.lineTo(0.12, 9); ctx.lineTo(0.28, 33); ctx.lineTo(0.21, 33); ctx.closePath(); ctx.fill();
+    });
+    B(-0.5, -0.07, 0.5, 0.07, 36, 39, C.wood);
+  }
+  function drawLatticePartition(it) {
+    const C = pal(it), { cx, cy, B, S, X, Y } = stationKit(it);
+    contact(cx, cy, 0.45);
+    B(-0.5, -0.07, 0.5, 0.07, 0, 6, C.woodDeep);
+    for (let i = 0; i < 7; i++) B(-0.46 + i * 0.153, -0.04, -0.41 + i * 0.153, 0.04, 6, 34, C.wood);
+    B(-0.5, -0.07, 0.5, 0.07, 34, 37, C.woodDeep);
+    B(-0.5, -0.07, 0.5, 0.07, 14, 15.5, C.woodDeep);
+    // a planter sits on the top rail at one end
+    cyl(X(0.25, 0), Y(0.25, 0), 0.1, 37, 41, C.pot);
+    const [lx, ly] = S(0.25, 0, 46), [mx, my] = S(0.2, 0.02, 49), [nx, ny] = S(0.32, 0, 48);
+    fdot(lx, ly, 6, 5.5, C.leafDeep); fdot(mx, my, 4, 4, LATTICE_LEAF); fdot(nx, ny, 3.6, 3.6, LATTICE_LEAF);
+  }
+  /* the arcade cabinet: plum body, a butter marquee, a screen that flickers while it works (dim with a spark when broken),
+     a control panel with a stick and two buttons, and art on the side face */
+  function drawArcade(it, now) {
+    const { cx, cy, B, D, S, X, Y, face } = stationKit(it);
+    const a = it.arc, broken = !!(a && a.broken), alongX = it.rot % 2 === 0, t = reduced ? 0 : now * 0.001;
+    contact(cx, cy, 0.45);
+    B(-0.3, -0.26, 0.3, 0.26, 0, 52, ARC_BODY);
+    // side art on the u face: two colour stripes
+    const sx = alongX ? cx + 0.3 : cx, sy = alongX ? cy : cy + 0.3;
+    ctx.save();
+    ctx.translate(PX(sx, sy), PY(sx, sy, 0));
+    ctx.transform(alongX ? -TW : TW, TH, 0, -1, 0, 0);
+    frect(-0.26, 6, 0.14, 40, ARC_MINT); frect(-0.06, 6, 0.1, 40, ARC_PEACH);
+    ctx.restore();
+    B(-0.31, -0.28, 0.31, 0.28, 52, 60, ARC_MARQUEE);
+    B(-0.3, 0.26, 0.3, 0.42, 22, 26, ARC_PANEL);
+    face(0.26, () => {
+      frect(-0.24, 28, 0.48, 17, ARC_SCREEN);
+      if (!broken) {
+        [[-0.18, 38], [-0.08, 33], [0.04, 40], [0.14, 35], [-0.02, 30]].forEach(([u, z], i) => {
+          frect(u, z, 0.07, 3.5, Math.floor(t * 2 + i) % 3 === 0 ? ARC_MARQUEE : [ARC_PEACH, ARC_MINT, ARC_LAV][i % 3]);
+        });
+        frect(-0.24, 28, 0.48, 17, GLASS_SHINE, 0.16);
+      } else {
+        frect(-0.24, 28, 0.48, 17, GLASS_SHINE, 0.1);
+        frect(-0.2, 35, 0.4, 2.5, ARC_PEACH);
+      }
+      frect(0.1, 9, 0.08, 4, ARC_MARQUEE);
+    });
+    cyl(X(-0.12, 0.34), Y(-0.12, 0.34), 0.03, 26, 31, ARC_STICK);
+    D(-0.12, 0.34, 33, 0.06, broken ? ARC_GREY : ARC_PEACH);
+    D(0.1, 0.35, 26.5, 0.04, ARC_PEACH); D(0.2, 0.32, 26.5, 0.04, ARC_MINT);
+    if (broken) {
+      const f = reduced ? 0 : Math.floor(t * 6) % 2, [px, py] = S(0.2, 0.2, 62 + f * 2);
+      fdot(px, py, 2 + f, 1.5 + f, ARC_MARQUEE);
+    }
   }
 
   function drawPlant(it, now) {
@@ -3265,7 +3373,7 @@
   const PRICE_ELASTICITY = 1.2;    // guests lost per unit of price above the suggestion
   const DIRT_PENALTY = 0.5;
   const NIGHT_BONUS_PER_LIGHT = 5;
-  const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, fryer_01: 3, drinks_01: 3, plant_01: 4, lantern_01: 3 };
+  const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, fryer_01: 3, drinks_01: 3, partition_01: 2, arcade_01: 6, plant_01: 4, lantern_01: 3 };
   function decorValue() { return items.reduce((s, it) => s + (APPEAL[it.id] || 0), 0); }
   /* what guests order from: the menu dishes whose station type is open (the same list the estimate averages over); if nothing is open they order from the whole menu and leave unserved */
   function orderableMenu() {
@@ -3315,7 +3423,8 @@
     const margin = avgMenuPrice - avgCost;
     const cleanFactor = 1 - (dirtLevel / 100) * DIRT_PENALTY;
     const wagesPerMin = wagesNow();
-    const incomePerMin = served * margin * cleanFactor - wagesPerMin;
+    const arcadeCount = arcades().length, arcadeIncome = arcadeCount * ARCADE_RATE * ARCADE_UPTIME;
+    const incomePerMin = served * margin * cleanFactor - wagesPerMin + arcadeIncome;
     let hint = '';
     const SI = STATION_INFO, unopen = all.find((m) => !plan.open[m.dish.station]);
     const menuTypes = {};
@@ -3349,8 +3458,9 @@
       const t = plan.list.find((e) => e.chef && !menuTypes[e.type]).type;
       hint = 'The ' + SI[t].name + ' has nothing on the menu: add a ' + SI[t].dish + ' dish';
     }
+    else if (arcades().some((it) => it.arc && it.arc.broken)) hint = 'An arcade is out of order: tap it, or a helper can fix it';
     else if (arrivalRate < capacity * 0.6) hint = priceFactor < 0.8 ? 'Prices are high: fewer guests are coming' : 'Low appeal: add plants and lanterns';
-    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seatBlock, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, kitchen, sold: sold.length, open: Object.assign({}, plan.open), avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seatBlock, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, kitchen, sold: sold.length, open: Object.assign({}, plan.open), avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, arcadeCount, arcadeIncome, incomePerMin, hint };
   }
   function pay(c) {
     // the guest pays the menu price; the dish cost comes out of it, so coins grow by the margin
@@ -3496,7 +3606,75 @@
     if (!editing()) simPeople(dt);
     simFloaters(dt);
   }
+  /* ---------------- arcade cabinets (project.md 8.5) ----------------
+     A working cabinet earns into its own tray, wears while it works and breaks after ARCADE_LIFE seconds. The player collects
+     and repairs by tapping it, or an idle helper repairs it. Like the people, it stands still while the room is being edited. */
+  const ARCADE_RATE = 2;          // coins per minute into the tray
+  const ARCADE_TRAY = 20;         // the tray holds this many; when full it just stops earning
+  const ARCADE_LIFE = 480;        // seconds of working time before it breaks down
+  const REPAIR_TIME = 2.0;        // seconds a helper takes to fix one
+  const ARCADE_UPTIME = 0.7;      // the estimate assumes the player collects now and then
+  const ARCADE_MIN_XP = 5;        // a collection gives 1 XP only when the tray held at least this many coins
+  const arcades = () => items.filter((it) => CATALOG[it.id].arcade);
+  const arcOf = (it) => it.arc || (it.arc = { coins: 0, wear: 0, broken: false });
+  let arcadeSaveIn = 0;
+  function updateArcades(dt) {
+    for (const it of arcades()) {
+      const a = arcOf(it);
+      if (a.broken) continue;
+      a.coins = Math.min(ARCADE_TRAY, a.coins + (ARCADE_RATE / 60) * dt);
+      a.wear += dt;
+      if (a.wear >= ARCADE_LIFE) {
+        a.wear = ARCADE_LIFE;
+        a.broken = true;
+        announce('An arcade cabinet broke down. Tap it, or a helper can fix it.');
+        saveSoon();
+      }
+    }
+    arcadeSaveIn -= dt;
+    if (arcadeSaveIn <= 0) { arcadeSaveIn = 20; if (arcades().length) saveSoon(); }
+  }
+  function repairArcade(it) {
+    const a = arcOf(it);
+    a.broken = false;
+    a.wear = 0;
+    spawnRing(it.x, it.y, 1, 1);
+    saveSoon();
+  }
+  /* a tap on a cabinet: pays out the tray and fixes it if broken; false when there was nothing to do (then it selects as usual) */
+  function useArcade(it) {
+    const a = arcOf(it), n = Math.floor(a.coins), wasBroken = a.broken;
+    if (!n && !wasBroken) return false;
+    if (wasBroken) repairArcade(it);
+    if (n) {
+      a.coins -= n;
+      coins += n;
+      const px = PX(it.x + 0.5, it.y + 0.5), py = PY(it.x + 0.5, it.y + 0.5, 40);
+      pops.push({ x: px, y: py, amount: n, t: 0 });
+      if (reduced) shownCoins += n;
+      else coinFlights.push({ sx: cam.x + px * cam.zoom, sy: cam.y + (py - 30) * cam.zoom, amount: n, t: 0 });
+      if (n >= ARCADE_MIN_XP) addXp(1);
+      saveSoon();
+    }
+    announce((n ? 'Collected ' + n + (n === 1 ? ' coin' : ' coins') + ' from the arcade cabinet.' : '') + (wasBroken ? ' Fixed it.' : ''));
+    return true;
+  }
+  /* the nearest broken cabinet no other helper is on the way to; the helper walks to its front tile (or any open side) */
+  function startRepair(p, b) {
+    let best = null, bd = Infinity;
+    for (const it of arcades()) {
+      if (!it.arc || !it.arc.broken || it.noRoute === layoutVersion || staff.some((q) => q.job && q.job.it === it)) continue;
+      const d = Math.hypot(it.x + 0.5 - b.x, it.y + 0.5 - b.y);
+      if (d < bd) { bd = d; best = it; }
+    }
+    if (!best) return false;
+    const [fx, fy] = stationFront(best);
+    if (!((inside(fx, fy) && !blockedGrid()[fx + fy * N] && walkTo(b, fx, fy)) || walkNear(b, best))) { best.noRoute = layoutVersion; return false; }
+    p.job = { kind: 'repair', it: best };
+    return true;
+  }
   function simPeople(dt) {
+    updateArcades(dt);
     // arrivals follow arrivalRate from the income formula, so the live shop matches the estimate
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
@@ -3599,6 +3777,7 @@
       row('Served', 'guests arriving' + (e.seats ? ', minus ' + Math.round(e.seatBlock * 100) + '% who find every seat taken' : '') + ', up to the kitchen and service', n1(e.served) + '/min') +
       row('Per guest', 'avg price ' + n1(e.avgMenuPrice) + ' − cost ' + n1(e.avgCost) + ', ' + menu.length + ' on the menu', '+' + n1(e.margin)) +
       row('Cleanliness', 'dirt ' + fmt(dirtLevel) + '%, ' + plural(trash.length, 'piece') + ' of trash','×' + e.cleanFactor.toFixed(2)) +
+      (e.arcadeCount ? row('Arcade', plural(e.arcadeCount, 'cabinet') + ' × ' + ARCADE_RATE + '/min × ' + ARCADE_UPTIME + ' uptime, collected by tapping', '+' + n1(e.arcadeIncome) + '/min') : '') +
       row('Wages', staff.length + (staff.length === 1 ? ' person' : ' people') + ' on the team', '−' + fmt(e.wagesPerMin) + '/min') +
       row('Income', '', inc, 'sum');
     bdHint.hidden = !e.hint;
@@ -4456,6 +4635,25 @@
       ctx.fillStyle = '#c4966f';
       for (const [ox, oy] of [[-2, 0], [1.5, 1], [0.6, -0.8]]) { ctx.beginPath(); ctx.arc(ox, oy, 0.9, 0, Math.PI * 2); ctx.fill(); }
     },
+    // arcade cabinet bubbles: a wrench when it is broken, a coin when the tray has coins to collect
+    wrench() {
+      ctx.save();
+      ctx.rotate(-0.7);
+      ctx.fillStyle = '#b39cc6';
+      rrect(-1.6, -3, 3.2, 10, 1.4); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -4.4, 3.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff8ef';
+      ctx.beginPath(); ctx.moveTo(-1.3, -9); ctx.lineTo(0, -4.4); ctx.lineTo(1.3, -9); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    },
+    coin() {
+      ctx.fillStyle = '#e9b44c';
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f6d27a';
+      ctx.beginPath(); ctx.arc(0, 0, 4.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e9b44c';
+      rrect(-0.9, -2.6, 1.8, 5.2, 0.8); ctx.fill();
+    },
     clock() {
       ctx.fillStyle = '#cdb4db';
       ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, Math.PI * 2); ctx.fill();
@@ -4488,6 +4686,26 @@
       drawFoodIcon(c.dish);
     } else if (BUBBLE_ICON[b.type]) BUBBLE_ICON[b.type]();
     ctx.restore();
+  }
+  /* the bubble over a cabinet: a wrench when it is out of order, else a bobbing coin once the tray holds ARCADE_MIN_XP or more */
+  function drawArcadeBubbles(now) {
+    for (const it of arcades()) {
+      const a = it.arc;
+      if (!a || (drag && drag.item === it)) continue;
+      const kind = a.broken ? 'wrench' : a.coins >= ARCADE_MIN_XP ? 'coin' : '';
+      if (!kind) continue;
+      const bob = reduced || kind === 'wrench' ? 0 : Math.sin(now * 0.004 + it.x) * 1.8;
+      ctx.save();
+      ctx.translate(PX(it.x + 0.5, it.y + 0.5), PY(it.x + 0.5, it.y + 0.5, 64) + bob);
+      ctx.fillStyle = 'rgba(122,82,118,0.16)';
+      rrect(-12, -24, 24, 21, 9); ctx.fill();
+      ctx.fillStyle = '#fff8ef';
+      rrect(-12, -25.5, 24, 21, 9); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-3.5, -5); ctx.lineTo(0, 0); ctx.lineTo(3.5, -5); ctx.closePath(); ctx.fill();
+      ctx.translate(0, -15);
+      BUBBLE_ICON[kind]();
+      ctx.restore();
+    }
   }
   function drawFoodIcon(dish) {
     ctx.fillStyle = css(dish.cols[0], 1);
@@ -4804,11 +5022,13 @@
           continue;
         }
         if (startSweep(p, b)) continue;
+        if (p.role === 'helper' && startRepair(p, b)) continue;
         if (arrived && !atStation(p)) goHome(p);
         continue;
       }
       if (j.kind === 'sweep' && !trash.includes(j.trash)) { p.job = null; continue; }   // the player got it first
-      if (j.kind !== 'clear' && j.kind !== 'sweep' && !j.cust) { dropJob(p); continue; }   // the guest left
+      if (j.kind === 'repair' && (!items.includes(j.it) || !j.it.arc.broken)) { p.job = null; continue; }   // the player fixed it first
+      if (j.kind !== 'clear' && j.kind !== 'sweep' && j.kind !== 'repair' && !j.cust) { dropJob(p); continue; }   // the guest left
       if (!arrived) continue;
       if (j.pause > 0) { j.pause -= dt; continue; }      // a short hand-off, so the plate is seen in hand
       if (j.kind === 'pickup') {
@@ -4828,6 +5048,9 @@
       } else if (j.kind === 'sweep') {
         if (!j.swept) { j.swept = true; j.pause = SWEEP_TIME; faceToward(b, j.trash.x + j.trash.ox, j.trash.y + j.trash.oy); }
         else { p.job = null; collectTrash(j.trash, false); }
+      } else if (j.kind === 'repair') {
+        if (!j.fixing) { j.fixing = true; j.pause = REPAIR_TIME; faceToward(b, j.it.x + 0.5, j.it.y + 0.5); }
+        else { p.job = null; repairArcade(j.it); }
       } else if (j.kind === 'clear') {
         faceToward(b, j.chair.x + 0.5, j.chair.y + 0.5);
         p.job = null;
@@ -4854,6 +5077,9 @@
         if (items.includes(j.chair) && j.chair.plate) walkNear(b, j.chair); else p.job = null;
       } else if (j.kind === 'sweep') {
         if (!trash.includes(j.trash) || !walkTo(b, j.trash.x, j.trash.y)) p.job = null;
+      } else if (j.kind === 'repair') {
+        if (!items.includes(j.it) || !j.it.arc.broken) p.job = null;
+        else if (!j.fixing && !walkNear(b, j.it)) p.job = null;
       } else if (!j.cust) {
         dropJob(p);
       } else if (j.kind === 'pickup') {
@@ -5181,6 +5407,7 @@
 
     // speech bubbles and coin pops float above everything
     for (const c of customers) if (c.bubble) drawBubble(c);
+    drawArcadeBubbles(now);
     drawPops();
 
     // dust
@@ -6404,6 +6631,7 @@
       if (h && h.item.id === 'table_01' && clearPlates(h.item)) return;
     }
     if (tool === 'move') {
+      if (hit && CATALOG[hit.item.id].arcade && useArcade(hit.item)) return;
       if (hit) select(selected === hit.item ? null : hit.item);
       else if (selected) select(null);
       return;
@@ -6526,6 +6754,7 @@
       if (tr) { collectTrash(tr, true); return; }
       if (tool !== 'remove' && it && it.id === 'table_01' && clearPlates(it)) return;
       if (tool === 'move') {
+        if (it && CATALOG[it.id].arcade && useArcade(it)) return;
         if (it) select(selected === it ? null : it);
         else if (selected) moveItem(selected, kbd.x, kbd.y);
       } else if (tool === 'remove') removeItem(it);
@@ -6585,7 +6814,7 @@
           home: p.home && p.home.slice(), x: +bodyOf(p).x.toFixed(2), y: +bodyOf(p).y.toFixed(2), job: p.job ? p.job.kind : null, carrying: !!bodyOf(p).carry, cooking: bodyOf(p).cooking })),
         leavers: leavers.length, plan: planKitchen().list.map((e) => ({ id: e.it.id, x: e.it.x, y: e.it.y, chef: e.chef ? e.chef.id : null })),
         candidates: candidates.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, fee: hireFee(p) })), staffCap: staffCap(),
-        items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
+        items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook, arc: it.arc ? { coins: +it.arc.coins.toFixed(2), wear: +it.arc.wear.toFixed(1), broken: it.arc.broken } : null })),
         customers: customers.map((c) => ({ state: c.state, dish: c.dish ? c.dish.id : null, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
       })
     };

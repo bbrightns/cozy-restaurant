@@ -64,9 +64,9 @@ Decoratable slots:
 
 ### 3.2 Interior (Isometric)
 - Grid-based placement with a ghost preview.
-- Item types: floor, wall, table, chair, counter, stove, shelf, decoration, lighting.
+- Item types: floor, wall, table, chair, counter, stove, shelf, decoration, lighting, partition, arcade cabinet.
 - Items can be rotated (4 directions) and moved or removed.
-- Walkable path must exist from door to every seat (validate on placement).
+- Walkable path must exist from door to every seat (validate on placement). A partition blocks its whole tile like furniture and goes through the same check, so a partition that would cut a seat off from the door is refused.
 - **Build panel (3g1):** a strip of category icons (tables, chairs, stoves and stations, plants, lighting, floor, wallpaper, tools) over a grid of the chosen category's designs, each with its price and a count badge when some are in the room. The Tools entry holds Move, Rotate, Remove, Menu and Staff.
 - **Catalog data:** `CATALOG` has one entry per item type (the id a save stores) with its category (`cat`); `CATEGORIES` lists the strip. Designs live in `VARIANTS[id].list` (the save keeps the index as `variant`). A design is a palette swap by default, and may also carry its own `draw` function, `h` (picking height) and `scale`, so a later design can change the shape (a stool, a booth) without a new item id or a save change. Grid thumbnails are drawn by the same draw functions.
 
@@ -363,7 +363,19 @@ With only stove dishes on the menu there is one type with share 1, so `kitchenCa
 9. Idle: "A chef has no station: add a gas stove, fryer or drink machine"; "The {Station} has nothing on the menu: add a {type} dish".
 10. Low appeal or high prices: as today.
 
+*Arcade (3g6).* `income/min` gets `+ arcades × ARCADE_RATE × ARCADE_UPTIME` (2 × 0.7 per cabinet), shown as an "Arcade" row only when the shop has a cabinet; it never changes capacity or the arrival rate beyond the cabinet's appeal value (6). One extra hint, "An arcade is out of order: tap it, or a helper can fix it", sits just before the low-appeal hint.
+
 The breakdown's Kitchen row lists each open type (for example "Gas stove 25/min · Fryer 17.6/min · Drinks 60/min"), with the binding one marked.
+
+### 8.5 Arcade cabinets (Phase 3g6)
+A player toy (item id `arcade_01`, 1x1, price 120, appeal 6): guests do not use it and it only needs its own tile. It faces +y at rot 0 like the stove (mirrored at rot 1 and 3).
+- **Earning:** while working it earns `ARCADE_RATE` = 2 coins per minute into its own tray, which holds `ARCADE_TRAY` = 20 coins; a full tray simply stops earning (no loss). The coins are not credited until collected.
+- **Collecting:** tapping the cabinet (Move tool, or Enter on its tile) credits every whole coin in the tray with the usual coin pop and flight, and 1 XP when the tray held 5 or more coins (so tapping often cannot farm XP). A coin bubble bobs above it while the tray holds 5 or more.
+- **Wear:** a working cabinet wears; after `ARCADE_LIFE` = 480 s of working time it breaks down (out of order: dim screen, a spark, a wrench bubble) and stops earning, but keeps its tray. Repair is free: tapping it repairs it (and collects any coins in the same tap), or an idle helper walks to its front tile and fixes it in `REPAIR_TIME` = 2.0 s (helper order: carry plates when there is no waiter, sweep trash, then repair). A repaired cabinet restarts at wear 0.
+- **Tap rule:** in the Move tool a tap collects or repairs when there is at least one coin or it is broken; otherwise it selects as usual, so the player can move or rotate it. A drag still moves it.
+- **Edit mode:** cabinets sit with the people sim, so they do not earn or wear while the player edits the room; the edit-time payout covers them through the estimate.
+- **Estimate:** 8.1 adds `arcades × ARCADE_RATE × ARCADE_UPTIME` (0.7, assuming the player taps now and then). Offline earnings are Phase 5.
+- **Save (v8):** an arcade item stores `a: [coins, wear, broken]` (coins 0 to 20, wear seconds 0 to 480, broken 0 or 1), clamped on load; absent state means an empty tray, no wear, working. Partitions store nothing extra.
 
 ### 8.2 Balance principles
 - More seats with too few staff means wasted seats; the UI should hint at the bottleneck ("Not enough staff" / "Not enough seats" / "Low appeal").
@@ -412,7 +424,7 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 - New shops start with 300 coins.
 - `DEV_MODE` in `index.html` (or `?free` in the URL) makes everything free for testing.
 
-Prices (coins): table 30-55, chair 15-28, gas stove 60-110, fryer 85, drink machine 75 (3g5), plant 12-20, lantern 20-30 by design; wallpaper 4-9 per wall piece; floor 3-9 per tile.
+Prices (coins): table 30-55, chair 15-28, gas stove 60-110, fryer 85, drink machine 75 (3g5), partition 30-38 and arcade cabinet 120 (3g6), plant 12-20, lantern 20-30 by design; wallpaper 4-9 per wall piece; floor 3-9 per tile.
 
 ## 9. Social Features (Core Pillar)
 
@@ -510,7 +522,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
-| 3g Decor variety | In progress (3g0 to 3g7, see 12.3), runs before 4b: 3g0 done (looks approved), 3g1 done (Sims-style build panel: category strip, design grid with thumbnails, prices and count badges; designs can carry their own draw function; item name labels on hover and keyboard focus; no save change). 3g1b done (edit mode: while an item tool, paint, remove, a selection or a drag is active in the room, guests and staff fade out and the people sim pauses; the time spent editing pays the current estimate, capped at 8 hours, when the player stops; no save change).  3g2 done (five new floors: Mint checker, Kitchen tile, Slate tile, Pale planks, Green carpet with a dotted border where it meets another floor; two new wallpapers: Polka and Diamond border; styles appended to the lists, so no save change).  3g3 done (chairs Stool, High back, Booth seat that joins; tables Round pedestal, Diner; no save change). 3g4 spec approved (station rule in 7.1 and 8.1). 3g5 done (fryer and drink machine, six dishes with a station tag, `planKitchen()`, per-type kitchen cap, new hints, grouped menu sheet, level-locked designs; no save change); next 3g6 |
+| 3g Decor variety | In progress (3g0 to 3g7, see 12.3; 3g6 done, next 3g7), runs before 4b: 3g0 done (looks approved), 3g1 done (Sims-style build panel: category strip, design grid with thumbnails, prices and count badges; designs can carry their own draw function; item name labels on hover and keyboard focus; no save change). 3g1b done (edit mode: while an item tool, paint, remove, a selection or a drag is active in the room, guests and staff fade out and the people sim pauses; the time spent editing pays the current estimate, capped at 8 hours, when the player stops; no save change).  3g2 done (five new floors: Mint checker, Kitchen tile, Slate tile, Pale planks, Green carpet with a dotted border where it meets another floor; two new wallpapers: Polka and Diamond border; styles appended to the lists, so no save change).  3g3 done (chairs Stool, High back, Booth seat that joins; tables Round pedestal, Diner; no save change). 3g4 spec approved (station rule in 7.1 and 8.1). 3g5 done (fryer and drink machine, six dishes with a station tag, `planKitchen()`, per-type kitchen cap, new hints, grouped menu sheet, level-locked designs; no save change); next 3g7 |
 | 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -612,13 +624,13 @@ Why: decorating is the main pillar, but the catalog is 5 furniture types with co
 | 3g3 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet. Done: chair designs Stool, High back and Booth seat, table designs Round pedestal and Diner, appended after the colour designs (saves load unchanged); shaped designs draw at scale 1 and carry `h`, `half` (width in tiles, used to keep a small gap between chair and table) and `sit` (seat height for the guest); a booth seat joins neighbours of the same design, rotation and row, with an arm only on free ends; new `cyl` primitive |
 | 3g4 | Kitchen station design, text only: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks), how the 8.1 kitchen formula changes, the hint wording and the dish list. Write the decision into 7.1 and 8.1 before any code. | Opus. Done (spec): design A, every dish has a station; see "Stations (Phase 3g)" in 7.1 and "Station rule" in 8.1 |
 | 3g5 | Build the stations from the 3g4 spec: `fryer_01` and `drinks_01` (prices 85 and 75, level-locked to Lv 3 and Lv 2) drawn with idle and working states and their chef poses, the stove relabelled Gas stove, a `station` tag on every dish plus six new dishes, `planKitchen()` shared by `economy()` and `assignStations()`, guests ordering only open dishes, per-type `kitchenCap`, the new hints and Kitchen row, the menu sheet grouped by station, cups for drinks. No save version change (v7 stays). | Sonnet. Done: `planKitchen()` is the one chef-to-station plan read by `economy()` and `assignStations()`; `isStation` and `stationFront` replace the `counter_01` checks; `orderableMenu()` and `reorderClosed()` keep guests on open dishes; `drawFryer`, `drawDrinks` and `drawCup` with idle, working and drip states; build designs show a "Lv N" badge and say why in a toast; keys 1 to 7 are unchanged (8 and 9 paint), so the two new stations are picked in the build panel only; starter layout estimate unchanged at 42.2 coins/min |
-| 3g6 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper). Save v8 stores the cabinet state; add the `migrate()` step. | Sonnet |
+| 3g6 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper). Save v8 stores the cabinet state; add the `migrate()` step. | Sonnet. Done: `partition_01` (Glass partition 38, Lattice screen 30, appeal 2) and `arcade_01` (120, appeal 6) in a new Extras build category; partitions go through the normal `checkPlace` path rule; arcade rules in 8.5; save v8 (`a: [coins, wear, broken]`, `migrate()` v7 to v8 step) |
 | 3g7 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Re-run the 3f balance runs with the new stations. Update design.md. | Sonnet |
 
 Free-form rule: stations, partitions and tables go anywhere the player likes. There is no kitchen zone, no required wall and no required divider; the only rules are the existing ones (a station's front tile stays clear for its chef, and every seat keeps a walkable path from the door). Station fronts and handles face the chef's tile, and rotation mirrors them like the current stove.
 
 **3g5 plan (from the 3g4 spec).**
-- *Save:* no version bump. New item ids `fryer_01` and `drinks_01` only appear in new saves; dishes `dish_07` to `dish_12` are appended, and the menu already stores `dishId`, so `sanitizeMenu` handles them. Older saves (stove only, dishes 1 to 6) load unchanged and earn the same (8.1 example 1). v8 stays reserved for 3g6.
+- *Save:* no version bump. New item ids `fryer_01` and `drinks_01` only appear in new saves; dishes `dish_07` to `dish_12` are appended, and the menu already stores `dishId`, so `sanitizeMenu` handles them. Older saves (stove only, dishes 1 to 6) load unchanged and earn the same (8.1 example 1). v8 was then used by 3g6.
 - *Order of work:*
   1. DECOR DATA and CATALOG: `fryer_01` and `drinks_01` entries with `station`, `cat: 'stations'`, `h`, `ITEM_SCALE`, `APPEAL` 3 each, one design each in `VARIANTS` (a second colour later if the user wants); `counter_01` gets `station: 'stove'` and the label Gas stove; add both to the stations category and `TOOL_ORDER`; level lock (`unlock`) shown as a badge in the build grid.
   2. ITEMS: `drawFryer` and `drawDrinks` ported from `scratch/mockup-decor.html` (idle and working states, side tray, drip tray, progress ring as on the stove); `drawCup` for drinks on the tray, in hand, on the table and empty.
