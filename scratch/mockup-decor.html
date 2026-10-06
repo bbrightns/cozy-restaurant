@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decor mockup (3g0)</title>
+<style>
+  :root { --bg:#fbf1e8; --card:#fff8ef; --ink:#5b4b57; --soft:#8a7a86; --acc:#ffb5a7; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--ink); font:15px/1.45 ui-rounded,"Nunito","Quicksand","Segoe UI",system-ui,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:2px 4px 6px; }
+  p.lead { margin:0 0 12px; color:var(--soft); max-width:760px; }
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; align-items:center; }
+  button { font:inherit; padding:10px 16px; min-height:44px; border:0; border-radius:999px; background:#f3dfd4; color:var(--ink); cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--acc); }
+  button:focus-visible { outline:3px solid #8e78b8; outline-offset:2px; }
+  .card { background:var(--card); border-radius:18px; padding:10px 10px 12px; box-shadow:0 6px 18px rgba(122,82,118,.14); margin:0 0 14px; overflow-x:auto; }
+  canvas { display:block; max-width:100%; border-radius:12px; }
+  small { display:block; color:var(--soft); margin:6px 4px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<h1>3g0 decor mockup: stations, seating, extras, floors</h1>
+<p class="lead">Scratch file, not part of the game. Everything is drawn in code at game scale (tile 64 wide, person 45px, table top 16px, chair seat 11px, wall 74px). Pick a look for each labelled item by its code (for example S1, C3, T2, F3). Kitchen flames, steam and the arcade screen move; reduced motion freezes them.</p>
+<div class="tabs" role="group" aria-label="Zoom">
+  <button type="button" data-z="1" aria-pressed="false">1x real size</button>
+  <button type="button" data-z="2" aria-pressed="true">2x</button>
+  <button type="button" data-z="3" aria-pressed="false">3x</button>
+</div>
+<div id="root"></div>
+
+<script>
+(function () {
+  'use strict';
+  const TW = 32, TH = 16;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || /still/.test(location.search);
+  let Z = 2, ctx;
+
+  const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mixc = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const col = (c) => 'rgb(' + c.map((v) => Math.round(v)).join(',') + ')';
+  function sh(h, f) {
+    const c = rgb(h);
+    if (f >= 1) return col(mixc(c, [255, 248, 239], Math.min(1, (f - 1) * 2)));
+    return col([c[0] * Math.pow(f, 0.9), c[1] * Math.pow(f, 1.2), c[2] * f]);
+  }
+  const K = {
+    cream: '#fff1e2', blush: '#fcd5ce', peach: '#ffb5a7', mint: '#b8e0d2', mintD: '#8fd6bd', lav: '#cdb4db', plum: '#8e78b8',
+    butter: '#f6d27a', wood: '#d9b08c', woodL: '#e8cdb0', steel: '#b9c6dc', ink: '#6f5c7c', skin: '#f6d3bd', hair: '#6b4a3a'
+  };
+  const P = (x, y, z) => [(x - y) * TW, (x + y) * TH - z];
+
+  function poly(pts, fill) {
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineJoin = 'round'; ctx.lineWidth = 1; ctx.strokeStyle = fill; ctx.stroke();
+  }
+  function box(x0, y0, x1, y1, z0, z1, hex, alpha) {
+    const prev = ctx.globalAlpha;
+    if (alpha !== undefined) ctx.globalAlpha = prev * alpha;
+    if (z1 > z0) {
+      let g = ctx.createLinearGradient(0, P(x0, y1, z1)[1], 0, P(x0, y1, z0)[1]);
+      g.addColorStop(0, sh(hex, 0.93)); g.addColorStop(1, sh(hex, 0.8));
+      poly([P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)], g);
+      g = ctx.createLinearGradient(0, P(x1, y1, z1)[1], 0, P(x1, y1, z0)[1]);
+      g.addColorStop(0, sh(hex, 0.8)); g.addColorStop(1, sh(hex, 0.68));
+      poly([P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), P(x1, y0, z1)], g);
+    }
+    poly([P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], sh(hex, 1.06));
+    ctx.globalAlpha = prev;
+  }
+  function cyl(x, y, r, z0, z1, hex) {
+    const [cx, cy] = P(x, y, 0), rx = r * TW * 1.414, ry = r * TH * 1.414, yb = cy - z0, yt = cy - z1;
+    const g = ctx.createLinearGradient(cx - rx, 0, cx + rx, 0);
+    g.addColorStop(0, sh(hex, 0.98)); g.addColorStop(0.55, sh(hex, 0.86)); g.addColorStop(1, sh(hex, 0.7));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, yb, rx, ry, 0, 0, Math.PI);
+    ctx.lineTo(cx - rx, yt);
+    ctx.ellipse(cx, yt, rx, ry, 0, Math.PI, Math.PI * 2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx, yt, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = sh(hex, 1.07); ctx.fill();
+  }
+  function disc(x, y, z, r, fill) {
+    const [cx, cy] = P(x, y, z);
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * TW * 1.414, r * TH * 1.414, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+  }
+  function shadow(r) {
+    ctx.beginPath(); ctx.ellipse(0, 3, r * TW * 1.5, r * TH * 1.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(122,82,118,.17)'; ctx.fill();
+  }
+  function topQ(z, x0, y0, x1, y1, fill) { poly([P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)], fill); }
+  function onFaceY(y, fn) {
+    const o = P(0, y, 0);
+    ctx.save(); ctx.translate(o[0], o[1]); ctx.transform(TW, TH, 0, -1, 0, 0); fn(); ctx.restore();
+  }
+  function onFaceX(x, fn) {
+    const o = P(x, 0, 0);
+    ctx.save(); ctx.translate(o[0], o[1]); ctx.transform(-TW, TH, 0, -1, 0, 0); fn(); ctx.restore();
+  }
+  function dot(u, z, ru, rz, fill) {
+    ctx.beginPath(); ctx.ellipse(u, z, ru, rz, 0, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
+  }
+  function flame(x, y, z, h, t, seed, outer, inner) {
+    const [px, py] = P(x, y, z), f = 1 + Math.sin(t * 9 + seed) * 0.2, sway = Math.sin(t * 6 + seed * 2) * 0.8, w = h * 0.34;
+    ctx.beginPath();
+    ctx.moveTo(px - w, py);
+    ctx.quadraticCurveTo(px - w, py - h * 0.5, px + sway, py - h * f);
+    ctx.quadraticCurveTo(px + w, py - h * 0.5, px + w, py);
+    ctx.closePath(); ctx.fillStyle = outer; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(px - w * 0.5, py);
+    ctx.quadraticCurveTo(px - w * 0.5, py - h * 0.3, px + sway * 0.5, py - h * 0.62 * f);
+    ctx.quadraticCurveTo(px + w * 0.5, py - h * 0.3, px + w * 0.5, py);
+    ctx.closePath(); ctx.fillStyle = inner; ctx.fill();
+  }
+  function steam(x, y, z, t, n) {
+    for (let i = 0; i < n; i++) {
+      const k = (t * 0.55 + i / n) % 1, [px, py] = P(x, y, z);
+      ctx.beginPath(); ctx.arc(px + Math.sin(k * 6 + i) * 3, py - k * 22, 2.2 + k * 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,248,239,' + (0.55 * (1 - k)).toFixed(3) + ')'; ctx.fill();
+    }
+  }
+
+  /* ---------- stations ---------- */
+  function gasStove(t, cooking) {
+    shadow(0.5);
+    box(-0.4, -0.4, 0.4, 0.4, 0, 17, K.cream);
+    onFaceY(0.4, () => {
+      ctx.fillStyle = sh(K.cream, 0.76); ctx.fillRect(-0.3, 2, 0.6, 9);
+      ctx.fillStyle = 'rgba(142,120,184,.7)'; ctx.fillRect(-0.23, 3.4, 0.46, 5.4);
+      ctx.fillStyle = K.butter; ctx.fillRect(-0.2, 9.6, 0.4, 1);
+      ctx.fillStyle = K.blush; ctx.fillRect(-0.4, 12, 0.8, 5);
+      [-0.2, 0, 0.2].forEach((u) => dot(u, 14.5, 0.04, 1.8, K.peach));
+    });
+    box(-0.43, -0.43, 0.43, 0.43, 17, 20, '#c5cfe0');
+    const burners = [[-0.14, 0.08], [0.2, 0.16]];
+    burners.forEach(([bx, by], i) => {
+      disc(bx, by, 20, 0.15, K.ink); disc(bx, by, 20, 0.1, '#8a7596');
+      if (cooking) for (let k = 0; k < 7; k++) {
+        const a = k / 7 * Math.PI * 2 + i;
+        flame(bx + Math.cos(a) * 0.15, by + Math.sin(a) * 0.15, 20, 5.2, t, k + i * 3, '#ffb08a', K.butter);
+      } else for (let k = 0; k < 7; k++) {
+        const a = k / 7 * Math.PI * 2, [px, py] = P(bx + Math.cos(a) * 0.14, by + Math.sin(a) * 0.14, 20);
+        dot(px, py, 0.8, 0.8, '#8fb8e6');
+      }
+    });
+    cyl(-0.14, 0.08, 0.15, 20, 28, K.lav); disc(-0.14, 0.08, 28, 0.13, sh(K.lav, 0.9));
+    cyl(0.2, 0.16, 0.17, 20, 22.5, '#8a6f7e');
+    box(0.3, 0.12, 0.52, 0.2, 21, 22.5, '#8a6f7e');
+    box(-0.43, -0.43, 0.43, -0.34, 20, 41, K.mint);
+    box(-0.43, -0.43, 0.43, -0.34, 34, 35.4, K.butter);
+    onFaceY(-0.34, () => {
+      ctx.fillStyle = '#8a6f7e';
+      [-0.25, -0.1, 0.06, 0.2].forEach((u, i) => { ctx.fillRect(u, 24 - i % 2 * 2, 0.03, 10 + i % 2 * 2); dot(u + 0.015, 22 - i % 2 * 2, 0.05, 2, '#8a6f7e'); });
+    });
+    if (cooking) steam(-0.14, 0.08, 29, t, 4);
+  }
+  function fryer(t, cooking) {
+    shadow(0.5);
+    box(-0.4, -0.4, 0.4, 0.4, 0, 18, K.steel);
+    onFaceY(0.4, () => {
+      ctx.fillStyle = K.butter; ctx.fillRect(-0.4, 12.5, 0.8, 5.5);
+      [-0.22, -0.07].forEach((u) => dot(u, 15.2, 0.04, 1.8, K.peach));
+      ctx.fillStyle = sh(K.steel, 0.72); ctx.fillRect(-0.3, 1.5, 0.6, 9.5);
+      dot(-0.05, 6.8, 0.12, 3.2, '#d99a5e');
+      dot(0.1, 4.8, 0.07, 1.5, '#d99a5e');
+      ctx.fillStyle = K.cream; ctx.fillRect(0.12, 3.2, 0.1, 2); dot(0.12, 3.2, 0.03, 1.2, K.cream); dot(0.22, 3.2, 0.03, 1.2, K.cream);
+    });
+    topQ(18, -0.36, -0.22, -0.02, 0.24, '#8a6f7e');
+    topQ(18, 0.02, -0.22, 0.36, 0.24, '#8a6f7e');
+    topQ(18, -0.32, -0.18, -0.06, 0.2, '#f0c36b');
+    topQ(18, 0.06, -0.18, 0.32, 0.2, '#f0c36b');
+    topQ(18, -0.3, -0.16, -0.18, -0.02, '#fbe3a0');
+    if (cooking) for (let i = 0; i < 6; i++) {
+      const k = (t * 1.3 + i * 0.37) % 1, [px, py] = P(-0.19 + Math.sin(i * 2.1) * 0.1, 0.02 + Math.cos(i * 1.7) * 0.1, 18);
+      dot(px, py - k * 1.5, 1.4, 1.2, 'rgba(255,248,239,' + (0.9 * (1 - k)).toFixed(2) + ')');
+    }
+    box(-0.4, -0.4, 0.4, -0.3, 18, 34, K.steel);
+    const lift = cooking ? 5 + Math.sin(t * 3) * 1.2 : 0;
+    [[-0.19, 0.02], [0.19, 0.02]].forEach(([bx, by], i) => {
+      const lz = i === 1 ? lift : 0;
+      box(bx - 0.1, by - 0.12, bx + 0.1, by + 0.12, 18.5 + lz, 23.5 + lz, '#e9c46a');
+      ctx.strokeStyle = K.peach; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(...P(bx, by - 0.1, 23 + lz)); ctx.lineTo(...P(bx, by - 0.36, 32 + lz)); ctx.stroke();
+    });
+    if (cooking) steam(0.19, 0.02, 27 + lift, t, 3);
+  }
+  function drinkMachine(t) {
+    shadow(0.45);
+    box(-0.34, -0.34, 0.34, 0.34, 0, 14, K.blush);
+    box(-0.3, 0.3, 0.3, 0.46, 8, 10, '#c5cfe0');
+    cyl(0.1, 0.4, 0.05, 10, 14.5, K.cream);
+    box(-0.34, -0.34, 0.34, 0.34, 14, 44, K.lav);
+    onFaceY(0.34, () => {
+      ctx.fillStyle = K.ink; ctx.fillRect(-0.29, 20, 0.58, 21);
+      [[-0.27, K.peach, 0.68], [0.01, K.mintD, 0.5]].forEach(([u, c, lv], i) => {
+        ctx.fillStyle = 'rgba(255,248,239,.22)'; ctx.fillRect(u, 21, 0.26, 19);
+        ctx.fillStyle = c; ctx.fillRect(u, 21, 0.26, 19 * lv);
+        ctx.fillStyle = 'rgba(255,248,239,.55)'; ctx.fillRect(u + 0.03, 22, 0.035, 17);
+        for (let b = 0; b < 3; b++) { const k = (t * 0.7 + b * 0.33 + i * 0.2) % 1; dot(u + 0.06 + b * 0.07, 21 + k * 19 * lv, 0.015, 0.8, 'rgba(255,248,239,.8)'); }
+      });
+      ctx.fillStyle = K.butter; ctx.fillRect(-0.29, 16, 0.58, 2.4);
+      [-0.15, 0.15].forEach((u) => { ctx.fillStyle = '#8a6f7e'; ctx.fillRect(u - 0.03, 17.5, 0.06, 2.5); });
+    });
+    box(-0.34, -0.34, 0.34, 0.34, 44, 46, K.butter);
+    cyl(-0.1, 0, 0.07, 46, 51, K.cream); cyl(0.12, 0.05, 0.07, 46, 51, K.mint);
+  }
+
+  /* ---------- seating ---------- */
+  function backPanel(rot, w, t, z0, z1, hex) {
+    if (rot === 0) box(-w, -w, w, -w + t, z0, z1, hex);
+    else if (rot === 1) box(-w, -w, -w + t, w, z0, z1, hex);
+    else if (rot === 2) box(-w, w - t, w, w, z0, z1, hex);
+    else box(w - t, -w, w, w, z0, z1, hex);
+  }
+  const legs = (w, z1, hex, tk) => [[-w, -w], [w - tk, -w], [-w, w - tk], [w - tk, w - tk]].forEach(([x, y]) => box(x, y, x + tk, y + tk, 0, z1, hex));
+  function chairClassic(rot) {
+    shadow(0.42); legs(0.28, 8, K.wood, 0.05);
+    if (rot < 2) backPanel(rot, 0.3, 0.06, 11, 20, K.wood);
+    box(-0.3, -0.3, 0.3, 0.3, 8, 11, '#f4a99b');
+    if (rot >= 2) backPanel(rot, 0.3, 0.06, 11, 20, K.wood);
+  }
+  function stool() {
+    shadow(0.36);
+    [[-0.16, -0.12], [0.16, -0.12], [0, 0.18]].forEach(([x, y]) => cyl(x, y, 0.035, 0, 10, '#8a6f7e'));
+    cyl(0, 0, 0.2, 4, 5, '#8a6f7e');
+    cyl(0, 0, 0.27, 10, 13.5, K.mintD);
+  }
+  function highBack(rot) {
+    shadow(0.42); legs(0.28, 8, '#8a6f7e', 0.05);
+    if (rot < 2) { backPanel(rot, 0.3, 0.09, 11, 33, K.lav); }
+    box(-0.3, -0.3, 0.3, 0.3, 8, 11, K.lav);
+    if (rot < 2) {
+      if (rot === 0) box(-0.22, -0.2, 0.22, -0.16, 14, 29, K.butter); else box(-0.2, -0.22, -0.16, 0.22, 14, 29, K.butter);
+    } else {
+      backPanel(rot, 0.3, 0.09, 11, 33, K.lav);
+      if (rot === 2) box(-0.22, 0.16, 0.22, 0.2, 14, 29, K.butter); else box(0.16, -0.22, 0.2, 0.22, 14, 29, K.butter);
+    }
+  }
+  function booth(rot, jmin, jmax) {
+    shadow(0.5);
+    const along = rot === 0 || rot === 2 ? 'x' : 'y';
+    const lo = jmin ? -0.5 : -0.46, hi = jmax ? 0.5 : 0.46;
+    const bx = (a0, a1, b0, b1, z0, z1, hex) => (along === 'x' ? box(a0, b0, a1, b1, z0, z1, hex) : box(b0, a0, b1, a1, z0, z1, hex));
+    const back = rot === 0 || rot === 1 ? [-0.46, -0.26] : [0.26, 0.46];
+    bx(lo, hi, -0.46, 0.46, 0, 9, K.wood);
+    if (rot < 2) bx(lo, hi, back[0], back[1], 9, 31, '#f4a99b');
+    bx(lo, hi, -0.3, 0.46, 9, 13, K.peach);
+    if (rot >= 2) bx(lo, hi, back[0], back[1], 9, 31, '#f4a99b');
+    if (!jmin) bx(-0.5, lo + 0.1, -0.46, 0.46, 9, 21, K.wood);
+    if (!jmax) bx(hi - 0.1, 0.5, -0.46, 0.46, 9, 21, K.wood);
+    const face = rot === 0 ? [-0.26, onFaceY] : rot === 1 ? [-0.26, onFaceX] : null;
+    if (face) face[1](face[0], () => { [-0.3, 0, 0.3].forEach((u) => [18, 25].forEach((z) => dot(u, z, 0.035, 1.5, sh('#f4a99b', 0.7)))); });
+  }
+
+  /* ---------- tables ---------- */
+  function tableSquare() {
+    shadow(0.55);
+    box(-0.34, -0.34, 0.34, 0.34, 3, 13, K.blush);
+    box(-0.45, -0.45, 0.45, 0.45, 13, 16, K.cream);
+    box(-0.45, -0.45, 0.45, -0.38, 13, 16, K.peach, 0.5);
+    cyl(0, 0, 0.06, 16, 22, K.mint); dot(...P(0, 0, 25), 4.5, 3.8, K.peach); dot(...P(0.03, 0.02, 25), 2, 2, K.butter);
+  }
+  function tableRound() {
+    shadow(0.55);
+    cyl(0, 0, 0.2, 0, 2, K.wood); cyl(0, 0, 0.07, 2, 14, K.wood);
+    cyl(0, 0, 0.44, 14, 16.5, '#e6c7a8');
+    cyl(0, 0, 0.03, 16.5, 21, K.cream);
+    flame(0, 0, 21, 4, performance.now() / 1000, 1, '#ffb08a', K.butter);
+  }
+  function tableDiner() {
+    shadow(0.55); legs(0.42, 13, K.mintD, 0.05);
+    box(-0.47, -0.47, 0.47, 0.47, 13, 14.4, K.butter);
+    box(-0.43, -0.43, 0.43, 0.43, 14.4, 16, K.lav);
+    box(-0.1, -0.08, 0.1, 0.08, 16, 19.5, K.cream);
+    cyl(0.25, -0.2, 0.04, 16, 21, K.peach);
+  }
+
+  /* ---------- extras ---------- */
+  function glassPartition() {
+    shadow(0.45);
+    box(-0.5, -0.07, 0.5, 0.07, 0, 7, K.wood);
+    box(-0.5, -0.07, -0.42, 0.07, 7, 39, K.wood); box(0.42, -0.07, 0.5, 0.07, 7, 39, K.wood);
+    box(-0.42, -0.03, 0.42, 0.03, 7, 36, K.mint, 0.55);
+    box(-0.5, -0.07, 0.5, 0.07, 36, 39, K.wood);
+    onFaceY(0.07, () => {
+      ctx.fillStyle = 'rgba(255,248,239,.5)';
+      ctx.beginPath(); ctx.moveTo(-0.3, 9); ctx.lineTo(-0.18, 9); ctx.lineTo(0.05, 33); ctx.lineTo(-0.07, 33); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0.05, 9); ctx.lineTo(0.12, 9); ctx.lineTo(0.28, 33); ctx.lineTo(0.21, 33); ctx.closePath(); ctx.fill();
+    });
+  }
+  function latticePartition() {
+    shadow(0.45);
+    box(-0.5, -0.07, 0.5, 0.07, 0, 6, '#c4966f');
+    for (let i = 0; i < 7; i++) box(-0.46 + i * 0.153, -0.04, -0.41 + i * 0.153, 0.04, 6, 34, K.woodL);
+    box(-0.5, -0.07, 0.5, 0.07, 34, 37, '#c4966f');
+    box(-0.5, -0.07, 0.5, 0.07, 14, 15.5, '#c4966f');
+    cyl(0.25, 0, 0.1, 37, 41, K.peach);
+    dot(...P(0.25, 0, 46), 6, 5.5, K.mintD); dot(...P(0.2, 0.02, 49), 4, 4, '#a8d5a2'); dot(...P(0.32, 0, 48), 3.6, 3.6, '#a8d5a2');
+  }
+  function arcade(t, broken) {
+    shadow(0.45);
+    box(-0.3, -0.26, 0.3, 0.26, 0, 52, K.plum);
+    onFaceX(0.3, () => { ctx.fillStyle = K.mintD; ctx.fillRect(-0.26, 6, 0.14, 40); ctx.fillStyle = K.peach; ctx.fillRect(-0.06, 6, 0.1, 40); });
+    box(-0.31, -0.28, 0.31, 0.28, 52, 60, K.butter);
+    box(-0.3, 0.26, 0.3, 0.42, 22, 26, '#7a65a8');
+    onFaceY(0.26, () => {
+      ctx.fillStyle = '#4b4468'; ctx.fillRect(-0.24, 28, 0.48, 17);
+      if (!broken) {
+        const cells = [[-0.18, 38], [-0.08, 33], [0.04, 40], [0.14, 35], [-0.02, 30]];
+        cells.forEach(([u, z], i) => { ctx.fillStyle = (Math.floor(t * 2 + i) % 3 === 0) ? K.butter : [K.peach, K.mintD, K.lav][i % 3]; ctx.fillRect(u, z, 0.07, 3.5); });
+        ctx.fillStyle = 'rgba(255,248,239,.16)'; ctx.fillRect(-0.24, 28, 0.48, 17);
+      } else {
+        ctx.fillStyle = 'rgba(255,248,239,.1)'; ctx.fillRect(-0.24, 28, 0.48, 17);
+        ctx.fillStyle = K.peach; ctx.fillRect(-0.2, 35, 0.4, 2.5);
+      }
+      ctx.fillStyle = K.butter; ctx.fillRect(0.1, 9, 0.08, 4);
+      dot(0, 16, 0.08, 4, 'rgba(255,248,239,.0)');
+    });
+    onFaceY(0.42, () => { dot(-0.12, 24, 0.03, 1.2, '#a8a0c0'); });
+    cyl(-0.12, 0.34, 0.03, 26, 31, '#8a6f7e'); disc(-0.12, 0.34, 33, 0.06, broken ? '#a8a0c0' : K.peach);
+    disc(0.1, 0.35, 26.5, 0.04, K.peach); disc(0.2, 0.32, 26.5, 0.04, K.mintD);
+    if (broken) { const f = Math.floor(t * 6) % 2; dot(...P(0.2, 0.2, 62 + f * 2), 2 + f, 1.5 + f, K.butter); }
+  }
+
+  /* ---------- people (scale reference) ---------- */
+  function person(kind) {
+    shadow(0.3);
+    const chef = kind === 'chef';
+    ctx.fillStyle = '#8a6f7e'; ctx.beginPath(); ctx.ellipse(-4, -1.5, 4.2, 2.2, 0, 0, 7); ctx.ellipse(4, -1.5, 4.2, 2.2, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = chef ? '#a38db8' : K.lav; ctx.fillRect(-6, -10, 4.4, 9); ctx.fillRect(1.6, -10, 4.4, 9);
+    ctx.fillStyle = chef ? K.cream : K.butter;
+    ctx.beginPath(); ctx.moveTo(-8, -9); ctx.quadraticCurveTo(-9, -20, -6, -23); ctx.lineTo(6, -23); ctx.quadraticCurveTo(9, -20, 8, -9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = chef ? '#8a6f7e' : K.peach; ctx.fillRect(-7, -17, 14, 4.5);
+    ctx.fillStyle = K.skin; ctx.beginPath(); ctx.arc(0, -33.5, 11.4, 0, 7); ctx.fill();
+    ctx.fillStyle = K.hair; ctx.beginPath(); ctx.arc(0, -35.5, 11.6, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
+    ctx.fillStyle = '#4a3340'; ctx.beginPath(); ctx.ellipse(-4, -32, 1.6, 2.2, 0, 0, 7); ctx.ellipse(4, -32, 1.6, 2.2, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,150,140,.45)'; ctx.beginPath(); ctx.ellipse(-7, -28.5, 2.6, 1.6, 0, 0, 7); ctx.ellipse(7, -28.5, 2.6, 1.6, 0, 0, 7); ctx.fill();
+    if (chef) { ctx.fillStyle = K.cream; ctx.beginPath(); ctx.arc(0, -45.5, 9, Math.PI, 0); ctx.rect(-9, -45.5, 18, 6); ctx.fill(); ctx.fillStyle = '#efdfcc'; ctx.fillRect(-9.5, -41, 19, 3); }
+  }
+
+  /* ---------- floors (drawn in flat tile units) ---------- */
+  function rect(u0, v0, u1, v1) { ctx.beginPath(); ctx.rect(u0, v0, u1 - u0, v1 - v0); }
+  function floorPatch(kind, u0, v0, u1, v1) {
+    ctx.save();
+    ctx.transform(TW, TH, -TW, TH, 0, 0);
+    rect(u0, v0, u1, v1); ctx.clip();
+    if (kind === 'checker') {
+      for (let u = Math.floor(u0); u < u1; u++) for (let v = Math.floor(v0); v < v1; v++) {
+        ctx.fillStyle = (u + v) % 2 ? '#cfe8dd' : '#f6e8d8'; ctx.fillRect(u, v, 1, 1);
+      }
+      ctx.fillStyle = 'rgba(122,82,118,.08)'; for (let u = Math.ceil(u0); u < u1; u++) ctx.fillRect(u - 0.012, v0, 0.024, v1 - v0);
+      for (let v = Math.ceil(v0); v < v1; v++) ctx.fillRect(u0, v - 0.012, u1 - u0, 0.024);
+    } else if (kind === 'kitchen') {
+      ctx.fillStyle = '#c3cfe0'; rect(u0, v0, u1, v1); ctx.fill();
+      for (let u = u0; u < u1; u += 0.5) for (let v = v0; v < v1; v += 0.5) {
+        ctx.fillStyle = ((Math.round(u * 2) + Math.round(v * 2)) % 5 === 0) ? '#dbe4f0' : '#d0dbea'; ctx.fillRect(u + 0.02, v + 0.02, 0.46, 0.46);
+      }
+    } else if (kind === 'carpet') {
+      ctx.fillStyle = '#9fcf99'; rect(u0, v0, u1, v1); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,248,239,.28)'; ctx.lineWidth = 0.025;
+      for (let k = -12; k < 14; k += 0.5) { ctx.beginPath(); ctx.moveTo(u0 + k, v0); ctx.lineTo(u0 + k + (v1 - v0), v1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(u0 + k, v1); ctx.lineTo(u0 + k + (v1 - v0), v0); ctx.stroke(); }
+      const b = 0.34;
+      ctx.fillStyle = '#82bd7d'; rect(u0, v0, u1, v1); ctx.fill(); ctx.fillStyle = '#9fcf99'; rect(u0 + b, v0 + b, u1 - b, v1 - b); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,248,239,.28)'; for (let k = -12; k < 14; k += 0.5) { ctx.beginPath(); ctx.moveTo(u0 + k, v0 + b); ctx.lineTo(u0 + k + (v1 - v0), v1 - b); ctx.stroke(); ctx.beginPath(); ctx.moveTo(u0 + k, v1 - b); ctx.lineTo(u0 + k + (v1 - v0), v0 + b); ctx.stroke(); }
+      ctx.save(); rect(u0 + b, v0 + b, u1 - b, v1 - b); ctx.clip();
+      ctx.restore();
+      ctx.fillStyle = '#fff1e2';
+      for (let u = u0 + 0.1; u < u1 - 0.1; u += 0.22) { ctx.fillRect(u, v0 + 0.1, 0.1, 0.1); ctx.fillRect(u, v1 - 0.2, 0.1, 0.1); }
+      for (let v = v0 + 0.1; v < v1 - 0.1; v += 0.22) { ctx.fillRect(u0 + 0.1, v, 0.1, 0.1); ctx.fillRect(u1 - 0.2, v, 0.1, 0.1); }
+      ctx.strokeStyle = '#fff1e2'; ctx.lineWidth = 0.03; ctx.strokeRect(u0 + b, v0 + b, u1 - u0 - 2 * b, v1 - v0 - 2 * b);
+    } else if (kind === 'planks') {
+      const cols = ['#e3c4a0', '#d9b08c', '#e8cdb0'];
+      let r = 7;
+      const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+      for (let v = v0, i = 0; v < v1; v += 0.25, i++) {
+        let u = u0 - rnd() * 0.9;
+        while (u < u1) {
+          const len = 0.8 + rnd() * 0.9;
+          ctx.fillStyle = cols[Math.floor(rnd() * 3)]; ctx.fillRect(u, v, len - 0.015, 0.235);
+          u += len;
+        }
+      }
+    }
+    ctx.restore();
+  }
+  function diamondOutline(u0, v0, u1, v1) {
+    ctx.save(); ctx.transform(TW, TH, -TW, TH, 0, 0); ctx.strokeStyle = 'rgba(122,82,118,.25)'; ctx.lineWidth = 0.02; ctx.strokeRect(u0, v0, u1 - u0, v1 - v0); ctx.restore();
+  }
+
+  /* ---------- layout ---------- */
+  const root = document.getElementById('root');
+  const cards = [];
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function makeCard(title, note, w, h, draw, aria) {
+    const card = document.createElement('div'); card.className = 'card';
+    const h2 = document.createElement('h2'); h2.textContent = title; card.appendChild(h2);
+    const cv = document.createElement('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', aria); card.appendChild(cv);
+    const s = document.createElement('small'); s.textContent = note; card.appendChild(s);
+    root.appendChild(card);
+    cards.push({ cv, w, h, draw });
+  }
+  function labelRow(items, cellW, y) {
+    ctx.textAlign = 'center';
+    items.forEach((it, i) => {
+      const cx = i * cellW + cellW / 2;
+      ctx.fillStyle = K.ink; ctx.font = '600 11px ui-rounded, Nunito, system-ui, sans-serif'; ctx.fillText(it.code ? it.code + '  ' + it.label : it.label, cx, y);
+      if (it.sub) { ctx.fillStyle = '#8a7a86'; ctx.font = '10px ui-rounded, Nunito, system-ui, sans-serif'; ctx.fillText(it.sub, cx, y + 13); }
+    });
+  }
+  function cellsCard(title, note, cellW, items, ox) {
+    const W = cellW * items.length, H = 150;
+    makeCard(title, note, W, H, (t) => {
+      items.forEach((it, i) => {
+        ctx.save(); ctx.translate(i * cellW + cellW / 2 + (ox || 0), 98);
+        ctx.save(); ctx.transform(TW, TH, -TW, TH, 0, 0); ctx.fillStyle = '#efe3d3'; ctx.fillRect(-0.5, -0.5, 1, 1); ctx.restore();
+        it.draw(t);
+        ctx.restore();
+      });
+      labelRow(items, cellW, 128);
+    }, title + ': ' + items.map((it) => (it.code ? it.code + ' ' : '') + it.label).join(', '));
+  }
+  const now = () => (reduce ? 0 : performance.now() / 1000);
+
+  cellsCard('Scale reference', 'Guest 45px, chef hat to 63px, the same size as in the game.', 130, [
+    { label: 'Guest', sub: '45px', draw: () => person('guest') },
+    { label: 'Chef', sub: '63px with hat', draw: () => person('chef') },
+    { label: 'Classic chair', sub: 'seat 11, back 20', draw: () => chairClassic(0) },
+    { label: 'Square table', sub: 'top 16', draw: () => tableSquare() }
+  ]);
+
+  cellsCard('Kitchen stations (one chef each)', 'S1 gas stove (hob 20px, backsplash 41px), S3 fryer, S4 drink machine. Cooking and idle states shown.', 130, [
+    { code: 'S1', label: 'Gas stove', sub: 'cooking', draw: (t) => gasStove(t, true) },
+    { code: 'S1', label: 'Gas stove', sub: 'idle', draw: (t) => gasStove(t, false) },
+    { code: 'S3', label: 'Fryer', sub: 'cooking', draw: (t) => fryer(t, true) },
+    { code: 'S3', label: 'Fryer', sub: 'idle', draw: (t) => fryer(t, false) },
+    { code: 'S4', label: 'Drink machine', sub: '46px', draw: (t) => drinkMachine(t) }
+  ]);
+
+  cellsCard('Chair styles (different shape, not only colour)', 'C1 stool, C2 classic (today), C3 high back, C4 booth seat. The last cell shows booths that join into one long seat.', 130, [
+    { code: 'C1', label: 'Stool', sub: 'seat 13', draw: () => stool() },
+    { code: 'C2', label: 'Classic', sub: 'seat 11, back 20', draw: () => chairClassic(0) },
+    { code: 'C3', label: 'High back', sub: 'back 33', draw: () => highBack(0) },
+    { code: 'C4', label: 'Booth seat', sub: 'single', draw: () => booth(0, false, false) },
+    { code: 'C4', label: 'Booth, joined', sub: 'two tiles', draw: () => { ctx.save(); ctx.translate(-16, -8); booth(0, false, true); ctx.restore(); ctx.save(); ctx.translate(16, 8); booth(0, true, false); ctx.restore(); } }
+  ]);
+
+  cellsCard('Table styles', 'T1 cloth table (today), T2 round pedestal with a candle, T3 diner table with a butter edge.', 130, [
+    { code: 'T1', label: 'Cloth square', sub: 'top 16, vase 25', draw: () => tableSquare() },
+    { code: 'T2', label: 'Round pedestal', sub: 'top 16.5', draw: () => tableRound() },
+    { code: 'T3', label: 'Diner', sub: 'top 16', draw: () => tableDiner() }
+  ]);
+
+  cellsCard('Partitions and arcade', 'P1 glass on wood (blocks its tile), P2 wood lattice with a planter, A1 arcade cabinet (screen animates), A1 out of order (needs a repair tap).', 130, [
+    { code: 'P1', label: 'Glass partition', sub: '39px', draw: () => glassPartition() },
+    { code: 'P2', label: 'Lattice screen', sub: '37px + plant', draw: () => latticePartition() },
+    { code: 'A1', label: 'Arcade', sub: 'working', draw: (t) => arcade(t, false) },
+    { code: 'A1', label: 'Arcade', sub: 'out of order', draw: (t) => arcade(t, true) }
+  ]);
+
+  (function floors() {
+    const kinds = [['F1', 'Mint checker', 'checker'], ['F2', 'Kitchen tile', 'kitchen'], ['F3', 'Carpet, dotted border', 'carpet'], ['F4', 'Wood planks', 'planks']];
+    const cw = 215, W = cw * 4, H = 128;
+    makeCard('Floor designs (3 by 3 tile patch each)', 'Per-tile painting stays, so a room can mix kitchen tile and carpet. All stay darker than the table tops.', W, H, () => {
+      kinds.forEach(([code, label, kind], i) => {
+        ctx.save(); ctx.translate(i * cw + cw / 2, 56);
+        floorPatch(kind, -1.5, -1.5, 1.5, 1.5); diamondOutline(-1.5, -1.5, 1.5, 1.5);
+        ctx.restore();
+        ctx.textAlign = 'center'; ctx.fillStyle = K.ink; ctx.font = '600 11px ui-rounded, Nunito, system-ui, sans-serif';
+        ctx.fillText(code + '  ' + label, i * cw + cw / 2, 120);
+      });
+    }, 'Floor designs: ' + kinds.map((k) => k[0] + ' ' + k[1]).join(', '));
+  })();
+
+  (function scene() {
+    const W = 480, H = 340;
+    makeCard('Room preview (all picks together)', 'Kitchen tile and gas stoves, fryer and drink machine along the back wall; carpet with booths and a table; planks with a round table and stools; partitions and an arcade.', W, H, (t) => {
+      ctx.save(); ctx.translate(200, 100);
+      floorPatch('kitchen', 0, 0, 7, 2);
+      floorPatch('carpet', 0, 2, 4, 6);
+      floorPatch('planks', 4, 2, 7, 6);
+      box(0, -0.25, 7, 0, 0, 74, K.blush);
+      box(-0.25, 0, 0, 6, 0, 74, '#f6cfc8');
+      box(0, -0.25, 7, 0.01, 0, 9, '#e8b6a8'); box(-0.25, 0, 0.01, 6, 0, 9, '#e8b6a8');
+      onFaceY(0, () => { [[1.2, 0.9], [3.4, 0.9], [5.2, 0.9]].forEach(([u, w]) => { ctx.fillStyle = K.cream; ctx.fillRect(u - 0.04, 36, w + 0.08, 28); ctx.fillStyle = '#bfe0ee'; ctx.fillRect(u, 39, w, 22); ctx.fillStyle = 'rgba(255,248,239,.45)'; ctx.fillRect(u + 0.1, 41, 0.12, 18); }); });
+      onFaceX(0, () => { ctx.fillStyle = K.cream; ctx.fillRect(1.2, 36, 1.1, 28); ctx.fillStyle = '#bfe0ee'; ctx.fillRect(1.25, 39, 1.0, 22); });
+      const list = [];
+      const at = (tx, ty, fn) => list.push({ tx, ty, fn, d: tx + ty });
+      at(1, 0, (tt) => gasStove(tt, true)); at(2, 0, (tt) => gasStove(tt, false)); at(3, 0, (tt) => fryer(tt, true)); at(4, 0, (tt) => drinkMachine(tt));
+      at(1, 1, () => person('chef')); at(6, 1, () => person('guest'));
+      at(0, 2, () => booth(1, false, true)); at(0, 3, () => booth(1, true, false));
+      at(1, 3, () => tableDiner());
+      at(3, 3, () => tableSquare()); at(2, 3, () => highBack(1)); at(3, 2, () => chairClassic(0)); at(3, 4, () => chairClassic(2));
+      at(5, 4, () => tableRound()); at(4, 4, () => stool()); at(6, 4, () => stool()); at(5, 5, () => stool());
+      at(4, 2, () => glassPartition()); at(5, 2, () => glassPartition()); at(6, 2, () => latticePartition());
+      at(6, 3, (tt) => arcade(tt, false));
+      list.sort((a, b) => a.d - b.d || a.tx - b.tx);
+      list.forEach((it) => { const p = P(it.tx + 0.5, it.ty + 0.5, 0); ctx.save(); ctx.translate(p[0], p[1]); it.fn(t); ctx.restore(); });
+      ctx.restore();
+    }, 'Room preview with kitchen stations, seating, partitions and an arcade on mixed floors');
+  })();
+
+  const FROM = +((location.search.match(/from=(\d+)/) || [0, 0])[1]);
+  cards.forEach((c, i) => { if (i < FROM) { c.cv.parentNode.style.display = 'none'; c.hidden = true; } });
+  function layout() {
+    cards.filter((c) => !c.hidden).forEach((c) => {
+      c.cv.width = Math.round(c.w * Z * DPR); c.cv.height = Math.round(c.h * Z * DPR);
+      c.cv.style.width = c.w * Z + 'px'; c.cv.style.height = c.h * Z + 'px';
+    });
+  }
+  function frame() {
+    const t = now();
+    cards.filter((c) => !c.hidden).forEach((c) => {
+      ctx = c.cv.getContext('2d');
+      ctx.setTransform(DPR * Z, 0, 0, DPR * Z, 0, 0);
+      ctx.clearRect(0, 0, c.w, c.h);
+      try { c.draw(t); } catch (e) {
+        const pre = document.getElementById('err') || root.appendChild(Object.assign(document.createElement('pre'), { id: 'err' }));
+        pre.textContent = 'Draw error: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n');
+      }
+    });
+  }
+  let raf = 0;
+  function loop() { frame(); if (!reduce && !document.hidden) raf = requestAnimationFrame(loop); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !reduce) { cancelAnimationFrame(raf); loop(); } });
+
+  document.querySelectorAll('button[data-z]').forEach((b) => b.addEventListener('click', () => {
+    Z = +b.dataset.z;
+    document.querySelectorAll('button[data-z]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    layout(); frame();
+  }));
+  layout(); loop();
+})();
+</script>
+</body>
+</html>
