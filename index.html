@@ -259,54 +259,110 @@
   .ctx-row { display: flex; align-items: center; gap: 6px; max-width: 100%; padding-left: 8px; }
   .ctx-variants { padding: 0 4px 4px; }
   .ctx-variants .sw-row { flex-wrap: nowrap; }
-  .ctx-variants .sw-face { border-radius: 999px; }
   .context[hidden], .ctx-variants[hidden], .chip[hidden] { display: none; }
   .context .lbl { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .context .chip.warn { background: #fbd9d2; }
   .context .chip.warn:hover { background: #f8c9bf; }
 
-  /* toolbar: category tabs over one panel */
+  /* build panel: a strip of category icons over the chosen category's design grid (or the tool row) */
   .toolbar {
-    width: min(100%, 520px);
+    width: min(100%, 560px);
     padding: 6px;
     border-radius: 24px;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }
-  .tabs {
+  .cats {
+    position: relative;
     display: flex;
-    gap: 3px;
+    gap: 2px;
     padding: 3px;
-    border-radius: 999px;
+    border-radius: 22px;
     background: var(--cream-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
   }
-  .tab {
-    flex: 1 1 0;
+  .cats::-webkit-scrollbar { display: none; }
+  /* on narrow screens the strip scrolls; a soft fade marks the side with more icons */
+  .cats.more-right { -webkit-mask-image: linear-gradient(to right, #5b4b57 calc(100% - 30px), transparent); mask-image: linear-gradient(to right, #5b4b57 calc(100% - 30px), transparent); }
+  .cats.more-left { -webkit-mask-image: linear-gradient(to left, #5b4b57 calc(100% - 30px), transparent); mask-image: linear-gradient(to left, #5b4b57 calc(100% - 30px), transparent); }
+  .cats.more-left.more-right { -webkit-mask-image: linear-gradient(to right, transparent, #5b4b57 30px calc(100% - 30px), transparent); mask-image: linear-gradient(to right, transparent, #5b4b57 30px calc(100% - 30px), transparent); }
+  .cat {
+    flex: 1 0 44px;
+    min-width: 44px;
     min-height: 44px;
-    border-radius: 999px;
+    padding: 3px 2px 2px;
+    border-radius: 18px;
     background: transparent;
     color: var(--text-2);
-    font-size: 14.5px;
-    font-weight: 800;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 1px;
     transition: background .2s ease, color .2s ease, box-shadow .2s ease;
   }
-  .tab:hover { color: var(--text); }
-  .tab[aria-selected="true"] { background: var(--cream); color: var(--text); box-shadow: 0 3px 8px -4px rgba(108, 72, 104, .55); }
+  .cat svg { width: 30px; height: 25px; transition: transform .35s cubic-bezier(.3, 1.8, .5, 1); }
+  .cat span { font-size: 11px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+  .cat:hover { color: var(--text); background: rgba(255, 248, 239, .6); }
+  .cat[aria-selected="true"] { background: var(--cream); color: var(--text); box-shadow: 0 3px 8px -4px rgba(108, 72, 104, .55); }
+  .cat[aria-selected="true"] svg { transform: translateY(-1px) scale(1.06); }
   .panel { display: flex; gap: 4px; }
   .panel[hidden] { display: none; }
-  /* scene switch beside the tabs; outside, the tabs and panels give way to a short note */
+  /* design grid: N across, pages slide sideways (arrows, swipe or scroll) */
+  .design-panel { align-items: center; gap: 2px; }
+  .design-grid {
+    --per: 5;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - (var(--per) - 1) * 6px) / var(--per));
+    gap: 6px;
+    padding: 3px 0 2px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .design-grid::-webkit-scrollbar { display: none; }
+  .page-btn { flex: none; width: 44px; min-height: 64px; border-radius: 16px; background: transparent; color: var(--text-2); display: grid; place-items: center; }
+  .page-btn svg { width: 16px; height: 16px; }
+  .page-btn:hover { background: var(--cream-2); color: var(--text); }
+  .page-btn[aria-disabled="true"] { opacity: .3; cursor: default; background: transparent; }
+  .sw-item.dz { position: relative; width: auto; min-width: 0; padding: 3px 2px 5px; scroll-snap-align: start; }
+  .sw-item.dz:hover { background: var(--cream-2); }
+  .dz .sw-face { width: 100%; max-width: 66px; height: 54px; background-color: var(--cream-2); }
+  .dz-badge {
+    position: absolute;
+    top: 0;
+    right: max(2px, calc(50% - 38px));
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--lav);
+    color: var(--text);
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 19px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 0 2px var(--cream);
+    pointer-events: none;
+  }
+  .dz-badge[hidden] { display: none; }
+  /* scene switch beside the strip; outside, the strip and panels give way to a short note */
   .tb-head { display: flex; align-items: center; gap: 4px; }
-  .tb-head .tabs { flex: 1 1 auto; min-width: 0; }
+  .tb-head .cats { flex: 1 1 auto; min-width: 0; }
   .scene-btn { flex: none; background: var(--blush); }
   .scene-btn:hover { background: #f9c6bc; }
   .front-panel { display: none; margin: 0; padding: 2px 8px 6px; font-size: 12.5px; font-weight: 700; color: var(--text-2); text-align: center; }
-  .toolbar.is-front .tabs, .toolbar.is-front .panel { display: none; }
+  .toolbar.is-front .cats, .toolbar.is-front .panel { display: none; }
   .toolbar.is-front .front-panel { display: block; }
   .toolbar.is-front .scene-btn { flex: 1 1 auto; }
   .toolbar.is-front .scene-btn .txt { display: inline; }
   body.scene-front .context, body.scene-front .sheet { display: none; }
-  .decor-panel { display: grid; gap: 8px; padding: 2px 2px 4px; }
-  .decor-panel .sw-row { flex-wrap: nowrap; gap: 6px; justify-content: center; }
   .tool {
     flex: 1 1 0;
     min-width: 0;
@@ -332,11 +388,6 @@
   }
   .tool[aria-pressed="true"] svg { transform: translateY(-2px) scale(1.08); }
   .tool[data-tool="move"] { --tint: var(--mint); }
-  .tool[data-tool="table_01"] { --tint: var(--blush); }
-  .tool[data-tool="chair_01"] { --tint: #d6eee5; }
-  .tool[data-tool="counter_01"] { --tint: var(--lav); }
-  .tool[data-tool="plant_01"] { --tint: #d3ead0; }
-  .tool[data-tool="lantern_01"] { --tint: #fbe7b8; }
   .tool[data-tool="remove"] { --tint: #fbd9d2; }
   .tool[data-action="rotate"]:active svg { transform: rotate(90deg); }
 
@@ -390,8 +441,6 @@
   .sw-item.free .sw-price::before { display: none; }
   .sw-item.poor .sw-price { color: #c0665a; }
   .sw-item.poor .sw-face { opacity: .6; }
-  .decor-switch { display: flex; align-items: center; gap: 6px; }
-  .decor-note { margin-left: auto; padding-right: 6px; font-size: 11.5px; font-weight: 700; color: var(--text-3); text-align: right; }
   .bill {
     flex: none;
     display: inline-flex;
@@ -524,15 +573,18 @@
     .stats-read b { font-size: 15px; }
     .stats-read small { font-size: 10.5px; }
     .toolbar { padding: 4px; gap: 4px; border-radius: 20px; }
-    .tab { font-size: 13.5px; }
+    .cat span { display: none; }
     .panel { gap: 2px; }
     .tool { min-height: 56px; padding: 4px 1px; border-radius: 14px; }
     .tool svg { width: 32px; height: 26px; }
     .tool span { font-size: 11.5px; }
-    .decor-panel .sw-row, .ctx-variants .sw-row { gap: 3px; }
-    .decor-note { font-size: 10.5px; }
+    .ctx-variants .sw-row { gap: 3px; }
     .chip .txt { display: none; }
     .toast { font-size: 12px; }
+  }
+  @media (max-width: 480px) {
+    .design-grid { --per: 3; }
+    .cats { gap: 0; padding: 3px 2px; }
   }
   /* short, wide screens (phones held sideways): dock the toolbar on the right */
   @media (max-height: 520px) and (min-width: 600px) {
@@ -541,13 +593,14 @@
     .hud-row + .hud-row { padding-top: 2px; }
     .bottom { left: auto; right: 8px; top: 8px; bottom: 8px; width: 244px; justify-content: flex-end; align-items: stretch; gap: 6px; }
     .toolbar { width: 100%; padding: 4px; gap: 4px; }
-    .tab { font-size: 13px; }
+    .cat span { display: none; }
     .panel { flex-wrap: wrap; gap: 2px; }
+    .design-panel { flex-wrap: nowrap; }
+    .design-grid { --per: 3; }
+    .dz .sw-face { height: 44px; }
     .tool { flex: 1 1 30%; min-height: 54px; padding: 4px 1px; }
     .tool svg { width: 30px; height: 24px; }
     .tool span { font-size: 12px; }
-    .decor-panel .sw-row { flex-wrap: wrap; gap: 5px; }
-    .decor-note { display: none; }
     .context, .menu-sheet { width: 100%; }
     .ctx-variants .sw-row { flex-wrap: wrap; justify-content: center; }
     .menu-sheet { max-height: none; min-height: 0; flex: 0 1 auto; }
@@ -687,10 +740,97 @@
   </div>
   <nav class="card toolbar" id="toolbar" aria-label="Decorating tools">
     <div class="tb-head">
-    <div class="tabs" role="tablist" aria-label="Tool categories">
-      <button type="button" class="tab" role="tab" id="tab-furniture" data-tab="furniture" aria-selected="true" aria-controls="panel-furniture">Furniture</button>
-      <button type="button" class="tab" role="tab" id="tab-decor" data-tab="decor" aria-selected="false" aria-controls="panel-decor" tabindex="-1">Decor</button>
-      <button type="button" class="tab" role="tab" id="tab-tools" data-tab="tools" aria-selected="false" aria-controls="panel-tools" tabindex="-1">Tools</button>
+    <div class="cats" id="cats" role="tablist" aria-label="Build categories">
+      <button type="button" class="cat" role="tab" id="cat-tables" data-cat="tables" aria-selected="true" aria-controls="panel-designs" title="Tables (2)" aria-label="Tables (2)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <g transform="translate(20 31) scale(.86) translate(-20 -31)">
+          <path d="M11 20v7M29 20v7M20 24v6" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M20 9l12 6-12 6-12-6z" fill="#ffd0c4"/>
+          <path d="M8 15l12 6v4L8 19z" fill="#f4a294"/>
+          <path d="M32 15l-12 6v4l12-6z" fill="#e48c7e"/>
+          <circle cx="20" cy="11.5" r="2.4" fill="#b8e0d2"/>
+          </g>
+        </svg>
+        <span>Tables</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-chairs" data-cat="chairs" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Chairs (3)" aria-label="Chairs (3)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <g transform="translate(20 31) scale(.76) translate(-20 -31)">
+          <path d="M14 21v8M26 21v8M20 24v6" stroke="#c4966f" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M14 5l12-0 0 12-12 0z" fill="#9fd2c1" transform="skewY(-26) translate(0 8)"/>
+          <path d="M20 14l9 4.5-9 4.5-9-4.5z" fill="#b8e0d2"/>
+          <path d="M11 18.5l9 4.5v2.5l-9-4.5z" fill="#d9b08c"/>
+          <path d="M29 18.5L20 23v2.5l9-4.5z" fill="#c4966f"/>
+          </g>
+        </svg>
+        <span>Chairs</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-stations" data-cat="stations" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Stoves and stations (4)" aria-label="Stoves and stations (4)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M20 8l12 6V9L20 3z" fill="#fcd5ce"/>
+          <path d="M8 14l12 6v10L8 24z" fill="#cdb4db"/>
+          <path d="M32 14l-12 6v10l12-6z" fill="#b39cc6"/>
+          <path d="M20 8l12 6-12 6L8 14z" fill="#9d92ab"/>
+          <ellipse cx="20" cy="14" rx="4.4" ry="2.2" fill="#6f6179"/>
+          <path d="M18.4 13.4q1.6-3.4 3.2 0z" fill="#ffb27a"/>
+          <path d="M11 20.5l7 3.5v3l-7-3.5z" fill="#ffe3bd"/>
+        </svg>
+        <span>Kitchen</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-plants" data-cat="plants" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Plants (5)" aria-label="Plants (5)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <ellipse cx="14" cy="12" rx="4" ry="8" transform="rotate(-30 14 12)" fill="#94c98d"/>
+          <ellipse cx="26" cy="12" rx="4" ry="8" transform="rotate(30 26 12)" fill="#94c98d"/>
+          <ellipse cx="20" cy="9" rx="4" ry="8.5" fill="#b4dcaa"/>
+          <path d="M14 21h12l-1.6 10h-8.8z" fill="#f2b09c"/>
+          <rect x="13" y="19.5" width="14" height="3.5" rx="1.5" fill="#f8c7b6"/>
+        </svg>
+        <span>Plants</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-lighting" data-cat="lighting" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Lighting (6)" aria-label="Lighting (6)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M20 18v13" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
+          <ellipse cx="20" cy="31" rx="5" ry="2" fill="#c4966f"/>
+          <circle cx="20" cy="11" r="9" fill="#fbe7b8" opacity=".6"/>
+          <ellipse cx="20" cy="11" rx="5.5" ry="6.5" fill="#f6d27a"/>
+          <path d="M17 4.6h6M17 17.4h6" stroke="#c4966f" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Lights</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-floor" data-cat="floor" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Floor (8)" aria-label="Floor (8)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M6 17l14 7v4L6 21z" fill="#cfa686"/>
+          <path d="M34 17l-14 7v4l14-7z" fill="#b98f70"/>
+          <path d="M20 10l14 7-14 7-14-7z" fill="#ead6c0"/>
+          <path d="M20 10l7 3.5-7 3.5-7-3.5zM20 17l7 3.5-7 3.5-7-3.5z" fill="#d6bb9f"/>
+        </svg>
+        <span>Floor</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-wall" data-cat="wall" aria-selected="false" aria-controls="panel-designs" tabindex="-1" title="Wallpaper (9)" aria-label="Wallpaper (9)">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <path d="M8 6l16 8v16L8 22z" fill="#fcdcd4"/>
+          <path d="M12 8v11M16 10v11M20 12v11" stroke="#fdeee9" stroke-width="2"/>
+          <path d="M8 17l16 8v5L8 22z" fill="#b8e0d2"/>
+          <path d="M8 16l16 8v1.6L8 17.6z" fill="#fff3e4"/>
+          <path d="M24 14l8-4v16l-8 4z" fill="#e6c4bb"/>
+        </svg>
+        <span>Walls</span>
+      </button>
+      <button type="button" class="cat" role="tab" id="cat-tools" data-cat="tools" aria-selected="false" aria-controls="panel-tools" tabindex="-1" title="Tools: move, rotate, remove, menu and staff" aria-label="Tools: move, rotate, remove, menu and staff">
+        <svg viewBox="0 0 40 34" aria-hidden="true">
+          <g transform="translate(20 17)" fill="#b39cc6">
+            <circle r="8.6"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6" transform="rotate(60)"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6" transform="rotate(120)"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6" transform="rotate(180)"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6" transform="rotate(240)"/>
+            <rect x="-2.7" y="-12.4" width="5.4" height="6" rx="1.6" transform="rotate(300)"/>
+          </g>
+          <circle cx="20" cy="17" r="3.6" fill="#fff8ef"/>
+        </svg>
+        <span>Tools</span>
+      </button>
     </div>
     <button type="button" class="chip scene-btn" id="scene-btn" aria-label="Go outside to the storefront (O)">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 14V6.6a4 4 0 0 1 8 0V14z" fill="currentColor" opacity=".3"/><path d="M4 14V6.6a4 4 0 0 1 8 0V14M2.4 14h11.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.9" cy="10" r="1" fill="currentColor"/></svg>
@@ -698,73 +838,16 @@
     </button>
     </div>
     <p class="front-panel" id="panel-front">Your shop from the street. Tap the door to step back inside.</p>
-    <div class="panel" id="panel-furniture" role="tabpanel" aria-labelledby="tab-furniture">
-    <button type="button" class="tool" data-tool="table_01" aria-pressed="false" aria-label="Table (2)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <g transform="translate(20 31) scale(.86) translate(-20 -31)">
-        <path d="M11 20v7M29 20v7M20 24v6" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
-        <path d="M20 9l12 6-12 6-12-6z" fill="#ffd0c4"/>
-        <path d="M8 15l12 6v4L8 19z" fill="#f4a294"/>
-        <path d="M32 15l-12 6v4l12-6z" fill="#e48c7e"/>
-        <circle cx="20" cy="11.5" r="2.4" fill="#b8e0d2"/>
-        </g>
-      </svg>
-      <span>Table</span>
-    </button>
-    <button type="button" class="tool" data-tool="chair_01" aria-pressed="false" aria-label="Chair (3)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <g transform="translate(20 31) scale(.76) translate(-20 -31)">
-        <path d="M14 21v8M26 21v8M20 24v6" stroke="#c4966f" stroke-width="2.2" stroke-linecap="round"/>
-        <path d="M14 5l12-0 0 12-12 0z" fill="#9fd2c1" transform="skewY(-26) translate(0 8)"/>
-        <path d="M20 14l9 4.5-9 4.5-9-4.5z" fill="#b8e0d2"/>
-        <path d="M11 18.5l9 4.5v2.5l-9-4.5z" fill="#d9b08c"/>
-        <path d="M29 18.5L20 23v2.5l9-4.5z" fill="#c4966f"/>
-        </g>
-      </svg>
-      <span>Chair</span>
-    </button>
-    <button type="button" class="tool" data-tool="counter_01" aria-pressed="false" aria-label="Stove (4)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M20 8l12 6V9L20 3z" fill="#fcd5ce"/>
-        <path d="M8 14l12 6v10L8 24z" fill="#cdb4db"/>
-        <path d="M32 14l-12 6v10l12-6z" fill="#b39cc6"/>
-        <path d="M20 8l12 6-12 6L8 14z" fill="#9d92ab"/>
-        <ellipse cx="20" cy="14" rx="4.4" ry="2.2" fill="#6f6179"/>
-        <path d="M18.4 13.4q1.6-3.4 3.2 0z" fill="#ffb27a"/>
-        <path d="M11 20.5l7 3.5v3l-7-3.5z" fill="#ffe3bd"/>
-      </svg>
-      <span>Stove</span>
-    </button>
-    <button type="button" class="tool" data-tool="plant_01" aria-pressed="false" aria-label="Plant (5)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <ellipse cx="14" cy="12" rx="4" ry="8" transform="rotate(-30 14 12)" fill="#94c98d"/>
-        <ellipse cx="26" cy="12" rx="4" ry="8" transform="rotate(30 26 12)" fill="#94c98d"/>
-        <ellipse cx="20" cy="9" rx="4" ry="8.5" fill="#b4dcaa"/>
-        <path d="M14 21h12l-1.6 10h-8.8z" fill="#f2b09c"/>
-        <rect x="13" y="19.5" width="14" height="3.5" rx="1.5" fill="#f8c7b6"/>
-      </svg>
-      <span>Plant</span>
-    </button>
-    <button type="button" class="tool" data-tool="lantern_01" aria-pressed="false" aria-label="Lantern (6)">
-      <svg viewBox="0 0 40 34" aria-hidden="true">
-        <path d="M20 18v13" stroke="#c4966f" stroke-width="2.4" stroke-linecap="round"/>
-        <ellipse cx="20" cy="31" rx="5" ry="2" fill="#c4966f"/>
-        <circle cx="20" cy="11" r="9" fill="#fbe7b8" opacity=".6"/>
-        <ellipse cx="20" cy="11" rx="5.5" ry="6.5" fill="#f6d27a"/>
-        <path d="M17 4.6h6M17 17.4h6" stroke="#c4966f" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      <span>Lantern</span>
-    </button>
+    <div class="panel design-panel" id="panel-designs" role="tabpanel" aria-labelledby="cat-tables">
+      <button type="button" class="page-btn" id="grid-prev" aria-label="Previous designs" aria-disabled="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="design-grid" id="design-grid" role="group" aria-label="Designs"></div>
+      <button type="button" class="page-btn" id="grid-next" aria-label="More designs" aria-disabled="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
-    <div class="panel decor-panel" id="panel-decor" role="tabpanel" aria-labelledby="tab-decor" hidden>
-      <div class="decor-switch" role="group" aria-label="What to decorate">
-        <button type="button" class="chip kind" data-kind="wall" aria-pressed="true">Wallpaper</button>
-        <button type="button" class="chip kind" data-kind="floor" aria-pressed="false">Floor</button>
-        <span class="decor-note" id="decor-note">coins per wall piece</span>
-      </div>
-      <div class="sw-row" id="decor-swatches" role="group" aria-label="Designs"></div>
-    </div>
-    <div class="panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+    <div class="panel" id="panel-tools" role="tabpanel" aria-labelledby="cat-tools" hidden>
     <button type="button" class="tool" data-tool="move" aria-pressed="true" aria-label="Move tool (1): select, drag and rotate items">
       <svg viewBox="0 0 40 34" aria-hidden="true">
         <path d="M20 4l4 4h-2.6v6.6H28V12l4 4-4 4v-2.6h-6.6V24H24l-4 4-4-4h2.6v-6.6H12V20l-4-4 4-4v2.6h6.6V8H16z" fill="#8fc7b5"/>
@@ -847,7 +930,7 @@
 
   const world = document.getElementById('world');
   const canvas = document.getElementById('scene');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');   // swapped briefly to draw design thumbnails (designThumb)
   const toastEl = document.getElementById('toast');
   const statusEl = document.getElementById('status');
   const clockEl = document.getElementById('clock');
@@ -932,12 +1015,13 @@
     { name: 'Dots', price: 5, pattern: 'dots', a: '#efd3c9', b: '#e5aea2', c: '#e5aea2' },
     { name: 'Plain rug', price: 7, pattern: 'rug', a: '#e6d1bb', b: '#d3bfdf', c: '#b79ccb' }
   ].map((s) => ({ name: s.name, price: s.price, pattern: s.pattern, a: rgb(s.a), b: rgb(s.b), c: rgb(s.c), hex: s }));
-  /* Furniture variants: palette swaps per item type, plus an optional code-drawn
-     pattern. Each entry overrides palette roles that item's draw function reads
-     through pal(it). Entry 0 is the original look. `sw` lists the roles shown
-     in the swatch (main, accent). */
+  /* Furniture designs per item type; a placed item stores its design index as `variant`.
+     Colour keys ('#rrggbb') override the palette roles the draw function reads through
+     pal(it), and `pattern` picks a code-drawn pattern. A design may also bring its own
+     shape: `draw` (a function (it, now) used instead of the type's draw), `h` (picking
+     height) and `scale` (instead of ITEM_SCALE). Entry 0 is the original look. */
   const VARIANTS = {
-    table_01: { sw: ['cloth', 'clothHi'], list: [
+    table_01: { list: [
       { name: 'Peach', price: 30, cloth: '#ffb5a7', clothHi: '#ffd3c7' },
       { name: 'Mint', price: 30, cloth: '#a9d9c6', clothHi: '#cdeee0' },
       { name: 'Lavender gingham', price: 55, cloth: '#cdb4db', clothHi: '#ece0f3', woodDeep: '#b39cc6', pattern: 'gingham' },
@@ -945,7 +1029,7 @@
       { name: 'Sky', price: 35, cloth: '#a9cfe8', clothHi: '#d3e8f5', woodDeep: '#a98f80' },
       { name: 'Rose gingham', price: 55, cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' }
     ] },
-    chair_01: { sw: ['cushion', 'wood'], list: [
+    chair_01: { list: [
       { name: 'Mint', price: 15, cushion: '#b8e0d2', cushionHi: '#cfeadf' },
       { name: 'Peach', price: 15, cushion: '#ffc2b4', cushionHi: '#ffd8cd' },
       { name: 'Lavender', price: 18, cushion: '#cdb4db', cushionHi: '#e2d3ec' },
@@ -953,7 +1037,7 @@
       { name: 'Sky', price: 24, cushion: '#b2d6ec', cushionHi: '#d3e8f5', wood: '#cdbcae', woodDeep: '#a98f80' },
       { name: 'Cocoa', price: 28, cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' }
     ] },
-    counter_01: { sw: ['lav', 'blush'], list: [
+    counter_01: { list: [
       { name: 'Lavender', price: 60, lav: '#cdb4db', lavDeep: '#b39cc6', blush: '#fcd5ce' },
       { name: 'Mint', price: 60, lav: '#b8e0d2', lavDeep: '#9fcab9', blush: '#fcd5ce' },
       { name: 'Peach', price: 65, lav: '#ffc9b9', lavDeep: '#f2ad9b', blush: '#b8e0d2' },
@@ -961,7 +1045,7 @@
       { name: 'Sky', price: 70, lav: '#b9d8ec', lavDeep: '#9cc3d8', blush: '#fff1e2' },
       { name: 'Honey wood', price: 110, lav: '#dcb891', lavDeep: '#c4966f', blush: '#b8e0d2', counterTop: '#f7eadb', pattern: 'stripes' }
     ] },
-    plant_01: { sw: ['pot', 'cloth'], list: [
+    plant_01: { list: [
       { name: 'Terracotta', price: 12, pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
       { name: 'Mint pot', price: 14, pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
       { name: 'Lavender pot', price: 16, pot: '#c9b2dc', potHi: '#dccbe8', cloth: '#fff3e4' },
@@ -969,7 +1053,7 @@
       { name: 'Sky pot', price: 18, pot: '#a9cfe8', potHi: '#c9e2f2', cloth: '#fcd5ce' },
       { name: 'Cream pot', price: 20, pot: '#efe2d2', potHi: '#f8efe4', cloth: '#cdb4db' }
     ] },
-    lantern_01: { sw: ['paperLamp', 'cloth'], list: [
+    lantern_01: { list: [
       { name: 'Warm paper', price: 20, paperLamp: '#ffe6bf', glow: '#ffdc9a', cloth: '#ffb5a7' },
       { name: 'Peach', price: 22, paperLamp: '#ffd0c0', glow: '#ffc6a8', cloth: '#cdb4db' },
       { name: 'Mint', price: 24, paperLamp: '#d4f0e4', glow: '#f2e6b0', cloth: '#ffb5a7' },
@@ -978,18 +1062,18 @@
       { name: 'Butter', price: 30, paperLamp: '#fbeaa6', glow: '#ffe08a', cloth: '#a9cfe8' }
     ] }
   };
-  const VARIANT_COUNT = 6;
-  // merged palettes, built once: PAL[id][variant] = P with that variant's overrides
+  // merged palettes, built once: PAL[id][variant] = P with that design's colour overrides
   const PAL = {};
   for (const id in VARIANTS) {
     PAL[id] = VARIANTS[id].list.map((v) => {
       const p = Object.assign({}, P, { pattern: v.pattern || '' });
-      for (const k in v) if (k !== 'name' && k !== 'pattern' && k !== 'price') p[k] = rgb(v[k]);
+      for (const k in v) if (typeof v[k] === 'string' && v[k][0] === '#') p[k] = rgb(v[k]);
       return p;
     });
   }
   const pal = (it) => (PAL[it.id] && PAL[it.id][it.variant | 0]) || P;
-  const clampVariant = (v) => (Number.isInteger(v) && v >= 0 && v < VARIANT_COUNT ? v : 0);
+  const designOf = (it) => VARIANTS[it.id].list[it.variant | 0] || VARIANTS[it.id].list[0];
+  const clampVariant = (v, id) => (Number.isInteger(v) && v >= 0 && v < VARIANTS[id].list.length ? v : 0);
 
   /* Room decor is painted piece by piece: one style index per floor tile and per
      wall segment (one tile wide). Arrays cover the biggest room, so tiles that
@@ -1021,13 +1105,34 @@
   /* ================================================================
      Catalog
      ================================================================ */
+  /* One entry per item type (the id a save stores). `cat` is its build-panel category. The type's draw function is the
+     default shape; byDesign() lets a design from VARIANTS swap in its own. */
   const CATALOG = {
-    table_01: { name: 'Table', w: 1, d: 1, h: 27, draw: scaled('table_01', drawTable) },
-    chair_01: { name: 'Chair', w: 1, d: 1, h: 23, seat: true, draw: tucked(scaled('chair_01', drawChair)) },
-    counter_01: { name: 'Stove', w: 1, d: 1, h: 40, draw: scaled('counter_01', drawStove) },
-    plant_01: { name: 'Plant', w: 1, d: 1, h: 38, draw: scaled('plant_01', drawPlant) },
-    lantern_01: { name: 'Lantern', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', drawLantern) }
+    table_01: { name: 'Table', cat: 'tables', w: 1, d: 1, h: 27, draw: scaled('table_01', byDesign(drawTable)) },
+    chair_01: { name: 'Chair', cat: 'chairs', w: 1, d: 1, h: 23, seat: true, draw: tucked(scaled('chair_01', byDesign(drawChair))) },
+    counter_01: { name: 'Stove', cat: 'stations', w: 1, d: 1, h: 40, draw: scaled('counter_01', byDesign(drawStove)) },
+    plant_01: { name: 'Plant', cat: 'plants', w: 1, d: 1, h: 38, draw: scaled('plant_01', byDesign(drawPlant)) },
+    lantern_01: { name: 'Lantern', cat: 'lighting', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', byDesign(drawLantern)) }
   };
+  /* Build-panel categories, in strip order: furniture categories list item types (their designs fill the grid), paint
+     categories paint floor tiles or wall pieces, and Tools holds move, rotate, remove, menu and staff. */
+  const CATEGORIES = [
+    { id: 'tables', name: 'Tables', items: ['table_01'] },
+    { id: 'chairs', name: 'Chairs', items: ['chair_01'] },
+    { id: 'stations', name: 'Stoves and stations', items: ['counter_01'] },
+    { id: 'plants', name: 'Plants', items: ['plant_01'] },
+    { id: 'lighting', name: 'Lighting', items: ['lantern_01'] },
+    { id: 'floor', name: 'Floor', paint: 'floor' },
+    { id: 'wall', name: 'Wallpaper', paint: 'wall' },
+    { id: 'tools', name: 'Tools' }
+  ];
+  const CAT_BY_ID = {};
+  for (const c of CATEGORIES) CAT_BY_ID[c.id] = c;
+  function byDesign(fn) {
+    return (it, now) => (designOf(it).draw || fn)(it, now);
+  }
+  const heightOf = (it) => designOf(it).h || CATALOG[it.id].h;
+  const scaleOf = (it) => designOf(it).scale || ITEM_SCALE[it.id];
   /* Proportions (project.md 12.3, polish B): a person is drawn PERSON_SCALE times the old chibi (about 45px tall, 0.7 of a tile
      wide), and furniture is drawn a little smaller than its tile so the two read right together: the table top sits at waist
      height and a chair is lower than the table. Each draw function still works in the old units; scaled() shrinks the whole piece
@@ -1041,7 +1146,7 @@
   };
   function scaled(id, fn) {
     return (it, now) => {
-      const s = ITEM_SCALE[id], [cx, cy] = pivotOf(it);
+      const s = designOf(it).scale || ITEM_SCALE[id], [cx, cy] = pivotOf(it);
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
       fn(it, now);
@@ -1255,7 +1360,7 @@
     let q = 0;
     for (const raw of list) {
       if (!raw || !CATALOG[raw.id]) continue;
-      const it = { id: raw.id, x: raw.x | 0, y: raw.y | 0, rot: ((raw.rot | 0) % 4 + 4) % 4, variant: clampVariant(raw.variant), born: 0, anim: 'pop' };
+      const it = { id: raw.id, x: raw.x | 0, y: raw.y | 0, rot: ((raw.rot | 0) % 4 + 4) % 4, variant: clampVariant(raw.variant, raw.id), born: 0, anim: 'pop' };
       if (checkPlace(it, null)) continue;
       if (animate && !reduced) it.born = now + 120 + q++ * 70;
       items.push(it);
@@ -1477,7 +1582,7 @@
     cam.x = lerp(a.x0, a.x1, e); cam.y = lerp(a.y0, a.y1, e); cam.zoom = lerp(a.z0, a.z1, e);
     if (a.t >= 1) cam.anim = null;
   }
-  /* the HUD changed size (tab switch, level card): refit and keep the toast above the toolbar */
+  /* the HUD changed size (category switch, level card): refit and keep the toast above the toolbar */
   function hudChanged() {
     if (!W) return;
     fitCamera(true);
@@ -1666,7 +1771,7 @@
     const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
     if (sitter) {
       // the guest is not shrunk with the chair: undo the scale around the same pivot and lift by the scaled seat height
-      const s = ITEM_SCALE.chair_01, [cx, cy] = pivotOf(it);
+      const s = scaleOf(it), [cx, cy] = pivotOf(it);
       ctx.save();
       ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
       sitter.fdx = dx; sitter.fdy = dy;   // seated guests face their table
@@ -4219,6 +4324,7 @@
   let drag = null;             // { item, offX, offY, grabZ, tx, ty, reason }
   const hover = { x: -1, y: -1, show: false };
   const kbd = { x: 2, y: 2, show: false };
+  let hoverItem = null;        // placed item under the mouse (move tool), for its name label
   /* paint tool: tool === 'paint' with paint = { kind: 'floor' | 'wall', i: style index }.
      Walls have their own cursors, since a wall segment is not a floor tile. */
   let paint = null;
@@ -4254,7 +4360,7 @@
     const sorted = items.slice().sort((a, b) => depthOf(b) - depthOf(a));
     for (const it of sorted) {
       const [w, d] = dims(it.id, it.rot);
-      const h = CATALOG[it.id].h;
+      const h = heightOf(it);
       for (let z = 0; z <= h; z += 2) {
         const [fx, fy] = floorAt(sx, sy, z);
         if (fx >= it.x + 0.08 && fx <= it.x + w - 0.08 && fy >= it.y + 0.08 && fy <= it.y + d - 0.08) return { item: it, z };
@@ -4332,6 +4438,39 @@
     ctx.restore();
   }
 
+  /* Name label over the placed item under the mouse or the keyboard cursor (move tool). Drawn on the canvas in screen
+     space, so it never takes input; it rises in softly, or just appears with reduced motion. */
+  const tagFx = { it: null, a: 0 };
+  let tagFont = '';
+  function tagTarget() {
+    if (scene !== 'interior' || swap || drag || tool !== 'move') return null;
+    const it = hover.show ? hoverItem : kbd.show ? itemOnTile(kbd.x, kbd.y) : null;
+    return it && items.includes(it) ? it : null;
+  }
+  function drawItemTag(dt) {
+    const it = tagTarget();
+    if (it !== tagFx.it) { tagFx.it = it; tagFx.a = 0; }
+    if (!it) return;
+    tagFx.a = reduced ? 1 : Math.min(1, tagFx.a + dt * 7);
+    if (!tagFont) tagFont = '800 12px ' + getComputedStyle(document.body).fontFamily;
+    const [w, d] = dims(it.id, it.rot);
+    const sx = cam.x + PX(it.x + w / 2, it.y + d / 2) * cam.zoom, sy = cam.y + PY(it.x + w / 2, it.y + d / 2, heightOf(it) + 6) * cam.zoom;
+    const text = labelOf(it);
+    ctx.font = tagFont;
+    const pw = Math.ceil(ctx.measureText(text).width) + 18, ph = 22;
+    const x = clamp(sx - pw / 2, 6, W - pw - 6), y = Math.max(6, sy - ph + (1 - tagFx.a) * 4);
+    ctx.globalAlpha = tagFx.a;
+    ctx.fillStyle = 'rgba(108,72,104,0.2)';
+    rrect(x, y + 2, pw, ph, 11); ctx.fill();
+    ctx.fillStyle = '#fff8ef';
+    rrect(x, y, pw, ph, 11); ctx.fill();
+    ctx.fillStyle = '#5b4b57';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + pw / 2, y + ph / 2 + 0.5);
+    ctx.globalAlpha = 1;
+  }
+
   /* one sky and one camera for both scenes; while switching, the sky is laid over the old scene and lifted off the new one */
   function frame(now, dt) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -4340,6 +4479,7 @@
     if (scene === 'front') drawFront(now);
     else drawInterior(now);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    drawItemTag(dt);
     const veil = sceneVeil();
     if (veil > 0.001) {
       ctx.globalAlpha = veil;
@@ -4511,7 +4651,7 @@
     items.push(cand);
     const [w, d] = dims(cand.id, cand.rot);
     spawnRing(x, y, w, d);
-    spendPop(x + w / 2, y + d / 2, CATALOG[cand.id].h, price);
+    spendPop(x + w / 2, y + d / 2, heightOf(cand), price);
     layoutChanged();
     saveSoon();
     announce(nameOf(cand.id) + ' placed at ' + (x + 1) + ', ' + (y + 1) + (price ? ' for ' + price + ' coins' : '') + '.');
@@ -4663,11 +4803,11 @@
     } else if (CATALOG[tool]) {
       const price = priceOfItem(tool, nextVariant[tool] | 0);
       contextEl.hidden = false;
-      ctxLbl.textContent = 'Placing ' + nameOf(tool).toLowerCase() + ' · ' + (price ? price + ' coins' : 'free');
+      ctxLbl.textContent = 'Placing ' + designName(tool, nextVariant[tool] | 0) + ' · ' + (price ? price + ' coins' : 'free');
       ctxRemove.hidden = true;
       ctxDone.hidden = true;
       ctxRotate.setAttribute('aria-label', 'Rotate ' + nameOf(tool) + ' before placing');
-    } else if (tab === 'decor' && tool === 'move') {
+    } else if (CAT_BY_ID[cat].paint && tool === 'move') {
       contextEl.hidden = false;
       ctxLbl.textContent = 'Pick a design, then tap the room';
       ctxRemove.hidden = true;
@@ -4676,6 +4816,7 @@
     } else {
       contextEl.hidden = true;
     }
+    renderGrid();
   }
   function selectTool(name, speak) {
     if (tool === 'paint' && name !== 'paint') endPaintRun();
@@ -4684,7 +4825,6 @@
     if (name !== 'move') selected = null;
     if (name !== 'paint') { paint = null; hoverWall.show = false; kwall.show = false; }
     updateContext();
-    renderDecor();
     if (speak) announce(name === 'move' ? 'Move tool.' : name === 'remove' ? 'Remove tool.' : nameOf(name) + ' selected for placing.');
   }
   /* leaving the paint tool closes the run: say what it cost, start the next from zero */
@@ -4768,7 +4908,7 @@
     dots: (h) => 'radial-gradient(' + h.b + ' 24%, transparent 27%) 0 0 / 11px 11px, ' + h.a,
     rug: (h) => 'linear-gradient(' + h.b + ', ' + h.b + ') center / 58% 58% no-repeat, linear-gradient(' + h.c + ', ' + h.c + ') center / 76% 76% no-repeat, ' + h.a
   };
-  /* a design button: a colour face over its price. The price is data-price so the
+  /* a design button: a face (thumbnail or colour swatch) over its price. The price is data-price so the
      "can't afford" shading can be refreshed whenever the balance changes. */
   function makeDesign(face, label, price) {
     const b = document.createElement('button');
@@ -4789,64 +4929,185 @@
     for (const b of document.querySelectorAll('.sw-item')) b.classList.toggle('poor', +b.dataset.price > coins);
     for (const b of document.querySelectorAll('.chip.hire:not(.full)')) b.classList.toggle('poor', +b.dataset.price > coins);
   }
-  const decorHost = document.getElementById('decor-swatches');
-  const decorNote = document.getElementById('decor-note');
-  const kindBtns = Array.from(document.querySelectorAll('.kind'));
-  let decorKind = 'wall';
-  function buildDecorRow() {
-    const wall = decorKind === 'wall';
-    decorHost.textContent = '';
-    (wall ? WALL_STYLES : FLOOR_STYLES).forEach((st, i) => {
-      const b = makeDesign(wall ? wallSwatchCss(st) : FLOOR_SWATCH[st.pattern](st.hex), (wall ? 'Wallpaper: ' : 'Floor: ') + st.name, priceOfStyle(st));
-      b.addEventListener('click', () => {
-        if (tool === 'paint' && paint && paint.kind === decorKind && paint.i === i) selectTool('move', false);   // tap again to stop
-        else startPaint(decorKind, i);
-      });
-      decorHost.appendChild(b);
+  /* ---------------- build panel: category strip over a design grid ---------------- */
+  /* A design's thumbnail is its real draw function run once into a small canvas, in daylight, so a design that changes the
+     shape shows that shape. Cached as data URLs. */
+  const thumbCache = {};
+  function designThumb(id, v) {
+    const key = id + ':' + v;
+    if (key in thumbCache) return thumbCache[key];
+    const S = 2, cw = 72, ch = 60;
+    const cv = document.createElement('canvas');
+    cv.width = cw * S; cv.height = ch * S;
+    const it = { id, x: -40, y: -40, rot: 0, variant: v };   // far off the grid, so it never finds a table to tuck toward
+    const s = scaleOf(it), h = heightOf(it);
+    const bx = PX(it.x + 0.5, it.y + 0.5), by = PY(it.x + 0.5, it.y + 0.5, 0);
+    const top = by - h - 4, bottom = by + 17 * s + 2;
+    const z = Math.min(1.15, (cw - 4) / (64 * s + 4), (ch - 4) / (bottom - top));
+    const keep = ctx, amb = light.amb, night = light.night, sun = light.sun;
+    let url = '';
+    try {
+      ctx = cv.getContext('2d');
+      light.amb = [1, 1, 1]; light.night = 0; light.sun = 0;
+      ctx.setTransform(S * z, 0, 0, S * z, S * (cw / 2 - bx * z), S * (ch / 2 - (top + bottom) / 2 * z));
+      CATALOG[id].draw(it, 0);
+      url = cv.toDataURL();
+    } catch (e) {
+      url = '';
+    } finally {
+      ctx = keep; light.amb = amb; light.night = night; light.sun = sun;
+    }
+    thumbCache[key] = url;
+    return url;
+  }
+  const thumbFace = (id, v) => { const u = designThumb(id, v); return u ? 'url(' + u + ') center / contain no-repeat var(--cream-2)' : ''; };
+
+  const catBtns = Array.from(document.querySelectorAll('.cat'));
+  const catStrip = document.getElementById('cats');
+  const designPanel = document.getElementById('panel-designs');
+  const toolsPanel = document.getElementById('panel-tools');
+  const gridEl = document.getElementById('design-grid');
+  const gridPrev = document.getElementById('grid-prev');
+  const gridNext = document.getElementById('grid-next');
+  const OLD_TABS = { furniture: 'tables', decor: 'wall', tools: 'tools' };   // the view preference as stored before 3g1
+  let cat = 'tables';
+  let builtCat = '';
+  let gridList = [];           // the designs shown, in button order: { id, i } for furniture, { kind, i } for paint
+  const catOfTool = (t) => (t === 'paint' ? (paint ? paint.kind : '') : CATALOG[t] ? CATALOG[t].cat : 'tools');
+  /* how many of a design are in the room: placed pieces, or painted floor tiles and wall pieces */
+  function placedCount(g) {
+    let n = 0;
+    if (g.kind === 'floor') { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (floorIdx(x, y) === g.i) n++; }
+    else if (g.kind === 'wall') { for (let q = 0; q < N; q++) n += (decor.wallA[q] === g.i) + (decor.wallB[q] === g.i); }
+    else for (const it of items) if (it.id === g.id && (it.variant | 0) === g.i) n++;
+    return n;
+  }
+  function buildGrid() {
+    const c = CAT_BY_ID[cat];
+    builtCat = cat;
+    gridEl.textContent = '';
+    gridList = [];
+    if (c.paint) {
+      const wall = c.paint === 'wall';
+      (wall ? WALL_STYLES : FLOOR_STYLES).forEach((st, i) => gridList.push({
+        kind: c.paint, i, name: (wall ? 'Wallpaper: ' : 'Floor: ') + st.name, price: priceOfStyle(st),
+        face: wall ? wallSwatchCss(st) : FLOOR_SWATCH[st.pattern](st.hex), unit: wall ? ' per wall piece' : ' per floor tile'
+      }));
+    } else if (c.items) {
+      for (const id of c.items) VARIANTS[id].list.forEach((v, i) => gridList.push({ id, i, name: nameOf(id) + ': ' + v.name, price: priceOfItem(id, i), face: thumbFace(id, i), unit: '' }));
+    }
+    for (const g of gridList) {
+      const b = makeDesign(g.face, g.name, g.price);
+      b.classList.add('dz');
+      b.insertAdjacentHTML('beforeend', '<span class="dz-badge" aria-hidden="true" hidden></span>');
+      b.dataset.say = b.getAttribute('aria-label') + (g.price ? g.unit : '');
+      b.addEventListener('click', () => pickDesign(g));
+      gridEl.appendChild(b);
+    }
+    gridEl.setAttribute('aria-label', c.name + ' designs');
+    gridEl.scrollLeft = 0;
+    gridPressed = -1;
+    renderGrid();
+  }
+  /* pressed design, owned-count badges and paging state; cheap, so it runs on every context update */
+  let gridPressed = -1;
+  function renderGrid() {
+    if (builtCat !== cat) { buildGrid(); return; }
+    let pressed = -1;
+    gridList.forEach((g, q) => {
+      const b = gridEl.children[q], badge = b.lastChild;
+      const on = g.kind ? tool === 'paint' && !!paint && paint.kind === g.kind && paint.i === g.i : tool === g.id && (nextVariant[g.id] | 0) === g.i;
+      if (on) pressed = q;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const n = placedCount(g);
+      badge.hidden = !n;
+      badge.textContent = n;
+      b.setAttribute('aria-label', b.dataset.say + (n ? ', ' + n + (g.kind ? (n === 1 ? ' piece' : ' pieces') + ' in the room' : ' placed') : ''));
     });
-    decorNote.textContent = DEV_MODE ? 'free mode' : wall ? 'coins per wall piece' : 'coins per floor tile';
-    decorHost.setAttribute('aria-label', wall ? 'Wallpaper designs' : 'Floor designs');
-    renderDecor();
+    // a newly chosen design that sits on another page (picked by key or remembered) slides into view
+    if (pressed !== gridPressed) {
+      gridPressed = pressed;
+      const b = gridEl.children[pressed];
+      if (b) {
+        const x = b.getBoundingClientRect().left - gridEl.getBoundingClientRect().left;
+        if (x < 0 || x + b.offsetWidth > gridEl.clientWidth) gridEl.scrollLeft += x;
+      }
+    }
+    updatePager();
   }
-  function renderDecor() {
-    for (const b of kindBtns) b.setAttribute('aria-pressed', b.dataset.kind === decorKind ? 'true' : 'false');
-    const on = tool === 'paint' && paint && paint.kind === decorKind ? paint.i : -1;
-    Array.from(decorHost.children).forEach((b, i) => b.setAttribute('aria-pressed', i === on ? 'true' : 'false'));
+  function updatePager() {
+    const max = gridEl.scrollWidth - gridEl.clientWidth;
+    gridPrev.setAttribute('aria-disabled', gridEl.scrollLeft > 2 ? 'false' : 'true');
+    gridNext.setAttribute('aria-disabled', gridEl.scrollLeft < max - 2 ? 'false' : 'true');
   }
-  function setDecorKind(kind) {
-    if (kind === decorKind) return;
-    decorKind = kind;
-    buildDecorRow();
-    if (tool === 'paint') startPaint(kind, lastStyle[kind]);   // keep painting, with that kind's last design
+  function pageGrid(dir) {
+    if ((dir < 0 ? gridPrev : gridNext).getAttribute('aria-disabled') === 'true') return;
+    gridEl.scrollBy({ left: dir * (gridEl.clientWidth + 6), behavior: reduced ? 'auto' : 'smooth' });
   }
-  for (const b of kindBtns) b.addEventListener('click', () => setDecorKind(b.dataset.kind));
-  /* toolbar categories: Furniture / Decor / Tools */
-  const TAB_OF = { table_01: 'furniture', chair_01: 'furniture', counter_01: 'furniture', plant_01: 'furniture', lantern_01: 'furniture', move: 'tools', remove: 'tools' };
-  const tabBtns = Array.from(document.querySelectorAll('.tab'));
-  let tab = 'furniture';
-  function setTab(name, focus) {
-    tab = name;
-    if (name !== 'decor' && tool === 'paint') selectTool('move', false);
-    for (const b of tabBtns) {
-      const on = b.dataset.tab === name;
+  gridPrev.addEventListener('click', () => pageGrid(-1));
+  gridNext.addEventListener('click', () => pageGrid(1));
+  gridEl.addEventListener('scroll', updatePager, { passive: true });
+  /* a furniture design arms that item type for placing with that design; a floor or wall design starts painting.
+     Tapping the chosen design again goes back to Move. */
+  function pickDesign(g) {
+    if (g.kind) {
+      if (tool === 'paint' && paint && paint.kind === g.kind && paint.i === g.i) selectTool('move', true);
+      else startPaint(g.kind, g.i);
+      return;
+    }
+    if (tool === g.id && (nextVariant[g.id] | 0) === g.i) { selectTool('move', true); return; }
+    nextVariant[g.id] = g.i;
+    selectTool(g.id, false);
+    const price = priceOfItem(g.id, g.i);
+    announce(designName(g.id, g.i) + ' selected, ' + (price ? price + ' coins' : 'free') + '. Tap the room to place it.');
+  }
+  /* keeps the chosen category icon in view when the strip scrolls (narrow screens) */
+  function revealCat(b) {
+    const l = b.offsetLeft, r = l + b.offsetWidth, edge = 30;
+    if (l - edge < catStrip.scrollLeft) catStrip.scrollLeft = l - edge;
+    else if (r + edge > catStrip.scrollLeft + catStrip.clientWidth) catStrip.scrollLeft = r + edge - catStrip.clientWidth;
+    updateCatFade();
+  }
+  function updateCatFade() {
+    const max = catStrip.scrollWidth - catStrip.clientWidth;
+    catStrip.classList.toggle('more-left', catStrip.scrollLeft > 2);
+    catStrip.classList.toggle('more-right', catStrip.scrollLeft < max - 2);
+  }
+  catStrip.addEventListener('scroll', updateCatFade, { passive: true });
+  /* A placement or paint tool from another category is put down (painting floor and wallpaper hand over to each other). */
+  function setCat(name, focus) {
+    if (!CAT_BY_ID[name]) name = 'tables';
+    cat = name;
+    const c = CAT_BY_ID[name];
+    if (tool === 'paint' && paint && paint.kind !== name) {
+      if (c.paint) startPaint(c.paint, lastStyle[c.paint]);
+      else selectTool('move', false);
+    } else if (CATALOG[tool] && CATALOG[tool].cat !== name) selectTool('move', false);
+    designPanel.hidden = !(c.items || c.paint);
+    toolsPanel.hidden = name !== 'tools';
+    designPanel.setAttribute('aria-labelledby', 'cat-' + name);
+    for (const b of catBtns) {
+      const on = b.dataset.cat === name;
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.tabIndex = on ? 0 : -1;
-      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
-      if (on && focus) b.focus();
+      if (on) {
+        if (focus) b.focus({ preventScroll: true });
+        revealCat(b);
+      }
     }
     store.set(TAB_KEY, name);   // a view preference, kept apart from the shop save
     updateContext();
     hudChanged();
   }
-  for (const b of tabBtns) {
-    b.addEventListener('click', () => setTab(b.dataset.tab));
+  for (const b of catBtns) {
+    b.addEventListener('click', () => setCat(b.dataset.cat));
     b.addEventListener('keydown', (e) => {
-      const i = tabBtns.indexOf(b), n = tabBtns.length;
+      const i = catBtns.indexOf(b), n = catBtns.length;
       const to = e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
       if (to < 0) return;
       e.preventDefault();
       e.stopPropagation();
-      setTab(tabBtns[to].dataset.tab, true);
+      setCat(catBtns[to].dataset.cat, true);
     });
   }
 
@@ -5171,64 +5432,48 @@
     announce('New faces: ' + candidates.map((c) => c.name + ', ' + TIERS[c.tier - 1].name.toLowerCase() + ' ' + ROLES[c.role].name.toLowerCase()).join('; ') + '.');
   });
 
-  /* ---------------- furniture variants popup ---------------- */
+  /* ---------------- restyle row: the designs of the selected piece ---------------- */
   const variantPop = document.getElementById('variant-pop');
   const variantHead = document.getElementById('variant-h');
   const variantRow = document.getElementById('variant-swatches');
-  const nextVariant = {};      // variant used for the next placement of each item type
-  let variantFor = '';         // item type the swatch row is currently built for
+  const nextVariant = {};      // design used for the next placement of each item type
+  let variantFor = '';         // item type the row is currently built for
   const hexOf = (c) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
-  function variantSwatchCss(id, i) {
-    const p = PAL[id][i], [mainRole, accentRole] = VARIANTS[id].sw;
-    const main = hexOf(p[mainRole]), accent = hexOf(p[accentRole]);
-    if (p.pattern === 'gingham') return 'repeating-linear-gradient(90deg, ' + main + '99 0 6px, transparent 6px 12px), repeating-linear-gradient(0deg, ' + main + '99 0 6px, ' + accent + ' 6px 12px)';
-    if (p.pattern === 'dots') return 'radial-gradient(' + hexOf(p.cream) + ' 26%, transparent 29%) 0 0 / 12px 12px, ' + main;
-    if (p.pattern === 'stripes') return 'repeating-linear-gradient(90deg, ' + main + ' 0 7px, ' + accent + ' 7px 11px)';
-    return 'linear-gradient(135deg, ' + main + ' 0 62%, ' + accent + ' 62%)';
-  }
-  /* The design row follows the furniture: a chosen type (about to place) or a selected piece
-     (restyle). Each design has its own price. */
+  /* A selected piece shows its type's designs in the card above the toolbar; a different design is bought now and replaces
+     the old one. (Designs for the next placement are picked in the build panel grid.) */
   function renderVariantPop() {
-    const id = selected && !drag ? (VARIANTS[selected.id] ? selected.id : '') : (VARIANTS[tool] ? tool : '');
+    const id = selected && !drag && VARIANTS[selected.id] ? selected.id : '';
     variantPop.hidden = !id;
     if (!id) return;
     if (variantFor !== id) {
       variantFor = id;
       variantRow.textContent = '';
       VARIANTS[id].list.forEach((v, i) => {
-        const b = makeDesign(variantSwatchCss(id, i), nameOf(id) + ' design: ' + v.name, priceOfItem(id, i));
+        const b = makeDesign(thumbFace(id, i), nameOf(id) + ' design: ' + v.name, priceOfItem(id, i));
         b.addEventListener('click', () => setVariant(i));
         variantRow.appendChild(b);
       });
     }
     variantHead.textContent = nameOf(id) + ' designs';
-    const cur = selected ? selected.variant | 0 : nextVariant[id] | 0;
+    const cur = selected.variant | 0;
     Array.from(variantRow.children).forEach((b, i) => b.setAttribute('aria-pressed', i === cur ? 'true' : 'false'));
   }
-  /* With a type chosen, a design sets what the next placement uses and is paid for when placed.
-     With a piece selected, a different design is bought now and replaces the old one. */
   function setVariant(i) {
     const it = selected;
-    if (!it) {
-      if (!VARIANTS[tool]) return;
-      nextVariant[tool] = i;
-      updateContext();
-      announce(VARIANTS[tool].list[i].name + ' ' + nameOf(tool).toLowerCase() + ' selected, ' + (priceOfItem(tool, i) ? priceOfItem(tool, i) + ' coins' : 'free') + '.');
-      return;
-    }
-    if (!VARIANTS[it.id]) return;
+    if (!it || !VARIANTS[it.id]) return;
     if ((it.variant | 0) !== i) {
       const price = priceOfItem(it.id, i);
       if (!spend(price, designName(it.id, i))) return;
       it.variant = i;
       if (!reduced) { it.born = performance.now(); it.anim = 'wobble'; }
       const [w, d] = dims(it.id, it.rot);
-      spendPop(it.x + w / 2, it.y + d / 2, CATALOG[it.id].h, price);
+      spendPop(it.x + w / 2, it.y + d / 2, heightOf(it), price);
       saveSoon();
       announce(nameOf(it.id) + ' is now ' + VARIANTS[it.id].list[i].name + (price ? ' for ' + price + ' coins' : '') + '.');
     }
     nextVariant[it.id] = i;
     renderVariantPop();
+    renderGrid();
   }
 
   /* ---------------- shop name ---------------- */
@@ -5268,7 +5513,7 @@
   nameInput.addEventListener('input', onNameInput);
   nameInput.addEventListener('blur', () => endEditName(true));
   nameInput.addEventListener('keydown', (e) => {
-    e.stopPropagation();   // keep game shortcuts (R, 1-7, Delete) out of the text field
+    e.stopPropagation();   // keep game shortcuts (R, 1-9, Delete) out of the text field
     if (e.key === 'Enter') { e.preventDefault(); endEditName(true); nameBtn.focus(); }
     else if (e.key === 'Escape') { e.preventDefault(); endEditName(false); nameBtn.focus(); }
   });
@@ -5326,6 +5571,7 @@
     hover.show = false; kbd.show = false; hoverWall.show = false; kwall.show = false;
     document.body.classList.toggle('scene-front', front);
     toolbarEl.classList.toggle('is-front', front);
+    if (!front) { updateCatFade(); updatePager(); }
     sceneLbl.textContent = front ? 'Inside' : 'Outside';
     sceneBtn.setAttribute('aria-label', front ? 'Go back inside the restaurant (O)' : 'Go outside to the storefront (O)');
     world.setAttribute('aria-label', front ? FRONT_LABEL : ROOM_LABEL);
@@ -5430,6 +5676,8 @@
       hover.show = !!t;
       if (t) { hover.x = t[0]; hover.y = t[1]; }
       kbd.show = false;
+      const h = tool === 'move' && !drag && scene === 'interior' ? itemAt(e.clientX, e.clientY) : null;
+      hoverItem = h ? h.item : null;
       if (tool === 'paint' && paint && paint.kind === 'wall') {
         const w = wallAt(e.clientX, e.clientY);
         hoverWall.show = !!w && w.i < N;
@@ -5534,7 +5782,7 @@
   }
   world.addEventListener('pointerup', endPointer);
   world.addEventListener('pointercancel', endPointer);
-  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover.show = false; hoverWall.show = false; frontHover = false; } });
+  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover.show = false; hoverWall.show = false; frontHover = false; hoverItem = null; } });
   world.addEventListener('contextmenu', (e) => e.preventDefault());
   world.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -5580,10 +5828,17 @@
       }
       return;
     }
-    if (k >= '1' && k <= '7') {
+    // 1 to 7 pick a tool or item type (its category opens), 8 and 9 paint the floor or wallpaper with the last design
+    if (k >= '1' && k <= '9') {
+      if (k === '8' || k === '9') {
+        const kind = k === '8' ? 'floor' : 'wall';
+        setCat(kind);
+        startPaint(kind, lastStyle[kind]);
+        return;
+      }
       const name = TOOL_ORDER[+k - 1];
+      setCat(catOfTool(name));
       selectTool(name, true);
-      if (tab !== TAB_OF[name]) setTab(TAB_OF[name]);
       return;
     }
     if (k === '+' || k === '=') { zoomAt(W / 2, H / 2, 1.15); return; }
@@ -5647,7 +5902,7 @@
   world.addEventListener('focus', () => { if (!hover.show) kbd.show = true; });
   world.addEventListener('blur', () => { kbd.show = false; });
 
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => { resize(); updatePager(); updateCatFade(); });
   if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', (e) => { reduced = e.matches; });
   window.addEventListener('pagehide', save);
 
@@ -5714,11 +5969,10 @@
   }
   staffOnLayout();       // stations for the saved team; everyone starts at their spot
   renderName();
-  buildDecorRow();
   renderLevel();
   resize();
-  const savedTab = store.get(TAB_KEY);
-  setTab(tabBtns.some((b) => b.dataset.tab === savedTab) ? savedTab : 'furniture');
+  const savedCat = store.get(TAB_KEY);
+  setCat(OLD_TABS[savedCat] || savedCat);
   fitCamera();
   selectTool('move', false);
   if (store.get(SCENE_KEY) === 'front') applyScene('front', true);

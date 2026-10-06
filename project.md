@@ -56,7 +56,7 @@ Decoratable slots:
 **Curb appeal score:** storefront items add to a score that increases customer arrival rate (see section 8).
 
 **Scene switch and street (Phase 4a).**
-- A door chip beside the toolbar tabs (or the `O` key) switches between the room and the storefront. Outside, tapping the shop door (or Enter on the focused scene) goes back in. The switch dissolves through the sky in about 0.34 s, and is instant with reduced motion.
+- A door chip beside the build panel's category strip (or the `O` key) switches between the room and the storefront. Outside, tapping the shop door (or Enter on the focused scene) goes back in. The switch dissolves through the sky in about 0.34 s, and is instant with reduced motion.
 - Both scenes share one camera (`cam`, the same pan, pinch and zoom, fitted to each scene's bounds by `fitCamera`) and one light (the same sky, `lit()` night tint and sky preview). The sim keeps running while the player is outside.
 - The storefront is a flat side view on its own floating island: world px with x to the right and y down, the foot of the facade at y = 0 (`frontGeom()`). The shop is `64 + 40 × gridSize` px wide, so it grows with the room. In front of it: a planting strip, the path with a mat and a step up to the door, a sidewalk (`walk0` to `walk1`, the line street walkers will use in 4e), a verge with small flowers, and the island soil.
 - The building in 4a is a plain shell (wall, base band, corner pilasters, parapet roof, the door with a round window that glows at night). The real facade (windows, sign with the shop name) is 4b.
@@ -67,6 +67,8 @@ Decoratable slots:
 - Item types: floor, wall, table, chair, counter, stove, shelf, decoration, lighting.
 - Items can be rotated (4 directions) and moved or removed.
 - Walkable path must exist from door to every seat (validate on placement).
+- **Build panel (3g1):** a strip of category icons (tables, chairs, stoves and stations, plants, lighting, floor, wallpaper, tools) over a grid of the chosen category's designs, each with its price and a count badge when some are in the room. The Tools entry holds Move, Rotate, Remove, Menu and Staff.
+- **Catalog data:** `CATALOG` has one entry per item type (the id a save stores) with its category (`cat`); `CATEGORIES` lists the strip. Designs live in `VARIANTS[id].list` (the save keeps the index as `variant`). A design is a palette swap by default, and may also carry its own `draw` function, `h` (picking height) and `scale`, so a later design can change the shape (a stool, a booth) without a new item id or a save change. Grid thumbnails are drawn by the same draw functions.
 
 ## 4. Player Level and Shop Size
 
@@ -311,9 +313,9 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 
 **Build-mode pricing (Phase 1 polish 7).** Everything the player puts in the room is bought, Sims-build-mode style:
 
-- **Furniture:** picking a furniture type in the bottom bar shows its designs, each with its own price. Placing a piece costs the chosen design's price. Restyling a selected piece to a different design costs the new design's price. Moving and rotating are free. The starting layout is pre-owned.
+- **Furniture:** picking a category in the build panel's strip shows its designs in a grid, each with its own price; tapping a design arms it for placing (tap it again to put it down). Placing a piece costs the chosen design's price. Restyling a selected piece (its design row appears in the card above the panel) to a different design costs the new design's price. Moving and rotating are free. The starting layout is pre-owned.
 - **Floor and wallpaper** are painted piece by piece: one floor tile or one wall segment (one tile wide) per tap, so one room can mix designs. A tap costs that design's per-piece price. Repainting replaces the old design and charges the new price; tapping a piece that already has the design is free and does nothing.
-- A running total of the current decorating run shows beside the selected design. It resets when the player leaves the paint tool.
+- Floor and Wallpaper are their own categories in the strip; tapping a design starts painting with it. A running total of the current decorating run shows beside the selected design in the card above the panel, with a Done button. It resets when the player leaves the paint tool.
 - If the player cannot afford a purchase, the action is blocked with a message and nothing changes. No refunds when pieces are replaced or removed.
 - New shops start with 300 coins.
 - `DEV_MODE` in `index.html` (or `?free` in the URL) makes everything free for testing.
@@ -416,7 +418,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
-| 3g Decor variety | Planned (3g0 to 3g7, see 12.3), runs before 4b. Next: 3g0 mockup |
+| 3g Decor variety | In progress (3g0 to 3g7, see 12.3), runs before 4b: 3g0 done (looks approved), 3g1 done (Sims-style build panel: category strip, design grid with thumbnails, prices and count badges; designs can carry their own draw function; item name labels on hover and keyboard focus; no save change). Next: 3g1b |
 | 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -512,7 +514,7 @@ Why: decorating is the main pillar, but the catalog is 5 furniture types with co
 | Step | Work | Model |
 |---|---|---|
 | 3g0 | Mockup first (scratch file, not `index.html`): gas stove row, fryer, drink machine, 3 to 4 chair and table styles, a partition, an arcade cabinet and 4 floor tile patterns, at game scale. The user picks the looks. | Sonnet |
-| 3g1 | Catalog structure and a Sims-style build panel: one icon per category in a strip (chairs, tables, stoves and stations, partitions, arcade, floor, wallpaper, lighting, plants), and under it a grid of designs (5 across on wide screens, 3 on a 360px phone) with the price under each, paging arrows or scrolling, and an owned count badge on a design the player already placed. Designs carry their own drawing function (so a design can change the shape, not only the colour), and items get a hover or focus label. No new items yet; existing ones move over unchanged. Cross-cutting (CATALOG, build bar, picking), so one careful pass. | Opus |
+| 3g1 | Catalog structure and a Sims-style build panel: one icon per category in a strip (chairs, tables, stoves and stations, partitions, arcade, floor, wallpaper, lighting, plants), and under it a grid of designs (5 across on wide screens, 3 on a 360px phone) with the price under each, paging arrows or scrolling, and an owned count badge on a design the player already placed. Designs carry their own drawing function (so a design can change the shape, not only the colour), and items get a hover or focus label. No new items yet; existing ones move over unchanged. Cross-cutting (CATALOG, build bar, picking), so one careful pass. Done (see 3.2 and 8.4; partitions and arcade get their strip icons when 3g6 adds them). | Opus |
 | 3g1b | Edit mode hides the people: while a build tool is open (furniture, decor, move, remove), guests and staff fade out, spawning and walking pause and no trash appears; when the player closes the tool they fade back in at the same spots and `assignStations()` re-plans. Time spent editing still pays the current `incomePerMin` (capped like the offline cap in 8.3), so decorating never costs income. Placement checks ignore people. | Sonnet |
 | 3g2 | Floor and wallpaper designs with real patterns (checker, kitchen tile, carpet with a border motif, wood planks), drawn in code. Per-tile painting already supports zoned floors. Optional: a patterned border strip above a plain lower wall band. | Sonnet |
 | 3g3 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet |

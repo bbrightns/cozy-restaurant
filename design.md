@@ -124,9 +124,13 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 
 ### Layout
 - Top: title card with coins, level, and a small sun/moon clock dial.
-- Bottom: raised pastel toolbar with tool icons (Build, Decorate, Staff, Menu, Bulldoze).
-- Build menu (Sims-style): the Furniture tab shows a design row with a coin price under every design; the Decor tab has a Wallpaper / Floor switch and a priced design row. While painting, the card above the toolbar shows the chosen design, a running coin total and a Done button. Designs the player cannot afford are dimmed with a red price.
-- Staff sheet (Tools tab, Staff button): floats over the room like the Menu sheet. "Your team" rows show a small code-drawn avatar (chef hat, waiter bow, helper scarf), name, role, stars, and wage per minute, with a "Let go" chip that asks for a second tap. "Looking for work" rows show candidates with a "Hire" pill and its coin fee; fees the player cannot afford, or a full team, dim the pill. A "New faces" chip rerolls the candidates.
+- Bottom: the build panel, a raised cream card (max 560px wide) with two rows.
+  - **Category strip:** one icon per category in a pill track: Tables, Chairs, Kitchen (stoves and stations), Plants, Lights, Floor, Walls (wallpaper) and Tools (a gear). The chosen category is a lifted cream pill. Short labels show under the icons on wide screens; at 640px and below the strip is icons only. The Outside / Inside door chip sits at the right end. When the icons do not fit (below about 420px wide) the strip scrolls sideways, with a soft fade on the side that has more icons and the chosen one kept in view.
+  - **Design grid:** the chosen category's designs, 5 across (3 at 480px and below, and in the sideways-phone dock), each a cream card with a thumbnail and its coin price underneath. Furniture thumbnails are the real item drawn by its own draw function in daylight, so designs that change the shape show it; floor and wallpaper show a pattern swatch. A small lavender badge on the corner counts how many of that design are in the room (pieces placed, or floor tiles and wall pieces painted). The chosen design has a lavender ring. Designs the player cannot afford are dimmed with a red price. More designs than fit slide in pages: chevron buttons on both sides (dimmed at the ends), or swipe or scroll the row; it snaps to whole cards.
+  - **Tools** shows the tool row instead of a grid: Move, Rotate, Remove, Menu and Staff.
+- Card above the panel: placing shows "Placing Table (Mint) · 30 coins" with Rotate; a selected piece shows its name, Rotate, Remove and Done plus a row of its type's design thumbnails to restyle it; while painting it shows the chosen design, a running coin total and a Done button.
+- Item name label: a small cream pill with the item's name (Table, Dining chair, Waiting chair, Stove, Plant, Lantern) floats above the placed piece under the mouse or the keyboard cursor while the Move tool is on. It is drawn on the canvas, so it never takes a tap; it rises in over about 0.15 s, or just appears with reduced motion.
+- Staff sheet (Tools, Staff button): floats over the room like the Menu sheet. "Your team" rows show a small code-drawn avatar (chef hat, waiter bow, helper scarf), name, role, stars, and wage per minute, with a "Let go" chip that asks for a second tap. "Looking for work" rows show candidates with a "Hire" pill and its coin fee; fees the player cannot afford, or a full team, dim the pill. A "New faces" chip rerolls the candidates.
 - Cards: cream background, 16 to 20px radius, soft drop shadow.
 - Buttons: pill shape, pastel fill, slight press-down animation.
 
@@ -147,8 +151,10 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 | Right-click / long-press | Remove (with dust puff) |
 | Drag | Pan camera |
 | Scroll / pinch | Zoom around pointer |
-| Hover | Dashed tile cursor + translucent ghost preview |
-| Keyboard | 1 to 7 select tools, arrows move cursor, Enter places, Delete removes, +/- zoom, O switches between the room and the storefront (outside, Enter goes in through the door) |
+| Hover | Dashed tile cursor + translucent ghost preview; with Move, the name label of the item under the pointer |
+| Category strip | Tap an icon to show its designs; tap a design to place or paint with it, tap it again to stop. Left and right arrows (Home, End) move between categories when the strip has focus |
+| Design grid | Chevrons page through the designs; swipe or scroll the row also works. Tab reaches each design card |
+| Keyboard | 1 Move, 2 Table, 3 Chair, 4 Stove, 5 Plant, 6 Lantern, 7 Remove (each opens its category), 8 paints the floor and 9 the wallpaper with the last design used; arrows move the cursor (a name label shows on an item with Move), Enter places, R rotates, Delete removes, Esc stops painting or deselects, +/- zoom, O switches between the room and the storefront (outside, Enter goes in through the door) |
 
 ## 12. Game Systems
 
