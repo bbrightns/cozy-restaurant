@@ -352,6 +352,26 @@
     pointer-events: none;
   }
   .dz-badge[hidden] { display: none; }
+  /* a design that is not unlocked yet: dimmed, with its level in a small pill; a tap says why it cannot be placed */
+  .dz-lock {
+    position: absolute;
+    top: 0;
+    left: max(2px, calc(50% - 38px));
+    height: 19px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--cream-2);
+    color: var(--text-2);
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 19px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 0 2px var(--cream);
+    pointer-events: none;
+  }
+  .dz-lock[hidden] { display: none; }
+  .sw-item.locked .sw-face { opacity: .45; filter: grayscale(.5); }
+  .sw-item.locked .sw-price { color: var(--text-3); }
   /* scene switch beside the strip; outside, the strip and panels give way to a short note */
   .tb-head { display: flex; align-items: center; gap: 4px; }
   .tb-head .cats { flex: 1 1 auto; min-width: 0; }
@@ -480,6 +500,10 @@
     border-radius: 16px;
   }
   .dish.on { background: var(--cream-2); }
+  .dish-h { margin: 6px 0 0; padding: 0 4px; font-size: 12px; font-weight: 800; color: var(--text-3); letter-spacing: .06em; text-transform: uppercase; }
+  .dish-h:first-child { margin-top: 0; }
+  .dish-note { margin: 2px 0 0; font-size: 11.5px; font-weight: 700; color: #b0775f; }
+  .dish-note[hidden] { display: none; }
   .dish.locked { opacity: .55; }
   .dish-toggle {
     width: 44px;
@@ -1060,6 +1084,9 @@
       { name: 'Sky', price: 70, lav: '#b9d8ec', lavDeep: '#9cc3d8', blush: '#fff1e2' },
       { name: 'Honey wood', price: 110, lav: '#dcb891', lavDeep: '#c4966f', blush: '#b8e0d2', counterTop: '#f7eadb', pattern: 'stripes' }
     ] },
+    // stations (3g5): one design each for now; the look is fixed in drawFryer and drawDrinks
+    fryer_01: { list: [{ name: 'Steel', price: 85 }] },
+    drinks_01: { list: [{ name: 'Soda tanks', price: 75 }] },
     plant_01: { list: [
       { name: 'Terracotta', price: 12, pot: '#f2b09c', potHi: '#f8c7b6', cloth: '#ffb5a7' },
       { name: 'Mint pot', price: 14, pot: '#a9d9c6', potHi: '#c6e8da', cloth: '#f6d27a' },
@@ -1125,7 +1152,10 @@
   const CATALOG = {
     table_01: { name: 'Table', cat: 'tables', w: 1, d: 1, h: 27, draw: scaled('table_01', byDesign(drawTable)) },
     chair_01: { name: 'Chair', cat: 'chairs', w: 1, d: 1, h: 23, seat: true, draw: tucked(scaled('chair_01', byDesign(drawChair))) },
-    counter_01: { name: 'Stove', cat: 'stations', w: 1, d: 1, h: 40, draw: scaled('counter_01', byDesign(drawStove)) },
+    // station: which kind of dish the item cooks (see DISHES and planKitchen); the id counter_01 stays so older saves load
+    counter_01: { name: 'Gas stove', cat: 'stations', station: 'stove', w: 1, d: 1, h: 40, draw: scaled('counter_01', byDesign(drawStove)) },
+    fryer_01: { name: 'Fryer', cat: 'stations', station: 'fryer', w: 1, d: 1, h: 40, draw: scaled('fryer_01', byDesign(drawFryer)) },
+    drinks_01: { name: 'Drink machine', cat: 'stations', station: 'drinks', w: 1, d: 1, h: 51, draw: scaled('drinks_01', byDesign(drawDrinks)) },
     plant_01: { name: 'Plant', cat: 'plants', w: 1, d: 1, h: 38, draw: scaled('plant_01', byDesign(drawPlant)) },
     lantern_01: { name: 'Lantern', cat: 'lighting', w: 1, d: 1, h: 44, light: true, draw: scaled('lantern_01', byDesign(drawLantern)) }
   };
@@ -1134,7 +1164,7 @@
   const CATEGORIES = [
     { id: 'tables', name: 'Tables', items: ['table_01'] },
     { id: 'chairs', name: 'Chairs', items: ['chair_01'] },
-    { id: 'stations', name: 'Stoves and stations', items: ['counter_01'] },
+    { id: 'stations', name: 'Stoves and stations', items: ['counter_01', 'fryer_01', 'drinks_01'] },
     { id: 'plants', name: 'Plants', items: ['plant_01'] },
     { id: 'lighting', name: 'Lighting', items: ['lantern_01'] },
     { id: 'floor', name: 'Floor', paint: 'floor' },
@@ -1154,7 +1184,8 @@
      about the centre of its footprint. Heights in the CATALOG above (h) are the shrunken heights, used for picking. */
   const PERSON_SCALE = 1.7;
   const SIT_DROP = 3;               // world px a seated guest sinks into the chair, so a sitter is not taller than a stander
-  const ITEM_SCALE = { table_01: 0.88, chair_01: 0.78, counter_01: 0.86, plant_01: 0.88, lantern_01: 0.88 };
+  // the fryer and drink machine are drawn at their final size (the approved mockup), so their scale is 1
+  const ITEM_SCALE = { table_01: 0.88, chair_01: 0.78, counter_01: 0.86, fryer_01: 1, drinks_01: 1, plant_01: 0.88, lantern_01: 0.88 };
   const pivotOf = (it) => {
     const [w, d] = dims(it.id, it.rot || 0);
     return [PX(it.x + w / 2, it.y + d / 2), PY(it.x + w / 2, it.y + d / 2, 0)];
@@ -1186,7 +1217,14 @@
       if (it.occupant && it.occupant.seated) { it.occupant.hx += mx; it.occupant.hy += my; }   // bubbles and pops follow the tucked chair
     };
   }
+  // keys 1 to 7 pick these; 8 and 9 paint, so the fryer and drink machine are picked in the build panel only
   const TOOL_ORDER = ['move', 'table_01', 'chair_01', 'counter_01', 'plant_01', 'lantern_01', 'remove'];
+  const isStation = (it) => !!CATALOG[it.id].station;
+  /* the level a piece unlocks at: a station opens with its first dish (DISHES, defined later; only called at run time) */
+  const itemUnlock = (id) => {
+    const st = CATALOG[id].station;
+    return st ? DISHES.reduce((m, d) => (d.station === st ? Math.min(m, d.unlock) : m), Infinity) : 1;
+  };
 
   function dims(id, rot) {
     const c = CATALOG[id];
@@ -1324,8 +1362,8 @@
   }
 
   /* Returns '' when the item fits, otherwise a reason key. */
-  /* the tile in front of a stove, where its chef stands: +y for rot 0 and 2, +x for rot 1 and 3 (the two faces the camera sees) */
-  const stoveFront = (it) => (it.rot % 2 === 0 ? [it.x, it.y + 1] : [it.x + 1, it.y]);
+  /* the tile in front of a station, where its chef stands: +y for rot 0 and 2, +x for rot 1 and 3 (the two faces the camera sees) */
+  const stationFront = (it) => (it.rot % 2 === 0 ? [it.x, it.y + 1] : [it.x + 1, it.y]);
   function checkPlace(cand, ignore) {
     const others = items.filter((it) => it !== ignore);
     for (const [cx, cy] of cells(cand)) {
@@ -1336,10 +1374,10 @@
         if (cx >= o.x && cx < o.x + w && cy >= o.y && cy < o.y + d) return 'taken';
       }
     }
-    // every stove keeps the tile in front of it clear for its chef
+    // every station keeps the tile in front of it clear for its chef
     for (const o of others.concat([cand])) {
-      if (o.id !== 'counter_01') continue;
-      const [fx, fy] = stoveFront(o);
+      if (!isStation(o)) continue;
+      const [fx, fy] = stationFront(o);
       if (!inside(fx, fy) || (fx === DOOR.x && fy === DOOR.y)) { if (o === cand) return 'front'; continue; }
       if (o === cand ? others.some((q) => cells(q).some(([cx, cy]) => cx === fx && cy === fy)) : cells(cand).some(([cx, cy]) => cx === fx && cy === fy)) return 'front';
     }
@@ -1351,7 +1389,7 @@
     outside: 'That doesn’t fit inside the room',
     door: 'Keep the doorway clear',
     taken: 'Something is already there',
-    front: 'Keep the tile in front of the stove free for the chef',
+    front: 'Keep the tile in front of the station free for the chef',
     path: 'That would block the way to a chair'
   };
 
@@ -1991,8 +2029,8 @@
     drawPot();
     if (cooking) drawSteam(X(potU, bv), Y(potU, bv), 41, it.cook.t / it.cook.dur, now);
   }
-  /* soft steam wisps over a cooking pot, plus a small progress ring */
-  function drawSteam(cx, cy, z, prog, now) {
+  /* soft steam wisps over a cooking pot, plus a small progress ring (ringZ: its height, default 34px above z) */
+  function drawSteam(cx, cy, z, prog, now, ringZ) {
     const sx = PX(cx, cy), sy = PY(cx, cy, z);
     for (let q = 0; q < 3; q++) {
       const ph = reduced ? q / 3 : ((now * 0.0006) + q / 3) % 1;
@@ -2004,7 +2042,172 @@
     }
     ctx.strokeStyle = 'rgba(255,250,244,0.9)';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(sx, sy - 34, 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(prog, 0, 1)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx, ringZ === undefined ? sy - 34 : PY(cx, cy, ringZ), 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(prog, 0, 1)); ctx.stroke();
+  }
+
+  /* ---------- the fryer and the drink machine (3g5): drawn at their final size from the approved mockup (scratch/mockup-decor.html) ----------
+     stationKit maps centre-based coordinates (u along the front, v toward the front where +0.5 is the front edge, z up in px) onto
+     the grid. Rotations 1 and 3 swap the two axes so the front faces +x, the same mirroring as the stove. */
+  function stationKit(it) {
+    const alongX = it.rot % 2 === 0, cx = it.x + 0.5, cy = it.y + 0.5;
+    const X = (u, v) => (alongX ? cx + u : cx + v), Y = (u, v) => (alongX ? cy + v : cy + u);
+    return {
+      cx, cy, X, Y,
+      S: (u, v, z) => [PX(X(u, v), Y(u, v)), PY(X(u, v), Y(u, v), z)],
+      B: (u0, v0, u1, v1, z0, z1, col, o) => (alongX ? box(cx + u0, cy + v0, cx + u1, cy + v1, z0, z1, col, o) : box(cx + v0, cy + u0, cx + v1, cy + u1, z0, z1, col, o)),
+      // a flat quad at height z
+      Q: (z, u0, v0, u1, v1, col, a) => {
+        if (alongX) flat(cx + u0, cy + v0, cx + u1, cy + v1, z); else flat(cx + v0, cy + u0, cx + v1, cy + u1, z);
+        ctx.fillStyle = lit(col, 1.04, a);
+        ctx.fill();
+      },
+      // a flat ellipse at height z (r in tiles)
+      D: (u, v, z, r, col, a) => {
+        ctx.fillStyle = lit(col, 1, a);
+        ctx.beginPath(); ctx.ellipse(PX(X(u, v), Y(u, v)), PY(X(u, v), Y(u, v), z), r * TW * 1.414, r * TH * 1.414, 0, 0, Math.PI * 2); ctx.fill();
+      },
+      // decals on the front face (v): fn draws in a space where x is u (tiles) and y is z up in px
+      face: (v, fn) => {
+        const x = alongX ? cx : cx + v, y = alongX ? cy + v : cy;
+        ctx.save();
+        ctx.translate(PX(x, y), PY(x, y, 0));
+        ctx.transform(alongX ? TW : -TW, TH, 0, -1, 0, 0);
+        fn();
+        ctx.restore();
+      }
+    };
+  }
+  const fdot = (u, z, ru, rz, col, a) => { ctx.fillStyle = lit(col, 1, a); ctx.beginPath(); ctx.ellipse(u, z, ru, rz, 0, 0, Math.PI * 2); ctx.fill(); };
+  const frect = (u, z, w, h, col, a) => { ctx.fillStyle = lit(col, 1, a); ctx.fillRect(u, z, w, h); };
+  const STEEL = rgb('#b9c6dc'), STEEL_TRAY = rgb('#c5cfe0'), FRY_FRAME = rgb('#8a6f7e'), OIL = rgb('#f0c36b'), OIL_HI = rgb('#fbe3a0'), BASKET = rgb('#e9c46a'), DRUMSTICK = rgb('#d99a5e');
+  const TANK_PEACH = rgb('#ffb5a7'), TANK_MINT = rgb('#8fd6bd'), TANK_INK = rgb('#6f5c7c'), FOAM = rgb('#fff8ef');
+  const BASKET_HANG = 6;   // px the baskets hang above the oil when nobody is frying
+
+  function drawFryer(it, now) {
+    const C = pal(it), { cx, cy, B, Q, S, X, Y, face } = stationKit(it);
+    const t = now * 0.001, cooking = !!it.cook, dripping = !!it.drip;
+    contact(cx, cy, 0.5);
+    B(-0.4, -0.4, 0.4, 0.4, 0, 18, STEEL);
+    face(0.4, () => {
+      frect(-0.4, 12.5, 0.8, 5.5, C.gold);
+      for (const u of [-0.22, -0.07]) fdot(u, 15.2, 0.04, 1.8, C.mat);
+      frect(-0.3, 1.5, 0.6, 9.5, dimRgb(STEEL, 0.72));
+      fdot(-0.05, 6.8, 0.12, 3.2, DRUMSTICK);
+      fdot(0.1, 4.8, 0.07, 1.5, DRUMSTICK);
+      frect(0.12, 3.2, 0.1, 2, C.cream);
+      fdot(0.12, 3.2, 0.03, 1.2, C.cream); fdot(0.22, 3.2, 0.03, 1.2, C.cream);
+    });
+    // two oil wells: a dark frame, golden oil, and a pale glint that drifts when idle
+    Q(18, -0.36, -0.22, -0.02, 0.24, FRY_FRAME);
+    Q(18, 0.02, -0.22, 0.36, 0.24, FRY_FRAME);
+    Q(18, -0.32, -0.18, -0.06, 0.2, OIL);
+    Q(18, 0.06, -0.18, 0.32, 0.2, OIL);
+    Q(18, -0.3, -0.16, -0.18, -0.02, OIL_HI);
+    if (!cooking && !reduced) { const g = 0.5 + 0.5 * Math.sin(t * 1.6); Q(18, 0.1 + g * 0.1, -0.12, 0.14 + g * 0.1, -0.04, OIL_HI, 0.55); }
+    if (cooking) {
+      for (let i = 0; i < 6; i++) {
+        const k = reduced ? i / 6 : (t * 1.3 + i * 0.37) % 1, [px, py] = S(0.19 + Math.sin(i * 2.1) * 0.1, 0.02 + Math.cos(i * 1.7) * 0.1, 18);
+        fdot(px, py - k * 1.5, 1.4, 1.2, FOAM, 0.9 * (1 - k));
+      }
+    }
+    // back panel with the pickup tray on top: finished plates wait here for a waiter
+    B(-0.4, -0.4, 0.4, -0.3, 18, 34, STEEL);
+    B(-0.32, -0.4, 0.32, -0.08, 34, 35.2, C.wood);
+    B(-0.3, -0.12, -0.25, -0.08, 28, 34, FRY_FRAME, { noTop: true });
+    B(0.25, -0.12, 0.3, -0.08, 28, 34, FRY_FRAME, { noTop: true });
+    const done = ready.filter((r) => r.counter === it);
+    [-0.17, 0.17].forEach((u, q) => {
+      const [px, py] = S(u, -0.24, 35.2);
+      ctx.fillStyle = lit(PLATE, 1); ctx.beginPath(); ctx.ellipse(px, py, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(C.cream, 1.02); ctx.beginPath(); ctx.ellipse(px, py - 0.3, 4.4, 2.1, 0, 0, Math.PI * 2); ctx.fill();
+      if (q < done.length) drawFood(px, py - 0.3, done[q].dish, 0.9);
+    });
+    // baskets: both hang up when idle; the working one is lowered into the oil and gets a small shake about once a second
+    [-0.19, 0.19].forEach((bu, i) => {
+      let lz = BASKET_HANG;
+      if (i === 1 && cooking) lz = reduced ? 0 : Math.max(0, 0.6 * Math.sin(t * 6.3) * (((t * 1.1) % 1) < 0.3 ? 1 : 0));
+      const by = 0.02;
+      B(bu - 0.1, by - 0.12, bu + 0.1, by + 0.12, 18.5 + lz, 23.5 + lz, BASKET);
+      const [hx0, hy0] = S(bu, by + 0.12, 21.5 + lz), [hx1, hy1] = S(bu, by + 0.46, 26 + lz), [gx0, gy0] = S(bu, by + 0.34, 24.6 + lz);
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.strokeStyle = lit(C.mat, 1); ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+      ctx.lineCap = 'butt'; ctx.strokeStyle = lit(C.cream, 1); ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+      ctx.restore();
+      // a few drops fall from the basket that was just lifted
+      if (i === 1 && dripping && !reduced) {
+        const k = 1 - it.drip.t / DRIP_TIME;
+        for (let d = 0; d < 3; d++) {
+          const kk = clamp(k * 1.4 - d * 0.18, 0, 1), [dx, dy] = S(bu - 0.05 + d * 0.05, by + 0.04, 18.4 + lz - kk * lz);
+          if (kk > 0 && kk < 1) fdot(dx, dy, 0.9, 1.3, OIL, 1 - kk);
+        }
+      }
+    });
+    if (cooking) drawSteam(X(0.19, 0.02), Y(0.19, 0.02), 29, it.cook.t / it.cook.dur, now, 75);
+  }
+  /* the drink machine: a blush base with a drip tray, a lavender body with two glass tanks, taps, and cups stacked on top.
+     While a chef pours, the tank bubbles speed up and the cup in the chef's hand fills (drawStaffBits); a finished cup waits on the tray. */
+  function drawDrinks(it, now) {
+    const C = pal(it), { cx, cy, B, S, X, Y, face } = stationKit(it);
+    const t = now * 0.001, cooking = !!it.cook, speed = cooking ? 2 : 0.7;
+    contact(cx, cy, 0.45);
+    B(-0.34, -0.34, 0.34, 0.34, 0, 14, C.blush);
+    B(-0.3, 0.3, 0.3, 0.46, 8, 10, STEEL_TRAY);
+    B(-0.34, -0.34, 0.34, 0.34, 14, 44, C.lav);
+    face(0.34, () => {
+      frect(-0.29, 20, 0.58, 21, TANK_INK);
+      [[-0.27, TANK_PEACH, 0.68], [0.01, TANK_MINT, 0.5]].forEach(([u, col, lv], i) => {
+        frect(u, 21, 0.26, 19, FOAM, 0.22);
+        frect(u, 21, 0.26, 19 * lv, col);
+        frect(u + 0.03, 22, 0.035, 17, FOAM, 0.55);
+        for (let b = 0; b < 3; b++) { const k = reduced ? (b + 1) / 4 : (t * speed + b * 0.33 + i * 0.2) % 1; fdot(u + 0.06 + b * 0.07, 21 + k * 19 * lv, 0.015, 0.8, FOAM, 0.8); }
+      });
+      frect(-0.29, 16, 0.58, 2.4, C.gold);
+      for (const u of [-0.15, 0.15]) frect(u - 0.03, 17.5, 0.06, 2.5, FRY_FRAME);
+    });
+    B(-0.34, -0.34, 0.34, 0.34, 44, 46, C.gold);
+    const [ux, uy] = [X(-0.1, 0), Y(-0.1, 0)], [vx, vy] = [X(0.12, 0.05), Y(0.12, 0.05)];
+    cyl(ux, uy, 0.07, 46, 51, C.cream); cyl(vx, vy, 0.07, 46, 51, C.cushion);
+    // finished drinks wait on the drip tray, under the taps
+    ready.filter((r) => r.counter === it).slice(0, 2).forEach((r, q) => {
+      const [px, py] = S(q ? 0.14 : -0.1, 0.38, 10);
+      drawCup(px, py, r.dish, 1, 1);
+    });
+    if (cooking) drawRing(cx, cy, 75, it.cook.t / it.cook.dur);
+  }
+  /* a drink: a short glass cup with the drink in it and a foam topping; (sx, sy) is the middle of its base. fill: how full it is
+     (0 for the empty cup left on a table, s: size). The dish colours are the glass tint, the drink and the topping. */
+  function drawCup(sx, sy, dish, fill, s, dirty) {
+    const w0 = 2.6 * s, w1 = 3.7 * s, h = 8 * s, top = sy - h;
+    const trap = (y, w) => { ctx.moveTo(sx - w, y); ctx.lineTo(sx + w, y); };
+    ctx.fillStyle = lit(dish.cols[0], 1, 0.9);
+    ctx.beginPath(); trap(top, w1); ctx.lineTo(sx + w0, sy); ctx.lineTo(sx - w0, sy); ctx.closePath(); ctx.fill();
+    if (fill > 0.04) {
+      const ly = sy - (0.14 + 0.72 * fill) * h, lw = w0 + (w1 - w0) * ((sy - ly) / h);
+      ctx.fillStyle = lit(dish.cols[1], 1);
+      ctx.beginPath(); ctx.moveTo(sx - lw, ly); ctx.lineTo(sx + lw, ly); ctx.lineTo(sx + w0 * 0.9, sy - 0.4 * s); ctx.lineTo(sx - w0 * 0.9, sy - 0.4 * s); ctx.closePath(); ctx.fill();
+      if (fill > 0.8) {
+        ctx.fillStyle = lit(dish.cols[2], 1.02);
+        ctx.beginPath(); ctx.ellipse(sx, ly, lw, 1.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lit(dish.cols[1], 0.85);
+        ctx.beginPath(); ctx.arc(sx + 0.6 * s, ly - 1.1 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.fillStyle = lit(P.cream, 1.04, 0.7);
+    ctx.fillRect(sx - w1 * 0.55, top + 1 * s, 0.9 * s, h * 0.55);
+    ctx.strokeStyle = lit(P.cream, 1.04, 0.85); ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.ellipse(sx, top, w1, 1.4 * s, 0, 0, Math.PI * 2); ctx.stroke();
+    if (dirty) {
+      ctx.fillStyle = lit(dish.cols[1], 0.9, 0.7);
+      ctx.beginPath(); ctx.ellipse(sx, sy - 0.8 * s, w0 * 0.8, 0.8 * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  /* the small progress ring above a working station, z px above the floor */
+  function drawRing(cx, cy, z, prog) {
+    ctx.strokeStyle = 'rgba(255,250,244,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(PX(cx, cy), PY(cx, cy, z), 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(prog, 0, 1)); ctx.stroke();
   }
 
   function drawPlant(it, now) {
@@ -2795,14 +2998,28 @@
   const WALK_SPEED = 1.6;                 // tiles per second
   const ORDER_TIME = 2.2, EAT_TIME = 9;   // seconds
   const FOOD_PATIENCE = 32, WAIT_PATIENCE = 20;
-  // suggest: suggested price, cost: ingredients per plate, cook: seconds, unlock: player level
+  /* The three kinds of station (project.md 7.1): a dish is only cooked at a station of its type. `item` is the CATALOG id. */
+  const STATION_TYPES = ['stove', 'fryer', 'drinks'];
+  const STATION_INFO = {
+    stove: { name: 'Gas stove', low: 'gas stove', head: 'Gas stove', item: 'counter_01', dish: 'gas stove' },
+    fryer: { name: 'Fryer', low: 'fryer', head: 'Fryer', item: 'fryer_01', dish: 'fryer' },
+    drinks: { name: 'Drink machine', low: 'drink machine', head: 'Drinks', item: 'drinks_01', dish: 'drinks' }
+  };
+  // station: where it is cooked, suggest: suggested price, cost: ingredients per plate, cook: seconds, unlock: player level
+  // cols: for a plate, the base, the food and the topping; for a drink (station 'drinks'), the glass tint, the drink and the topping
   const DISHES = [
-    { id: 'dish_01', name: 'Sunny Rice Bowl', suggest: 12, cost: 4, cook: 5, unlock: 1, cols: ['#fff6ea', '#f6d27a', '#94c98d'] },
-    { id: 'dish_02', name: 'Peach Pancake Stack', suggest: 18, cost: 6, cook: 7, unlock: 1, cols: ['#f2c99a', '#ffb5a7', '#fff6ea'] },
-    { id: 'dish_03', name: 'Mint Noodle Soup', suggest: 24, cost: 9, cook: 9, unlock: 1, cols: ['#b8e0d2', '#fff1d6', '#f2b09c'] },
-    { id: 'dish_04', name: 'Lantern Dumplings', suggest: 30, cost: 11, cook: 10, unlock: 3, cols: ['#fff1e2', '#f6d27a', '#ffb5a7'] },
-    { id: 'dish_05', name: 'Cloud Curry Plate', suggest: 38, cost: 14, cook: 12, unlock: 6, cols: ['#fff6ea', '#f2c46d', '#b8e0d2'] },
-    { id: 'dish_06', name: 'Moonberry Parfait', suggest: 46, cost: 16, cook: 14, unlock: 10, cols: ['#cdb4db', '#fff6ea', '#f4a6b8'] }
+    { id: 'dish_01', name: 'Sunny Rice Bowl', station: 'stove', suggest: 12, cost: 4, cook: 5, unlock: 1, cols: ['#fff6ea', '#f6d27a', '#94c98d'] },
+    { id: 'dish_02', name: 'Peach Pancake Stack', station: 'stove', suggest: 18, cost: 6, cook: 7, unlock: 1, cols: ['#f2c99a', '#ffb5a7', '#fff6ea'] },
+    { id: 'dish_03', name: 'Mint Noodle Soup', station: 'stove', suggest: 24, cost: 9, cook: 9, unlock: 1, cols: ['#b8e0d2', '#fff1d6', '#f2b09c'] },
+    { id: 'dish_04', name: 'Lantern Dumplings', station: 'stove', suggest: 30, cost: 11, cook: 10, unlock: 3, cols: ['#fff1e2', '#f6d27a', '#ffb5a7'] },
+    { id: 'dish_05', name: 'Cloud Curry Plate', station: 'stove', suggest: 38, cost: 14, cook: 12, unlock: 6, cols: ['#fff6ea', '#f2c46d', '#b8e0d2'] },
+    { id: 'dish_06', name: 'Moonberry Parfait', station: 'stove', suggest: 46, cost: 16, cook: 14, unlock: 10, cols: ['#cdb4db', '#fff6ea', '#f4a6b8'] },
+    { id: 'dish_07', name: 'Peach Fizz Soda', station: 'drinks', suggest: 11, cost: 3, cook: 5, unlock: 2, cols: ['#ffd9c9', '#ffb5a7', '#fff6ea'] },
+    { id: 'dish_08', name: 'Minty Pearl Tea', station: 'drinks', suggest: 17, cost: 6, cook: 6, unlock: 4, cols: ['#e6f4ec', '#b8e0d2', '#8a6f7e'] },
+    { id: 'dish_09', name: 'Starlit Berry Float', station: 'drinks', suggest: 26, cost: 10, cook: 8, unlock: 8, cols: ['#e9dcf2', '#cdb4db', '#fff1e2'] },
+    { id: 'dish_10', name: 'Crunchy Sun Drumsticks', station: 'fryer', suggest: 21, cost: 7, cook: 8, unlock: 3, cols: ['#fff6ea', '#e8b26a', '#94c98d'] },
+    { id: 'dish_11', name: 'Honey Puff Nuggets', station: 'fryer', suggest: 26, cost: 9, cook: 9, unlock: 5, cols: ['#fff1e2', '#f2c46d', '#ffb5a7'] },
+    { id: 'dish_12', name: 'Lotus Crisp Platter', station: 'fryer', suggest: 39, cost: 14, cook: 12, unlock: 9, cols: ['#fff6ea', '#f0c98a', '#f4a6b8'] }
   ].map((d) => Object.assign({}, d, { hex: d.cols, cols: d.cols.map(rgb) }));
   const DISH_BY_ID = {};
   for (const d of DISHES) DISH_BY_ID[d.id] = d;
@@ -2810,7 +3027,8 @@
   // whole coins, rounded inward so the limit is never exceeded
   const priceMin = (d) => Math.max(1, Math.ceil(d.suggest * (1 - PRICE_RANGE) - 1e-9));
   const priceMax = (d) => Math.floor(d.suggest * (1 + PRICE_RANGE) + 1e-9);
-  const menuSlots = () => Math.min(DISHES.length, 3 + Math.floor(level / 5));
+  const MENU_MAX = 8;                 // menu slots stop here (reached at Lv 25)
+  const menuSlots = () => Math.min(MENU_MAX, 3 + Math.floor(level / 5));
   const defaultMenu = () => DISHES.slice(0, 3).map((d) => ({ dishId: d.id, price: d.suggest }));
   let menu = defaultMenu();           // [{ dishId, price }], the dishes on sale
   /* keeps the menu valid: known, unlocked, unique dishes, prices in range, within the slot count, never empty */
@@ -2858,7 +3076,7 @@
   /* a floor tile that can hold trash: in the room, not the doorway, not under furniture, not the chef's spot, not already used */
   function trashTileFree(x, y) {
     if (!inside(x, y) || (x === DOOR.x && y === DOOR.y) || itemOnTile(x, y) || trashAtTile(x, y)) return false;
-    return !items.some((it) => it.id === 'counter_01' && stoveFront(it).join() === x + ',' + y);
+    return !items.some((it) => isStation(it) && stationFront(it).join() === x + ',' + y);
   }
   /* a happy guest drops something on a free tile near the seat, nearer tiles first */
   function dropTrash(c) {
@@ -2994,7 +3212,10 @@
   function depart(c, outcome) {
     orders = orders.filter((o) => o !== c);
     ready = ready.filter((r) => r.cust !== c);
-    for (const it of items) if (it.cook && it.cook.cust === c) it.cook = null;
+    for (const it of items) {
+      if (it.cook && it.cook.cust === c) it.cook = null;
+      if (it.drip && it.drip.cust === c) it.drip = null;
+    }
     for (const p of staff) if (p.job && p.job.cust === c) p.job.cust = null;
     if (outcome) {
       recordOutcome(outcome);
@@ -3044,8 +3265,13 @@
   const PRICE_ELASTICITY = 1.2;    // guests lost per unit of price above the suggestion
   const DIRT_PENALTY = 0.5;
   const NIGHT_BONUS_PER_LIGHT = 5;
-  const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, plant_01: 4, lantern_01: 3 };
+  const APPEAL = { table_01: 2, chair_01: 1, counter_01: 3, fryer_01: 3, drinks_01: 3, plant_01: 4, lantern_01: 3 };
   function decorValue() { return items.reduce((s, it) => s + (APPEAL[it.id] || 0), 0); }
+  /* what guests order from: the menu dishes whose station type is open (the same list the estimate averages over); if nothing is open they order from the whole menu and leave unserved */
+  function orderableMenu() {
+    const all = activeMenu(), open = planKitchen().open, sold = all.filter((m) => open[m.dish.station]);
+    return sold.length ? sold : all;
+  }
   function economy() {
     const decor = decorValue();
     const curbAppeal = 0;            // storefront arrives in Phase 4
@@ -3053,8 +3279,11 @@
     const nightBonus = lights * NIGHT_BONUS_PER_LIGHT * light.night;
     const appeal = 1 + (decor + curbAppeal + nightBonus) / APPEAL_SCALE;
     const ratingFactor = 0.5 + rating / 100;
-    // menu: guests pick dishes evenly, so plain averages over the dishes on sale
-    const on = activeMenu();
+    // menu: guests pick evenly among the dishes whose station is open, so plain averages over those (project.md 8.1 station rule)
+    const plan = planKitchen();
+    const all = activeMenu();
+    const sold = all.filter((m) => plan.open[m.dish.station]);
+    const on = sold.length ? sold : all;
     const avg = (f) => on.reduce((s, m) => s + f(m), 0) / on.length;
     const avgMenuPrice = avg((m) => m.price), avgCost = avg((m) => m.dish.cost);
     const avgSuggest = avg((m) => m.dish.suggest), avgCook = avg((m) => m.dish.cook);
@@ -3062,15 +3291,23 @@
     const priceFactor = clamp(1 - PRICE_ELASTICITY * (priceRatio - 1), 0.5, 1.4);
     const arrivalRate = BASE_ARRIVAL * appeal * ratingFactor * priceFactor;
     const seats = chairs().filter((ch) => seatTable(ch)).length;
-    // staff rule (project.md 8.1): chefs cook at counters, waiters and helpers carry plates
-    const kitchens = items.filter((it) => it.id === 'counter_01').length;
-    const chefSpeeds = staffOf('chef').map(speedOf).sort((a, b) => b - a);
-    const chefs = chefSpeeds.length;
-    const chefPower = chefSpeeds.slice(0, kitchens).reduce((s, v) => s + v, 0);
+    // staff rule (project.md 8.1): chefs cook at stations, waiters and helpers carry plates
+    const kitchens = plan.list.length, chefs = plan.chefs.length;
+    const chefPower = plan.list.reduce((s, e) => s + (e.chef ? speedOf(e.chef) : 0), 0);
+    // the kitchen side per station type: its chefs' power over its share of the orders (the weakest type limits the whole kitchen)
+    const kitchen = [];
+    for (const t of STATION_TYPES) {
+      const ds = sold.filter((m) => m.dish.station === t);
+      if (!ds.length) continue;
+      const cook = ds.reduce((s, m) => s + m.dish.cook, 0) / ds.length, cap = plan.power[t] * (60 / cook), share = ds.length / sold.length;
+      kitchen.push({ type: t, dishes: ds.length, share, avgCook: cook, chefs: plan.chefsOn[t], stations: plan.count[t], power: plan.power[t], cap, perGuest: cap / share });
+    }
     const waiters = staffOf('waiter').length, helpers = staffOf('helper').length;
     const servePower = staff.reduce((s, p) => s + (p.role === 'chef' ? 0 : powerOf(p)), 0);
     const servesPerChef = 60 / avgCook;
-    const seatCap = seats * SEAT_TURNOVER, kitchenCap = chefPower * servesPerChef, serviceCap = servePower * SERVES_PER_WAITER;
+    const seatCap = seats * SEAT_TURNOVER, serviceCap = servePower * SERVES_PER_WAITER;
+    const kitchenCap = sold.length ? Math.min(...kitchen.map((k) => k.perGuest)) : 0;
+    const binding = sold.length ? kitchen.find((k) => k.perGuest === kitchenCap) : null;
     const capacity = Math.min(seatCap, kitchenCap, serviceCap);
     // guests arrive at random, so some find every seat taken even when the seats could hold them on average
     const seatBlock = seats ? seatBlocking(seats, arrivalRate / SEAT_TURNOVER) : 1;
@@ -3080,20 +3317,40 @@
     const wagesPerMin = wagesNow();
     const incomePerMin = served * margin * cleanFactor - wagesPerMin;
     let hint = '';
+    const SI = STATION_INFO, unopen = all.find((m) => !plan.open[m.dish.station]);
+    const menuTypes = {};
+    for (const m of all) menuTypes[m.dish.station] = (menuTypes[m.dish.station] || 0) + 1;
+    const needs = (d) => d.name + ' needs a ' + (plan.count[d.station] ? 'chef at the ' : '') + SI[d.station].low;
     if (!seats) hint = 'Turn a chair to face a table to make a dining seat';
-    else if (!kitchens) hint = 'Add a stove so the kitchen can cook';
+    else if (!kitchens) hint = 'Add a gas stove so the kitchen can cook';
     else if (!chefs) hint = 'Hire a chef so the kitchen can cook';
     else if (!servePower) hint = 'Hire a waiter to carry plates';
+    else if (!sold.length) {
+      const d = all[0].dish, t = d.station;
+      hint = 'Nothing on the menu can be made: ' + (plan.count[t] ? 'hire a chef for the ' + SI[t].low : 'add a ' + SI[t].low + ' for ' + d.name + ', or put a gas stove dish on the menu');
+    }
     else if (dirtLevel >= TRASH_LIMIT) hint = 'Guests are leaving over trash: tap it, or hire a helper to sweep';
     else if (dirtLevel >= TRASH_LIMIT / 2) hint = 'Trash is piling up: tap it, or hire a helper to sweep';
+    else if (unopen) hint = needs(unopen.dish);
     else if (arrivalRate > capacity || seatBlock > 0.2) {
       if (capacity === seatCap || arrivalRate <= capacity) hint = 'Not enough seats';
-      else if (capacity === kitchenCap) hint = chefs < kitchens ? 'Kitchen is busy: hire a chef' : 'Kitchen is busy: add a stove and a chef';
+      else if (capacity === kitchenCap) {
+        const t = binding.type, low = SI[t].low;
+        if (plan.list.some((e) => e.type === t && !e.chef)) hint = SI[t].name + ' is busy: hire a chef';
+        else {
+          hint = SI[t].name + ' is busy: add a ' + low + ' and a chef';
+          if (menuTypes[t] > all.length / 2 && Object.keys(menuTypes).length > 1) hint += ', or take a ' + low + ' dish off the menu';
+        }
+      }
       else hint = 'Waiters are busy: hire a waiter or helper';
     }
-    else if (chefs > kitchens) hint = 'A chef has no stove: add a stove';
+    else if (chefs > kitchens) hint = 'A chef has no station: add a gas stove, fryer or drink machine';
+    else if (plan.list.some((e) => e.chef && !menuTypes[e.type])) {
+      const t = plan.list.find((e) => e.chef && !menuTypes[e.type]).type;
+      hint = 'The ' + SI[t].name + ' has nothing on the menu: add a ' + SI[t].dish + ' dish';
+    }
     else if (arrivalRate < capacity * 0.6) hint = priceFactor < 0.8 ? 'Prices are high: fewer guests are coming' : 'Low appeal: add plants and lanterns';
-    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seatBlock, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
+    return { decor, curbAppeal, nightBonus, appeal, ratingFactor, priceRatio, priceFactor, arrivalRate, seatBlock, seats, kitchens, chefs, waiters, helpers, chefPower, servePower, servesPerChef, seatCap, kitchenCap, serviceCap, capacity, served, kitchen, sold: sold.length, open: Object.assign({}, plan.open), avgMenuPrice, avgCost, avgCook, margin, cleanFactor, wagesPerMin, incomePerMin, hint };
   }
   function pay(c) {
     // the guest pays the menu price; the dish cost comes out of it, so coins grow by the margin
@@ -3141,7 +3398,7 @@
           c.seated = true;
           c.t = 0;
           if (c.table) {
-            const order = pick(activeMenu());
+            const order = pick(orderableMenu());
             c.dish = order.dish;
             c.price = order.price;
             c.state = 'ordering';
@@ -3178,26 +3435,51 @@
     }
   }
 
-  /* each counter is cooked at by the chef stationed beside it (assignStations), only while that chef stands there */
+  /* a station lost its chef: the dish in the pan goes back to the front of the queue */
+  function cancelCook(it) {
+    if (it.cook && it.cook.cust && it.cook.cust.state === 'waitFood') orders.unshift(it.cook.cust);
+    it.cook = null;
+  }
+  const DRIP_TIME = 0.4;      // the fryer basket lifts and drips this long before the plate shows on the tray
+  /* each station is cooked at by the chef stationed beside it (assignStations), only while that chef stands there, and only for
+     the first order of its own type (the fryer takes fried dishes, the drink machine drinks) */
   function updateKitchen(dt) {
     for (const it of items) {
-      if (it.id !== 'counter_01') continue;
-      const chef = staff.find((p) => p.role === 'chef' && p.counter === it);
-      if (!chef) {
-        if (it.cook) { if (it.cook.cust && it.cook.cust.state === 'waitFood') orders.unshift(it.cook.cust); it.cook = null; }
-        continue;
+      if (!isStation(it)) continue;
+      if (it.drip && (it.drip.t -= dt) <= 0) {
+        const c = it.drip.cust;
+        it.drip = null;
+        if (c && c.state === 'waitFood' && c.seat) ready.push({ cust: c, dish: c.dish, counter: it });
       }
+      const chef = staff.find((p) => p.role === 'chef' && p.counter === it);
+      if (!chef) { cancelCook(it); continue; }
       if (!atStation(chef)) continue;
-      if (!it.cook && orders.length) {
-        const cust = orders.shift();
-        it.cook = { cust, t: 0, dur: cust.dish.cook };
+      const type = CATALOG[it.id].station;
+      if (!it.cook) {
+        const q = orders.findIndex((c) => c.dish.station === type);
+        if (q >= 0) { const cust = orders.splice(q, 1)[0]; it.cook = { cust, t: 0, dur: cust.dish.cook }; }
       }
       if (!it.cook) continue;
       it.cook.t += dt * speedOf(chef);
       if (it.cook.t < it.cook.dur) continue;
       const cust = it.cook.cust;
       it.cook = null;
-      if (cust && cust.state === 'waitFood' && cust.seat) ready.push({ cust, dish: cust.dish, counter: it });
+      if (type === 'fryer') it.drip = { t: DRIP_TIME, cust };
+      else if (cust && cust.state === 'waitFood' && cust.seat) ready.push({ cust, dish: cust.dish, counter: it });
+    }
+  }
+  /* A station type just closed (its last station lost its chef or was removed, or the menu changed): guests still waiting for it
+     order again from the open dishes. If nothing is open they keep waiting and may leave with the clock bubble. */
+  function reorderClosed() {
+    for (const it of items) if (isStation(it) && !staff.some((p) => p.role === 'chef' && p.counter === it)) cancelCook(it);
+    const open = planKitchen().open, menuNow = orderableMenu();
+    if (!open.stove && !open.fryer && !open.drinks) return;
+    for (const c of customers) {
+      const waiting = c.state === 'ordering' || (c.state === 'waitFood' && orders.includes(c));
+      if (!waiting || !c.dish || open[c.dish.station]) continue;
+      const again = pick(menuNow);
+      c.dish = again.dish;
+      c.price = again.price;
     }
   }
   /* a guest whose plate is set down starts eating */
@@ -3260,7 +3542,7 @@
       } else if (c.state === 'leaving' && c.path.length) walkTo(c, DOOR.x, DOOR.y);
     }
     for (const c of customers) {
-      if (c.state === 'waitFood' && !orders.includes(c) && !ready.some((r) => r.cust === c) && !items.some((it) => it.cook && it.cook.cust === c)) orders.unshift(c);
+      if (c.state === 'waitFood' && !orders.includes(c) && !ready.some((r) => r.cust === c) && !items.some((it) => (it.cook && it.cook.cust === c) || (it.drip && it.drip.cust === c))) orders.unshift(c);
     }
     staffOnLayout();
   }
@@ -3312,7 +3594,7 @@
       row('Prices', Math.round(e.priceRatio * 100) + '% of suggested', '×' + e.priceFactor.toFixed(2)) +
       row('Guests arriving', BASE_ARRIVAL + '/min × appeal × rating × prices', n1(e.arrivalRate) + '/min') +
       row('Seats', plural(e.seats, 'dining seat') + ' × ' + SEAT_TURNOVER, n1(e.seatCap) + '/min') +
-      row('Kitchen', plural(e.chefs, 'chef') + ', ' + plural(e.kitchens, 'stove') + ', ' + n1(e.servesPerChef) + ' dishes/min at speed 1', n1(e.kitchenCap) + '/min') +
+      kitchenRows(e, row, n1, plural) +
       row('Service', plural(e.waiters, 'waiter') + (e.helpers ? ' + ' + plural(e.helpers, 'helper') + ' at half pace' : '') + ', ' + SERVES_PER_WAITER + ' plates/min at speed 1', n1(e.serviceCap) + '/min') +
       row('Served', 'guests arriving' + (e.seats ? ', minus ' + Math.round(e.seatBlock * 100) + '% who find every seat taken' : '') + ', up to the kitchen and service', n1(e.served) + '/min') +
       row('Per guest', 'avg price ' + n1(e.avgMenuPrice) + ' − cost ' + n1(e.avgCost) + ', ' + menu.length + ' on the menu', '+' + n1(e.margin)) +
@@ -3323,6 +3605,16 @@
     bdHint.textContent = e.hint;
     const why = topReason();
     bdNote.textContent = (why ? 'Recent guests who left unhappy mostly said ' + REASON_TEXT[why] + '. ' : '') + plural(stats.served, 'happy guest') + ' served so far.';
+  }
+  /* the Kitchen row: one row while a single station type is cooking (as before), one per open type otherwise, the limiting one marked */
+  function kitchenRows(e, row, n1, plural) {
+    const ks = e.kitchen;
+    if (ks.length === 1) {
+      const k = ks[0];
+      return row('Kitchen', plural(k.chefs, 'chef') + ', ' + plural(k.stations, STATION_INFO[k.type].low) + ', ' + n1(60 / k.avgCook) + ' dishes/min at speed 1', n1(e.kitchenCap) + '/min');
+    }
+    if (!ks.length) return row('Kitchen', plural(e.chefs, 'chef') + ', ' + plural(e.kitchens, 'station') + ', nothing on the menu can be made', n1(0) + '/min');
+    return ks.map((k) => row('Kitchen: ' + STATION_INFO[k.type].head, plural(k.chefs, 'chef') + ', ' + plural(k.stations, STATION_INFO[k.type].low) + ', ' + Math.round(k.share * 100) + '% of orders, ' + n1(60 / k.avgCook) + ' dishes/min each', n1(k.perGuest) + '/min' + (k.perGuest === e.kitchenCap ? ' (limit)' : ''))).join('');
   }
   function setBreakdown(open) {
     breakdownEl.hidden = !open;
@@ -3336,6 +3628,14 @@
   function drawPlate(ch, z) {
     const [px, py] = plateSpot(ch);
     const sx = PX(px, py), sy = PY(px, py, z === undefined ? 18.3 : z);
+    if (ch.plate.dish.station === 'drinks') {
+      // a saucer with the cup on it; the empty cup is the dirty state
+      ctx.fillStyle = lit(PLATE, 1);
+      ctx.beginPath(); ctx.ellipse(sx, sy, 5.6, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      const full = ch.plate.state === 'full';
+      drawCup(sx, sy + 0.6, ch.plate.dish, full ? 1 - ch.plate.eaten : 0, 1, !full);
+      return;
+    }
     ctx.fillStyle = lit(PLATE, 1);
     ctx.beginPath(); ctx.ellipse(sx, sy, 6.4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = lit(P.cream, 1.02);
@@ -4065,7 +4365,34 @@
     ctx.save();
     ctx.translate(hx, b.hb); ctx.scale(b.faceR ? PERSON_SCALE : -PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
     ctx.globalAlpha *= clamp(b.alpha, 0, 1) * peopleVis;
-    if (b.cooking) {
+    if (b.cooking && b.station === 'fryer') {
+      // the hand at the end of the reaching arm holds the basket handle and gives it a small shake about once a second
+      const sh = reduced || ((now * 0.001) % 1.1) > 0.3 ? 0 : Math.sin(now * 0.05) * 0.9;
+      const hx2 = hx + 8.4, hy2 = hc + 7.5 + sh;
+      ctx.strokeStyle = lit(P.mat, 1); ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(hx2, hy2); ctx.lineTo(hx2 - 1.4, hy2 - 6); ctx.stroke();
+      ctx.strokeStyle = lit(P.cream, 1); ctx.lineWidth = 2.2; ctx.lineCap = 'butt';
+      ctx.beginPath(); ctx.moveTo(hx2 - 0.2, hy2 - 0.4); ctx.lineTo(hx2 - 0.9, hy2 - 3); ctx.stroke();
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.ellipse(hx2, hy2, 1.35, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (b.cooking && b.station === 'drinks' && b.cookIt && b.cookIt.cook) {
+      // the hand holds a cup under a tap: a thin stream arcs from the tap into it and the cup fills with the progress
+      const ck = b.cookIt.cook, dish = ck.cust.dish, prog = clamp(ck.t / ck.dur, 0, 1), k = b.faceR ? PERSON_SCALE : -PERSON_SCALE;
+      const hx2 = hx + 8.4, hy2 = hc + 7.5, cupTop = hy2 - 6;
+      const kit = stationKit(b.cookIt);
+      let tx = 0, ty = 0, best = Infinity;
+      for (const u of [-0.15, 0.15]) {
+        const [qx, qy] = kit.S(u, 0.36, 17.5), lx = hx + (qx - hx) / k;
+        if (Math.abs(lx - hx2) < best) { best = Math.abs(lx - hx2); tx = lx; ty = b.hb + (qy - b.hb) / PERSON_SCALE; }
+      }
+      if (prog < 0.97) {
+        ctx.strokeStyle = lit(dish.cols[1], 1); ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.quadraticCurveTo(tx + (hx2 - tx) * 0.12, cupTop - 3, hx2, cupTop + 1); ctx.stroke();
+      }
+      drawCup(hx2, hy2 + 1.5, dish, prog, 0.85);
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.ellipse(hx2 + 2.6, hy2 - 1.2, 1.35, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (b.cooking) {
       // the stirring hand at the end of the arm that reaches out to the pot (painted in the turned pose), with the spoon
       const a = reduced ? 0 : now * 0.008;
       const hx2 = hx + 8.4 + Math.cos(a) * 0.8, hy2 = hc + 7.5 + Math.sin(a) * 0.5;
@@ -4074,7 +4401,13 @@
       ctx.fillStyle = lit(b.skin, 1);
       ctx.beginPath(); ctx.ellipse(hx2, hy2, 1.35, 1.5, 0, 0, Math.PI * 2); ctx.fill();
     }
-    if (b.carry) {
+    if (b.carry && b.carry.station === 'drinks') {
+      // a drink is carried as a cup, in the same hand spot as a plate
+      const sx = hx + 6.5, sy = hc + 7;
+      drawCup(sx, sy + 1.5, b.carry, 1, 0.85);
+      ctx.fillStyle = lit(b.skin, 1);
+      ctx.beginPath(); ctx.arc(sx - 3, sy, 1.6, 0, Math.PI * 2); ctx.fill();
+    } else if (b.carry) {
       // the carried plate is drawn at table-plate size on screen (0.6 of its old size, then grown with the person)
       const sx = hx + 6.5, sy = hc + 7;
       ctx.save();
@@ -4191,7 +4524,7 @@
      ================================================================ */
   // power: share of speed that counts as work (helpers carry plates at half pace)
   const ROLES = {
-    chef: { name: 'Chef', job: 'cooks at a stove', power: 1, wage: [2, 3, 4, 6] },
+    chef: { name: 'Chef', job: 'cooks at a station', power: 1, wage: [2, 3, 4, 6] },
     waiter: { name: 'Waiter', job: 'carries plates', power: 1, wage: [1, 2, 3, 4] },
     helper: { name: 'Helper', job: 'helps with plates at half pace', power: 0.5, wage: [1, 1, 2, 3] }
   };
@@ -4332,9 +4665,29 @@
     return true;
   }
 
-  /* Stations: chefs get a free tile beside their counter (fastest chef to the first
-     counter), then waiters and helpers take the next free tiles beside a counter, or
-     the nearest free tile to one. Only tiles reachable from the door count. */
+  /* THE kitchen plan (project.md 7.1 "Stations"): which chef works which station, and which station types are open. economy() and
+     assignStations() both read it, so the estimate and the floor cannot drift apart. Chefs go fastest first. Stations are ordered so
+     that every station type with a dish on the menu gets its first chef before any type gets a second (types with more menu dishes
+     first, ties stove, fryer, drinks, then item order); stations whose type has no menu dish come last. A type is open when one of
+     its stations has a chef. */
+  function planKitchen() {
+    const zero = () => ({ stove: 0, fryer: 0, drinks: 0 });
+    const count = zero(), power = zero(), chefsOn = zero(), onMenu = zero(), open = { stove: false, fryer: false, drinks: false };
+    const byType = { stove: [], fryer: [], drinks: [] };
+    for (const it of items) if (isStation(it)) { const t = CATALOG[it.id].station; byType[t].push(it); count[t]++; }
+    for (const m of menu) { const d = DISH_BY_ID[m.dishId]; if (d) onMenu[d.station]++; }
+    const wanted = STATION_TYPES.filter((t) => onMenu[t] > 0).sort((a, b) => onMenu[b] - onMenu[a] || STATION_TYPES.indexOf(a) - STATION_TYPES.indexOf(b));
+    const order = [];
+    for (let r = 0; wanted.some((t) => byType[t][r]); r++) for (const t of wanted) if (byType[t][r]) order.push(byType[t][r]);
+    for (const t of STATION_TYPES) if (!onMenu[t]) order.push(...byType[t]);
+    const chefs = staffOf('chef').sort((a, b) => speedOf(b) - speedOf(a));
+    const list = order.map((it, i) => ({ it, type: CATALOG[it.id].station, chef: chefs[i] || null }));
+    for (const e of list) if (e.chef) { power[e.type] += speedOf(e.chef); chefsOn[e.type]++; open[e.type] = true; }
+    return { list, chefs, count, power, chefsOn, open };
+  }
+
+  /* Stations: chefs get a free tile beside their station (planKitchen says which), then waiters and helpers
+     take the next free tiles beside a station, or the nearest free tile to one. Only tiles reachable from the door count. */
   function assignStations() {
     const blocked = blockedGrid();
     const seen = new Uint8Array(N * N);
@@ -4349,8 +4702,8 @@
     }
     const taken = new Set([start]);
     const free = (x, y) => inside(x, y) && seen[x + y * N] && !taken.has(x + y * N);
-    const counters = items.filter((it) => it.id === 'counter_01');
-    // the front of the stove first (see stoveFront), then any other side (only older layouts with something in front need that)
+    const counters = items.filter(isStation);
+    // the front of the station first (see stationFront), then any other side (only older layouts with something in front need that)
     function beside(it) {
       for (const [sx, sy] of [it.rot % 2 === 0 ? [0, 1] : [1, 0]].concat(STEPS)) for (const [cx, cy] of cells(it)) if (free(cx + sx, cy + sy)) return [cx + sx, cy + sy];
       return null;
@@ -4370,8 +4723,8 @@
       }
       return [DOOR.x, DOOR.y];
     }
-    const chefs = staffOf('chef').sort((a, b) => speedOf(b) - speedOf(a));
-    chefs.forEach((p, i) => { p.counter = counters[i] || null; });
+    const plan = planKitchen(), chefs = plan.chefs;
+    for (const p of chefs) { const e = plan.list.find((q) => q.chef === p); p.counter = e ? e.it : null; }
     for (const p of chefs.concat(staff.filter((x) => x.role !== 'chef'))) {
       if (p.role !== 'chef') p.counter = null;
       let spot = p.counter ? beside(p.counter) : null;
@@ -4422,6 +4775,8 @@
         if (arrived && !atStation(p)) goHome(p);
         b.cooking = !!(p.counter && p.counter.cook) && atStation(p);
         b.atStove = !!p.counter && atStation(p);
+        b.station = p.counter ? CATALOG[p.counter.id].station : '';
+        b.cookIt = b.cooking ? p.counter : null;   // the station being worked, for the hand and cup in drawStaffBits
         if (p.counter && atStation(p)) { const [w, d] = dims(p.counter.id, p.counter.rot); faceToward(b, p.counter.x + w / 2, p.counter.y + d / 2); }
         continue;
       }
@@ -4491,6 +4846,7 @@
   /* the layout or the team changed: new stations, and everyone on the move re-paths */
   function staffOnLayout() {
     assignStations();
+    reorderClosed();
     for (const p of staff) {
       const b = bodyOf(p), j = p.job;
       if (!j) { if (!atStation(p)) goHome(p); continue; }
@@ -4504,6 +4860,7 @@
         if (items.includes(j.counter)) walkNear(b, j.counter); else dropJob(p);
       } else walkNear(b, j.cust.seat);
     }
+    refreshKitchenUi();
   }
   /* a new hire fades in at the door and walks to their station */
   function staffJoins(p) {
@@ -4880,6 +5237,7 @@
   }
 
   function placeAt(x, y) {
+    if (itemUnlock(tool) > level) { toast(nameOf(tool) + ' unlocks at level ' + itemUnlock(tool)); return false; }
     const cand = { id: tool, x, y, rot: ghostRot, variant: nextVariant[tool] || 0, born: performance.now(), anim: 'pop' };
     const reason = checkPlace(cand, null);
     if (reason) { toast(REASON[reason]); announce(REASON[reason] + '.'); return false; }
@@ -5236,12 +5594,12 @@
         face: wall ? wallSwatchCss(st) : FLOOR_SWATCH[st.pattern](st.hex), unit: wall ? ' per wall piece' : ' per floor tile'
       }));
     } else if (c.items) {
-      for (const id of c.items) VARIANTS[id].list.forEach((v, i) => gridList.push({ id, i, name: nameOf(id) + ': ' + v.name, price: priceOfItem(id, i), face: thumbFace(id, i), unit: '' }));
+      for (const id of c.items) VARIANTS[id].list.forEach((v, i) => gridList.push({ id, i, name: nameOf(id) + ': ' + v.name, price: priceOfItem(id, i), face: thumbFace(id, i), unit: '', unlock: itemUnlock(id) }));
     }
     for (const g of gridList) {
       const b = makeDesign(g.face, g.name, g.price);
       b.classList.add('dz');
-      b.insertAdjacentHTML('beforeend', '<span class="dz-badge" aria-hidden="true" hidden></span>');
+      b.insertAdjacentHTML('beforeend', '<span class="dz-lock" aria-hidden="true" hidden></span><span class="dz-badge" aria-hidden="true" hidden></span>');
       b.dataset.say = b.getAttribute('aria-label') + (g.price ? g.unit : '');
       b.addEventListener('click', () => pickDesign(g));
       gridEl.appendChild(b);
@@ -5257,14 +5615,19 @@
     if (builtCat !== cat) { buildGrid(); return; }
     let pressed = -1;
     gridList.forEach((g, q) => {
-      const b = gridEl.children[q], badge = b.lastChild;
-      const on = g.kind ? tool === 'paint' && !!paint && paint.kind === g.kind && paint.i === g.i : tool === g.id && (nextVariant[g.id] | 0) === g.i;
+      const b = gridEl.children[q], badge = b.lastChild, lock = b.children[b.children.length - 2];
+      const locked = (g.unlock || 1) > level;
+      b.classList.toggle('locked', locked);
+      lock.hidden = !locked;
+      lock.textContent = 'Lv ' + (g.unlock || 1);
+      const on = !locked && (g.kind ? tool === 'paint' && !!paint && paint.kind === g.kind && paint.i === g.i : tool === g.id && (nextVariant[g.id] | 0) === g.i);
       if (on) pressed = q;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
       const n = placedCount(g);
       badge.hidden = !n;
       badge.textContent = n;
-      b.setAttribute('aria-label', b.dataset.say + (n ? ', ' + n + (g.kind ? (n === 1 ? ' piece' : ' pieces') + ' in the room' : ' placed') : ''));
+      b.setAttribute('aria-label', b.dataset.say + (locked ? ', unlocks at level ' + g.unlock : '') + (n ? ', ' + n + (g.kind ? (n === 1 ? ' piece' : ' pieces') + ' in the room' : ' placed') : ''));
+      if (locked) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
     });
     // a newly chosen design that sits on another page (picked by key or remembered) slides into view
     if (pressed !== gridPressed) {
@@ -5295,6 +5658,12 @@
     if (g.kind) {
       if (tool === 'paint' && paint && paint.kind === g.kind && paint.i === g.i) selectTool('move', true);
       else startPaint(g.kind, g.i);
+      return;
+    }
+    if ((g.unlock || 1) > level) {
+      const msg = nameOf(g.id) + ' unlocks at level ' + g.unlock;
+      toast(msg);
+      announce(msg + '.');
       return;
     }
     if (tool === g.id && (nextVariant[g.id] | 0) === g.i) { selectTool('move', true); return; }
@@ -5380,7 +5749,17 @@
   const menuList = document.getElementById('menu-list');
   const menuSub = document.getElementById('menu-sub');
   const lastPrice = {};        // remembers a price while its dish is off the menu
-  const menuRows = DISHES.map((d) => {
+  // dishes sit under a small header per station type (Gas stove, Fryer, Drinks), in DISHES order inside each
+  const menuRows = [];
+  for (const type of STATION_TYPES) {
+    const h = document.createElement('li');
+    h.className = 'dish-h';
+    h.setAttribute('role', 'presentation');
+    h.textContent = STATION_INFO[type].head;
+    menuList.appendChild(h);
+    for (const d of DISHES) if (d.station === type) menuRows.push(makeMenuRow(d));
+  }
+  function makeMenuRow(d) {
     const li = document.createElement('li');
     li.className = 'dish';
     const c = d.hex;
@@ -5390,7 +5769,7 @@
         '<g class="food"><ellipse cx="17" cy="16.5" rx="7.5" ry="4.4" fill="' + c[0] + '"/><circle cx="14.6" cy="13.8" r="3.6" fill="' + c[1] + '"/><circle cx="20.4" cy="14.4" r="2.2" fill="' + c[2] + '"/></g>' +
         '<g class="plus"><circle cx="17" cy="18" r="6" fill="#f2e6da"/><path d="M17 15v6M14 18h6" stroke="#a897a2" stroke-width="1.8" stroke-linecap="round"/></g></svg>' +
       '</button>' +
-      '<div><p class="dish-name">' + d.name + '</p><p class="dish-meta">Sugg. ' + d.suggest + ' · cost ' + d.cost + ' · ' + d.cook + 's cook</p></div>' +
+      '<div><p class="dish-name">' + d.name + '</p><p class="dish-meta">Sugg. ' + d.suggest + ' · cost ' + d.cost + ' · ' + d.cook + 's cook</p><p class="dish-note" hidden></p></div>' +
       '<div class="dish-price"><button type="button" class="chip down">&minus;</button><span class="price-read"><b></b><small></small></span><button type="button" class="chip up">+</button></div>' +
       '<span class="lock-read">Lv ' + d.unlock + '</span>';
     const r = {
@@ -5399,20 +5778,30 @@
       food: li.querySelector('.food'), plus: li.querySelector('.plus'),
       price: li.querySelector('.dish-price'), down: li.querySelector('.down'), up: li.querySelector('.up'),
       read: li.querySelector('.price-read b'), pct: li.querySelector('.price-read small'),
-      lock: li.querySelector('.lock-read')
+      lock: li.querySelector('.lock-read'), note: li.querySelector('.dish-note')
     };
     r.toggle.addEventListener('click', () => toggleDish(d));
     r.down.addEventListener('click', () => stepPrice(d, -1));
     r.up.addEventListener('click', () => stepPrice(d, 1));
     menuList.appendChild(li);
     return r;
-  });
+  }
   const menuEntry = (d) => menu.find((m) => m.dishId === d.id);
   function menuChanged(msg) {
+    kitchenChanged();
     renderMenu();
     updateMoneyHud();
     saveSoon();
     if (msg) announce(msg);
+  }
+  /* the menu decides which station types have work, so chefs may move to other stations and waiting guests may order again */
+  /* an open menu sheet shows which dishes lack a station or a chef, so it follows layout and team changes */
+  function refreshKitchenUi() {
+    if (openSheet() === 'menu') renderMenu();
+  }
+  function kitchenChanged() {
+    assignStations();
+    reorderClosed();
   }
   function toggleDish(d) {
     const m = menuEntry(d);
@@ -5423,7 +5812,7 @@
       menuChanged(d.name + ' taken off the menu.');
     } else {
       if (d.unlock > level) { toast(d.name + ' unlocks at level ' + d.unlock); return; }
-      if (menu.length >= menuSlots()) { toast('All ' + menuSlots() + ' menu slots are full. More slots at level ' + (Math.floor(level / 5) + 1) * 5); return; }
+      if (menu.length >= menuSlots()) { toast('All ' + menuSlots() + ' menu slots are full.' + (menuSlots() < MENU_MAX ? ' More slots at level ' + (Math.floor(level / 5) + 1) * 5 : '')); return; }
       menu.push({ dishId: d.id, price: lastPrice[d.id] || d.suggest });
       menu.sort((a, b) => DISHES.indexOf(DISH_BY_ID[a.dishId]) - DISHES.indexOf(DISH_BY_ID[b.dishId]));
       menuChanged(d.name + ' added to the menu.');
@@ -5439,7 +5828,8 @@
   }
   function renderMenu() {
     const slots = menuSlots();
-    menuSub.textContent = menu.length + ' of ' + slots + ' slots used · ' + (slots < DISHES.length ? 'next slot at Lv ' + (Math.floor(level / 5) + 1) * 5 : 'all slots open');
+    menuSub.textContent = menu.length + ' of ' + slots + ' slots used · ' + (slots < MENU_MAX ? 'next slot at Lv ' + (Math.floor(level / 5) + 1) * 5 : 'all slots open');
+    const plan = planKitchen();
     for (const r of menuRows) {
       const m = menuEntry(r.d), locked = r.d.unlock > level, on = !!m;
       r.li.classList.toggle('on', on);
@@ -5452,6 +5842,10 @@
       r.price.hidden = locked;
       r.price.style.display = locked ? 'none' : '';
       r.lock.style.display = locked ? '' : 'none';
+      // a soft note when nothing can make this dish yet; the dish can still go on the menu, it is just not ordered
+      const st = r.d.station, note = locked || plan.open[st] ? '' : 'needs a ' + (plan.count[st] ? 'chef at the ' : '') + STATION_INFO[st].low;
+      r.note.hidden = !note;
+      r.note.textContent = note;
       const price = on ? m.price : lastPrice[r.d.id] || r.d.suggest;
       const pct = Math.round((price / r.d.suggest - 1) * 100);
       r.read.textContent = price;
@@ -6189,10 +6583,10 @@
         stats: Object.assign({}, stats), orders: orders.length, ready: ready.length, dirtLevel, trash: trash.map((t) => ({ x: t.x, y: t.y, kind: t.kind })),
         staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2),
           home: p.home && p.home.slice(), x: +bodyOf(p).x.toFixed(2), y: +bodyOf(p).y.toFixed(2), job: p.job ? p.job.kind : null, carrying: !!bodyOf(p).carry, cooking: bodyOf(p).cooking })),
-        leavers: leavers.length,
+        leavers: leavers.length, plan: planKitchen().list.map((e) => ({ id: e.it.id, x: e.it.x, y: e.it.y, chef: e.chef ? e.chef.id : null })),
         candidates: candidates.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, fee: hireFee(p) })), staffCap: staffCap(),
         items: items.map((it) => ({ id: it.id, x: it.x, y: it.y, rot: it.rot, variant: it.variant, occupied: !!it.occupant, plate: it.plate ? it.plate.state : null, cooking: !!it.cook })),
-        customers: customers.map((c) => ({ state: c.state, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
+        customers: customers.map((c) => ({ state: c.state, dish: c.dish ? c.dish.id : null, x: +c.x.toFixed(2), y: +c.y.toFixed(2), seat: c.seat ? [c.seat.x, c.seat.y] : null, bubble: c.bubble ? c.bubble.type : null }))
       })
     };
   }
