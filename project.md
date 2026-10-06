@@ -156,7 +156,7 @@ Each customer ends their visit satisfied or unsatisfied. This feeds the shop rat
 - One chef per counter. A chef without a free counter waits politely off to the side or helps with dishes. The UI hint says "Add a stove" when chefs outnumber counters.
 - A waiter walks to the pickup spot, takes the plate, and carries it to the customer's table.
 - With no chef, a counter still cooks but slower, so a new player is never blocked. Chef speed multiplies the counter's cook time.
-- Different stove types per dish (wok, pot, grill) are not part of Phase 3; they are planned in Phase 3g (fryer, drink machine).
+- Different stove types per dish (wok, pot, grill) are not part of Phase 3; Phase 3g adds a fryer and a drink machine (see "Stations (Phase 3g)" below and the station rule in 8.1).
 
 **Staff model (Phase 3a).** These rules are in use from Phase 3a on.
 
@@ -196,6 +196,24 @@ Phase 3a is the model, hire list and economy. Staff drawn walking on the floor i
 - **Clearing tables:** a free waiter or helper with no plate to carry walks to a dirty plate on an empty seat and clears it (table section 6.1, "dirty plate"). The player can still tap a table to clear it at once.
 - **Hiring and letting go:** a new hire walks in through the door to their station; someone let go walks out and fades. A plate they were carrying goes back to the counter for the next waiter.
 - Guests and staff can pass through each other; only furniture blocks the way.
+
+**Stations (Phase 3g, spec written in 3g4, built in 3g5).** The kitchen gets three kinds of station. Each is a 1x1 item, placed anywhere (no kitchen zone, no wall rule); the only rules are the existing ones: its front tile stays clear for its chef, and every seat keeps a path from the door. One chef per station.
+
+| Station type | Item id | Label | Price | Cooks | First dish |
+|---|---|---|---|---|---|
+| `stove` | `counter_01` (kept, so saves load) | Gas stove (was "Stove") | 60 to 110 by design, as today | rice, noodles, pancakes, dumplings, curry, parfait | Lv 1 |
+| `fryer` | `fryer_01` (new) | Fryer | 85 | fried dishes | Lv 3 |
+| `drinks` | `drinks_01` (new) | Drink machine | 75 | drinks | Lv 2 |
+
+- `CATALOG` gets a `station` field (`'stove'`, `'fryer'`, `'drinks'`); every place that today tests `id === 'counter_01'` (front tile rule, trash, chef spots, `updateKitchen`, the pickup) tests `isStation(it)` instead, and `stoveFront` becomes `stationFront`. Rotation mirrors the fryer and drink machine like the stove.
+- **Locked until useful:** the fryer and drink machine show in the build grid with a "Lv 3" / "Lv 2" badge and cannot be bought before their first dish unlocks, so a new player never buys a station that has nothing to make (open question Q3).
+- **Chef assignment** (`planKitchen()`, shared by `economy()` and `assignStations()` so the estimate and the floor agree): chefs sorted fastest first; stations sorted so that every station type with a dish on the menu gets its first chef before any type gets a second (types with more menu dishes first, ties stove, fryer, drinks, then item order); stations whose type has no menu dish come last. A chef with no station waits off to the side as today ("A chef has no station"). A chef at a station with nothing on the menu stands there idle.
+- **Open types:** a station type is *open* when at least one station of it has a chef. Guests only order menu dishes of open types (8.1 station rule), so no guest ever waits for food nobody can make. If nothing on the menu is open, guests order as today and leave with the clock bubble, and the hint names the fix.
+- **Orders:** there is still one `orders` queue. A chef takes the first order whose dish matches the station's type. When the layout or the team changes and a type closes, guests already waiting for that type order again from the open dishes (`reorderClosed()`); if none is open they keep waiting and may leave with the clock bubble, as with a removed stove today.
+- **Pickup:** every station keeps its finished food on itself, like the stove's pickup shelf: the fryer has a side tray for the plate, the drink machine its drip tray for the cup. `ready` entries keep pointing at the station (`counter`), so waiters and helpers need no new logic. Drinks are carried and set down as a cup instead of a plate, and a finished cup is cleared like a dirty plate.
+- **Chef at the fryer:** stands at the front tile facing it, same front view as at the stove; while cooking the near arm holds the basket handle and gives it a small shake every second or so; when the dish is done the basket lifts and drips for about 0.4 s, then the plate appears on the side tray.
+- **Chef at the drink machine:** stands at the front, the near arm holds a cup under a tap; a thin pour stream runs and the cup fills with the progress; when done the cup goes to the drip tray.
+- New work for 3g5: the two items and their draw functions (ported from `scratch/mockup-decor.html`), their idle and working states, the cup drawing (on the tray, in hand, on the table, empty), the two chef poses, the level lock in the build grid, and everything in the 8.1 station rule. The progress ring, the pickup flow, the front tile rule and the walking are reused.
 
 ### 7.2 Dirt and Trash
 - Trash and spills spawn over time, proportional to number of customers served.
@@ -274,6 +292,79 @@ income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
 - The breakdown shows Seats, Kitchen and Service as separate rows and the hint names the bottleneck: "Not enough seats", "Kitchen is busy: hire a chef" or "add a counter", "Waiters are busy: hire a waiter or helper", "Hire a chef so the kitchen can cook", "Hire a waiter to carry plates", or "A chef has no counter" when a chef is idle. From Phase 3e, dirt at half the trash limit or more shows "Trash is piling up: tap it, or hire a helper to sweep" (and "Guests are leaving over trash" at the limit), ahead of the capacity and appeal hints. The order is: missing seat, stove, chef or waiter; trash; seats, kitchen or service shortfall; idle chef; low appeal or high prices.
 - Wage check (8.2): a Brisk waiter fully busy carries 6 guests a minute; even at the cheapest dish and lowest price (margin 5) that is 30 coins/min against a wage of 2. Staff only cost more than they earn when they are idle, and the hint says so.
 
+**Station rule (Phase 3g, spec 3g4, waiting for the user's approval; built in 3g5).**
+
+*Choice.* Two designs were compared:
+
+| | A. Every dish has a station (chosen) | B. Stations are boosters |
+|---|---|---|
+| Rule | Each dish carries `station` (`stove`, `fryer`, `drinks`). Guests only order menu dishes whose station type is open (placed and staffed). | The stove still cooks everything. A fryer adds extra fried dishes; a drink machine adds a drink a guest may order on top of the meal for a bonus. |
+| Good | One clear idea ("fried food needs a fryer"); one dish per guest, so seats, plates, waiters, `seatBlock` and `cleanFactor` stay as they are; existing saves are all-stove, so nothing changes for them. | No station is ever "needed"; a drink add-on raises income per guest without a new seat. |
+| Bad | Food of one type can only be made at that type, so a menu heavy on one type with one station of it is slower than the same chefs all at stoves (pooling loss, see example 2). | A guest with two items needs a second carry, a second pickup and a combined bubble; the fryer becomes a second stove with another look; the formula needs an add-on rate that has to be tuned. |
+
+A is recommended: it matches the user's wish that fried food and drinks are their own things, it changes only the kitchen side of the formula, and it cannot strand a guest (closed types are not ordered). What the user loses: the "drink on the side" bonus, and the kitchen gets a planning puzzle (match stations to the menu) instead of being a pure booster. The hint and the menu sheet carry that puzzle.
+
+*Dishes.* The six existing dishes are all `stove` dishes (no change). Six new dishes are appended (ids `dish_07` to `dish_12`; `cols` are cup or plate, food, topping). Margin per second of cook time stays on the existing curve (about 1.6 at Lv 1 rising to about 2.1 at Lv 10), so no station is a trap or a jackpot:
+
+| Id | Dish | Station | Price | Cost | Cook (s) | Lv | Margin/s | cols |
+|---|---|---|---|---|---|---|---|---|
+| dish_01 to 06 | (unchanged) | stove | | | | 1 to 10 | 1.60 to 2.14 | |
+| dish_07 | Peach Fizz Soda | drinks | 11 | 3 | 5 | 2 | 1.60 | `#ffd9c9`, `#ffb5a7`, `#fff6ea` |
+| dish_08 | Minty Pearl Tea | drinks | 17 | 6 | 6 | 4 | 1.83 | `#e6f4ec`, `#b8e0d2`, `#8a6f7e` |
+| dish_09 | Starlit Berry Float | drinks | 26 | 10 | 8 | 8 | 2.00 | `#e9dcf2`, `#cdb4db`, `#fff1e2` |
+| dish_10 | Crunchy Sun Drumsticks | fryer | 21 | 7 | 8 | 3 | 1.75 | `#fff6ea`, `#e8b26a`, `#94c98d` |
+| dish_11 | Honey Puff Nuggets | fryer | 26 | 9 | 9 | 5 | 1.89 | `#fff1e2`, `#f2c46d`, `#ffb5a7` |
+| dish_12 | Lotus Crisp Platter | fryer | 39 | 14 | 12 | 9 | 2.08 | `#fff6ea`, `#f0c98a`, `#f4a6b8` |
+
+- A drink is a whole order (the guest sits, sips for the same `EAT_TIME` and pays), so the seat model does not change.
+- **Menu slots:** `3 + floor(level / 5)`, capped by `MENU_MAX` = 8 (reached at Lv 25) instead of the dish count. Old saves keep their menu; from Lv 20 they simply get more free slots.
+- **Menu sheet:** dishes grouped under small headers Gas stove, Fryer, Drinks, in `DISHES` order inside each. A dish whose type is not open shows a soft note ("needs a fryer", "needs a chef at the fryer") and can still be put on the menu; it just is not ordered until the station is open.
+
+*Formulas.* Everything in the staff rule above stays (`seatCap`, `seatBlock` (Erlang B), `serviceCap`, `cleanFactor`, `wagesPerMin`, `priceFactor`); only the kitchen side and the menu averages change:
+
+```
+open         = station types with at least one station that has a chef (planKitchen)
+sold         = menu dishes whose station is open          // if empty, sold = the whole menu and kitchenCap = 0
+avgMenuPrice, avgCost, avgSuggested, avgCookTime           // now averaged over `sold`, the dishes guests actually order
+for each type s with sold dishes:
+  share_s    = (sold dishes of s) / (sold dishes)          // guests pick evenly, so this is s's share of orders
+  chefPower_s= sum of speeds of the chefs planKitchen put on stations of s
+  cap_s      = chefPower_s * 60 / avgCook_s                // dishes of s per minute
+kitchenCap   = min over s of cap_s / share_s               // guests per minute the whole kitchen can feed
+served       = min(arrivalRate * (1 - seatBlock), kitchenCap, serviceCap)
+income/min   = served * (avgMenuPrice - avgCost) * cleanFactor - wagesPerMin
+```
+
+With only stove dishes on the menu there is one type with share 1, so `kitchenCap` is exactly today's `chefPower * 60 / avgCookTime`: an existing save earns the same.
+
+*Example 1, starter shop* (Lv 1, 1 Brisk chef, 1 gas stove, 1 Brisk waiter, menu dish_01 to 03 at suggested prices): one type, share 1, avgCook (5 + 7 + 9) / 3 = 7, `kitchenCap` = 1 × 60 / 7 = 8.57 per minute, `serviceCap` = 6, margin (8 + 12 + 15) / 3 = 11.67, wages 5. Same as today; the 3f runs measured about 45 coins/min net (about 4.3 guests a minute, arrival-bound).
+
+*Example 2, three stations* (Lv 10, 7x7, 5 menu slots, staff cap 5: 3 Brisk chefs, one each at a gas stove, a fryer and a drink machine, plus 2 Brisk waiters; menu Sunny Rice Bowl, Peach Pancake Stack, Crunchy Sun Drumsticks, Honey Puff Nuggets, Peach Fizz Soda):
+
+| Type | Share | avgCook | cap_s | cap_s / share |
+|---|---|---|---|---|
+| stove | 2/5 | 6 | 10.0 | 25.0 |
+| fryer | 2/5 | 8.5 | 7.06 | **17.6** |
+| drinks | 1/5 | 5 | 12.0 | 60.0 |
+
+`kitchenCap` = 17.6, `serviceCap` = 12, margin (8 + 12 + 14 + 17 + 8) / 5 = 11.8, wages 3 × 3 + 2 × 2 = 13. With enough seats and arrivals, served = 12 and income ≈ 12 × 11.8 − 13 ≈ 129 coins/min (service-bound; a third waiter would be the next step). Pooling loss, for honesty: a stove-heavy menu (three stove dishes, the drumsticks and the soda) gives `kitchenCap` = 14.3, while three gas stoves and the same chefs on that menu would give 3 × 60 / 6.8 = 26.5.
+
+*8.2 check.* A chef fully busy at any station makes `60 × margin per second` ≥ 96 coins/min of margin, against a wage of 2 to 6, so a chef who is working always pays. In example 2 the fryer chef enables about 4.8 fried dishes a minute (≈ 74 coins/min) and the drinks chef about 2.4 drinks (≈ 19 coins/min), both above their wage of 3. The trap to watch: a station whose chef is idle. In a small shop the kitchen is rarely the limit (example 1 is arrival-bound), so a second station plus chef only adds a wage, and a cheap drink lowers the average margin per guest the same way Sunny Rice Bowl does today. The hints below say this, and the station lock (7.1) keeps a new player from buying a station with nothing to make. At 5x5 the staff cap is 3, so a starter shop can run at most two station types with a waiter; that is a choice, not a block.
+
+*Hints* (order, extending the list above; `{Station}` is Gas stove, Fryer or Drink machine, `{dish}` a menu dish):
+1. No dining seat: as today.
+2. No station at all: "Add a gas stove so the kitchen can cook".
+3. No chef: as today.
+4. No waiter or helper: as today.
+5. Nothing on the menu is open: "Nothing on the menu can be made: add a {Station} for {dish}, or put a gas stove dish on the menu" (or "hire a chef for the {Station}" when the station exists).
+6. Trash: as today.
+7. A menu dish is not open: "{dish} needs a {Station}" or "{dish} needs a chef at the {Station}".
+8. Shortfall: seats as today; kitchen names the binding type `s`: "{Station} is busy: hire a chef" when a station of `s` has no chef, else "{Station} is busy: add a {Station} and a chef", or "…or take a {Station} dish off the menu" when `s` holds more than half the menu; service as today.
+9. Idle: "A chef has no station: add a gas stove, fryer or drink machine"; "The {Station} has nothing on the menu: add a {type} dish".
+10. Low appeal or high prices: as today.
+
+The breakdown's Kitchen row lists each open type (for example "Gas stove 25/min · Fryer 17.6/min · Drinks 60/min"), with the binding one marked.
+
 ### 8.2 Balance principles
 - More seats with too few staff means wasted seats; the UI should hint at the bottleneck ("Not enough staff" / "Not enough seats" / "Low appeal").
 - Raising prices has diminishing returns.
@@ -321,7 +412,7 @@ offlineIncome  = incomePerMin * offlineMinutes * OFFLINE_EFFICIENCY
 - New shops start with 300 coins.
 - `DEV_MODE` in `index.html` (or `?free` in the URL) makes everything free for testing.
 
-Prices (coins): table 30-55, chair 15-28, counter 60-110, plant 12-20, lantern 20-30 by design; wallpaper 4-9 per wall piece; floor 3-9 per tile.
+Prices (coins): table 30-55, chair 15-28, gas stove 60-110, fryer 85, drink machine 75 (3g5), plant 12-20, lantern 20-30 by design; wallpaper 4-9 per wall piece; floor 3-9 per tile.
 
 ## 9. Social Features (Core Pillar)
 
@@ -419,7 +510,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
-| 3g Decor variety | In progress (3g0 to 3g7, see 12.3), runs before 4b: 3g0 done (looks approved), 3g1 done (Sims-style build panel: category strip, design grid with thumbnails, prices and count badges; designs can carry their own draw function; item name labels on hover and keyboard focus; no save change). 3g1b done (edit mode: while an item tool, paint, remove, a selection or a drag is active in the room, guests and staff fade out and the people sim pauses; the time spent editing pays the current estimate, capped at 8 hours, when the player stops; no save change).  3g2 done (five new floors: Mint checker, Kitchen tile, Slate tile, Pale planks, Green carpet with a dotted border where it meets another floor; two new wallpapers: Polka and Diamond border; styles appended to the lists, so no save change).  3g3 done (chairs Stool, High back, Booth seat that joins; tables Round pedestal, Diner; no save change). Next: 3g4 (text spec, then stop for the user) |
+| 3g Decor variety | In progress (3g0 to 3g7, see 12.3), runs before 4b: 3g0 done (looks approved), 3g1 done (Sims-style build panel: category strip, design grid with thumbnails, prices and count badges; designs can carry their own draw function; item name labels on hover and keyboard focus; no save change). 3g1b done (edit mode: while an item tool, paint, remove, a selection or a drag is active in the room, guests and staff fade out and the people sim pauses; the time spent editing pays the current estimate, capped at 8 hours, when the player stops; no save change).  3g2 done (five new floors: Mint checker, Kitchen tile, Slate tile, Pale planks, Green carpet with a dotted border where it meets another floor; two new wallpapers: Polka and Diamond border; styles appended to the lists, so no save change).  3g3 done (chairs Stool, High back, Booth seat that joins; tables Round pedestal, Diner; no save change). 3g4 spec written (station rule in 7.1 and 8.1, plan and open questions under 12.3), waiting for the user's approval; next 3g5 |
 | 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -519,14 +610,33 @@ Why: decorating is the main pillar, but the catalog is 5 furniture types with co
 | 3g1b | Edit mode hides the people: while a build tool is open (furniture, decor, move, remove), guests and staff fade out, spawning and walking pause and no trash appears; when the player closes the tool they fade back in at the same spots and `assignStations()` re-plans. Time spent editing still pays the current `incomePerMin` (capped like the offline cap in 8.3), so decorating never costs income. Placement checks ignore people. | Sonnet. Done: `editing()` is true in the room when the tool is not Move, an item is selected or a drag is on; `peopleVis` fades people and bubbles in 0.25 s (instant with reduced motion); `simPeople` pauses while editing, coin pops and the door keep moving; `editBank` counts seconds and `payEditTime()` pays `floor(max(0, incomePerMin) × minutes)` on leaving (nothing under 10 s) with a toast and a coin flight |
 | 3g2 | Floor and wallpaper designs with real patterns (checker, kitchen tile, carpet with a border motif, wood planks), drawn in code. Per-tile painting already supports zoned floors. Optional: a patterned border strip above a plain lower wall band. | Sonnet. Done: `kitchen` and `carpet` floor patterns (the carpet draws its dotted band on tile edges that meet another floor or the room edge), five floor styles and two wallpapers with a `deco` field (`dots`, `frieze`) |
 | 3g3 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet. Done: chair designs Stool, High back and Booth seat, table designs Round pedestal and Diner, appended after the colour designs (saves load unchanged); shaped designs draw at scale 1 and carry `h`, `half` (width in tiles, used to keep a small gap between chair and table) and `sit` (seat height for the guest); a booth seat joins neighbours of the same design, rotation and row, with an arm only on free ends; new `cyl` primitive |
-| 3g4 | Kitchen station design, text only: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks), how the 8.1 kitchen formula changes, the hint wording and the dish list. Write the decision into 7.1 and 8.1 before any code. | Opus |
-| 3g5 | Build the stations from the 3g4 spec: fryer and drink machine drawn with cooking and idle states, chef work spots, station-aware cooking in the sim. | Sonnet |
+| 3g4 | Kitchen station design, text only: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks), how the 8.1 kitchen formula changes, the hint wording and the dish list. Write the decision into 7.1 and 8.1 before any code. | Opus. Done (spec): design A, every dish has a station; see "Stations (Phase 3g)" in 7.1 and "Station rule" in 8.1 |
+| 3g5 | Build the stations from the 3g4 spec: `fryer_01` and `drinks_01` (prices 85 and 75, level-locked to Lv 3 and Lv 2) drawn with idle and working states and their chef poses, the stove relabelled Gas stove, a `station` tag on every dish plus six new dishes, `planKitchen()` shared by `economy()` and `assignStations()`, guests ordering only open dishes, per-type `kitchenCap`, the new hints and Kitchen row, the menu sheet grouped by station, cups for drinks. No save version change (v7 stays). | Sonnet |
 | 3g6 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper). Save v8 stores the cabinet state; add the `migrate()` step. | Sonnet |
 | 3g7 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Re-run the 3f balance runs with the new stations. Update design.md. | Sonnet |
 
 Free-form rule: stations, partitions and tables go anywhere the player likes. There is no kitchen zone, no required wall and no required divider; the only rules are the existing ones (a station's front tile stays clear for its chef, and every seat keeps a walkable path from the door). Station fronts and handles face the chef's tile, and rotation mirrors them like the current stove.
 
-Order notes: 3g0 to 3g3 are looks and need no save change; 3g4 to 3g6 change gameplay and save. Phase 3 polish C3 (staff portrait) stays optional and can be done any time.
+**3g5 plan (from the 3g4 spec).**
+- *Save:* no version bump. New item ids `fryer_01` and `drinks_01` only appear in new saves; dishes `dish_07` to `dish_12` are appended, and the menu already stores `dishId`, so `sanitizeMenu` handles them. Older saves (stove only, dishes 1 to 6) load unchanged and earn the same (8.1 example 1). v8 stays reserved for 3g6.
+- *Order of work:*
+  1. DECOR DATA and CATALOG: `fryer_01` and `drinks_01` entries with `station`, `cat: 'stations'`, `h`, `ITEM_SCALE`, `APPEAL` 3 each, one design each in `VARIANTS` (a second colour later if the user wants); `counter_01` gets `station: 'stove'` and the label Gas stove; add both to the stations category and `TOOL_ORDER`; level lock (`unlock`) shown as a badge in the build grid.
+  2. ITEMS: `drawFryer` and `drawDrinks` ported from `scratch/mockup-decor.html` (idle and working states, side tray, drip tray, progress ring as on the stove); `drawCup` for drinks on the tray, in hand, on the table and empty.
+  3. SIM: `station` on each dish, the six new dishes, `MENU_MAX` = 8; `isStation(it)` and `stationFront(it)` replace the `counter_01` checks (placement front rule, `trashTileFree`); `economy()` uses `planKitchen()`, `sold`, per-type caps and the new hints; `updateCustomer` picks from open dishes; `updateKitchen` takes the first order of its type; `reorderClosed()` from `simOnLayout()` and `staffOnLayout()`; the Kitchen breakdown row per type.
+  4. STAFF: `planKitchen()` (chef to station plan, open types); `assignStations()` uses it; chef poses at the fryer and drink machine in the body update and `drawChibi` call.
+  5. ACTIONS: menu sheet grouped by station with the "needs a …" note; toast when a locked station is tapped.
+  6. Check: `?debug`, `cozyDebug.measure` on the starter layout (must match the pre-3g5 numbers) and on a three-station layout, console clean, save and reload, 360px.
+- *Risks:* per-type queues pool less than one queue, so the live shop may sit a little further below the estimate than the 80 to 90% measured in 3f (re-measure in 3g7); if `planKitchen()` is not the single source for both the estimate and the floor, they drift; a 5x5 room gets crowded (each station needs two tiles); the drink cup is new art in four places; hint text grows, so it must still fit at 360px.
+- *Open questions for the user* (recommended default in brackets):
+  - Q1. Every dish has a station (design A), with no drink-on-the-side bonus? [yes]
+  - Q2. Drinks priced like cheap quick dishes (Peach Fizz Soda earns like Sunny Rice Bowl), so they help when the kitchen is busy rather than adding money per guest? [yes]
+  - Q3. Fryer and drink machine locked until their first dish (fryer Lv 3, drink machine Lv 2)? [yes]
+  - Q4. Menu cap raised from 6 to 8 slots (8 at Lv 25)? [yes]
+  - Q5. When a station closes, waiting guests order again from what is open, instead of leaving? [yes]
+  - Q6. The six dish names and the fryer and drink machine prices (85 and 75) as written in 8.1 and 7.1? [yes, rename any freely]
+  - Q7. A drink takes a seat and the same time as a meal (no quick "drink and go" guests)? [yes, keeps the seat model; a takeaway counter could come later]
+
+Order notes: 3g0 to 3g3 are looks and need no save change; 3g4 and 3g5 change gameplay but not the save; 3g6 changes the save (v8). Phase 3 polish C3 (staff portrait) stays optional and can be done any time.
 
 Not part of 3g: the outdoor lot (fence, garden plots, path pieces), wall-mounted items and the trophy wall. They come with Phase 4 or later.
 
