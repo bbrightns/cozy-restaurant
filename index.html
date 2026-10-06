@@ -3010,6 +3010,11 @@
   }
 
   function simUpdate(dt) {
+    updateEditMode(dt);
+    if (!editing()) simPeople(dt);
+    simFloaters(dt);
+  }
+  function simPeople(dt) {
     // arrivals follow arrivalRate from the income formula, so the live shop matches the estimate
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
@@ -3023,6 +3028,9 @@
     updateKitchen(dt);
     updateStaff(dt);
     payWages(dt);
+  }
+  /* coin pops, coin flights and the door keep moving while the room is being edited */
+  function simFloaters(dt) {
     for (let q = pops.length - 1; q >= 0; q--) { pops[q].t += dt; if (pops[q].t > 1.3) pops.splice(q, 1); }
     for (let q = coinFlights.length - 1; q >= 0; q--) {
       const f = coinFlights[q];
@@ -3834,7 +3842,7 @@
     };
     const spr = spriteFor(b, sitting, pose), ps = PERSON_SCALE;
     ctx.save();
-    ctx.globalAlpha *= clamp(b.alpha, 0, 1);
+    ctx.globalAlpha *= clamp(b.alpha, 0, 1) * peopleVis;
     if (!sitting) {
       ctx.fillStyle = 'rgba(122,82,118,0.18)';
       ctx.beginPath(); ctx.ellipse(sx, base, 6 * ps, 2.6 * ps, 0, 0, Math.PI * 2); ctx.fill();
@@ -3856,7 +3864,7 @@
     const hx = b.hx, hc = b.hcr;
     ctx.save();
     ctx.translate(hx, b.hb); ctx.scale(b.faceR ? PERSON_SCALE : -PERSON_SCALE, PERSON_SCALE); ctx.translate(-hx, -b.hb);
-    ctx.globalAlpha *= clamp(b.alpha, 0, 1);
+    ctx.globalAlpha *= clamp(b.alpha, 0, 1) * peopleVis;
     if (b.cooking) {
       // the stirring hand at the end of the arm that reaches out to the pot (painted in the turned pose), with the spoon
       const a = reduced ? 0 : now * 0.008;
@@ -3932,7 +3940,7 @@
     const s = reduced ? 1 : k < 1 ? 0.4 + 0.75 * k - 0.15 * Math.sin(k * Math.PI) : 1;
     const fade = clamp((b.dur - b.t) / 0.3, 0, 1);
     ctx.save();
-    ctx.globalAlpha = clamp(c.alpha, 0, 1) * fade * (reduced ? Math.min(1, b.t * 5) : 1) * (coversStaff(c) ? 0.4 : 1);
+    ctx.globalAlpha = clamp(c.alpha, 0, 1) * peopleVis * fade * (reduced ? Math.min(1, b.t * 5) : 1) * (coversStaff(c) ? 0.4 : 1);
     ctx.translate(c.hx, c.hy);
     ctx.scale(s, s);
     ctx.fillStyle = 'rgba(122,82,118,0.16)';
@@ -4312,6 +4320,36 @@
     if (!walkTo(b, DOOR.x, DOOR.y)) b.path = [];
     leavers.push(b);
     staffOnLayout();
+  }
+
+  // ===== EDIT MODE =====
+  /* ================================================================
+     Edit mode (project.md 12.3, 3g1b): while the player places, paints, removes or holds an item in the room, guests and staff
+     fade out and the people part of the sim pauses; the time spent still pays the current estimate when the player stops.
+     ================================================================ */
+  const EDIT_PAY_CAP = 8 * 3600;      // seconds of editing that can be paid in one go, the same 8 hours as the offline cap (8.3)
+  let peopleVis = 1;                  // 1 = people drawn, 0 = hidden
+  let editBank = 0;                   // seconds spent editing since the last payout
+  const editing = () => scene === 'interior' && (tool !== 'move' || !!selected || !!drag);
+  function updateEditMode(dt) {
+    const on = editing();
+    if (on) editBank = Math.min(EDIT_PAY_CAP, editBank + dt);
+    const goal = on ? 0 : 1;
+    peopleVis = reduced ? goal : clamp(peopleVis + clamp(goal - peopleVis, -dt * 4, dt * 4), 0, 1);
+    if (!on && editBank > 0) payEditTime();
+  }
+  function payEditTime() {
+    const minutes = editBank / 60;
+    editBank = 0;
+    const earned = Math.floor(Math.max(0, economy().incomePerMin) * minutes);
+    if (minutes < 1 / 6 || earned <= 0) return;
+    coins += earned;
+    if (reduced) shownCoins += earned;
+    else coinFlights.push({ sx: window.innerWidth / 2, sy: window.innerHeight * 0.55, amount: earned, t: 0 });
+    const msg = 'The shop kept serving while you decorated: +' + fmt(earned) + ' coins';
+    toast(msg);
+    announce(msg + '.');
+    saveSoon();
   }
 
   // ===== INTERACTION STATE =====
@@ -5942,7 +5980,7 @@
         return [cam.x + PX(p[0], p[1]) * cam.zoom, cam.y + PY(p[0], p[1], 40) * cam.zoom];
       },
       state: () => ({
-        scene, swapping: !!swap, cam: { x: cam.x, y: cam.y, zoom: cam.zoom, fit: cam.fit },
+        scene, editing: editing(), peopleVis: +peopleVis.toFixed(2), editBank: Math.round(editBank), swapping: !!swap, cam: { x: cam.x, y: cam.y, zoom: cam.zoom, fit: cam.fit },
         name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, xp, xpNeed: xpNeed(level), coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length, ready: ready.length, dirtLevel, trash: trash.map((t) => ({ x: t.x, y: t.y, kind: t.kind })),
         staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2),

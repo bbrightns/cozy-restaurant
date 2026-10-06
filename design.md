@@ -111,6 +111,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 - Use requestAnimationFrame; animate transform/opacity only.
 - Respect `prefers-reduced-motion`: slower, no bounce.
 - Pause animation when the tab is hidden.
+- Edit mode: while the player places, paints, removes or holds a piece in the room, guests, staff and their bubbles fade out over about 0.25 s (instantly with reduced motion) and fade back in when editing stops; coin pops and the door keep animating.
 
 ## 9. Day / Night Cycle
 
