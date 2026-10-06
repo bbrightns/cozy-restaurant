@@ -55,6 +55,13 @@ Decoratable slots:
 
 **Curb appeal score:** storefront items add to a score that increases customer arrival rate (see section 8).
 
+**Scene switch and street (Phase 4a).**
+- A door chip beside the toolbar tabs (or the `O` key) switches between the room and the storefront. Outside, tapping the shop door (or Enter on the focused scene) goes back in. The switch dissolves through the sky in about 0.34 s, and is instant with reduced motion.
+- Both scenes share one camera (`cam`, the same pan, pinch and zoom, fitted to each scene's bounds by `fitCamera`) and one light (the same sky, `lit()` night tint and sky preview). The sim keeps running while the player is outside.
+- The storefront is a flat side view on its own floating island: world px with x to the right and y down, the foot of the facade at y = 0 (`frontGeom()`). The shop is `64 + 40 × gridSize` px wide, so it grows with the room. In front of it: a planting strip, the path with a mat and a step up to the door, a sidewalk (`walk0` to `walk1`, the line street walkers will use in 4e), a verge with small flowers, and the island soil.
+- The building in 4a is a plain shell (wall, base band, corner pilasters, parapet roof, the door with a round window that glows at night). The real facade (windows, sign with the shop name) is 4b.
+- Outside, the room tools give way to a short note, and a drag only pans. Going out drops any drag, selection or open sheet; the chosen tool stays. Which scene is shown is a view preference in localStorage (`cozy-restaurant-scene`), not shop data, so the save format does not change.
+
 ### 3.2 Interior (Isometric)
 - Grid-based placement with a ghost preview.
 - Item types: floor, wall, table, chair, counter, stove, shelf, decoration, lighting.
@@ -408,7 +415,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
-| 4 Storefront | Planned |
+| 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
 | 6 Social (online) | Planned, separate milestone |
@@ -501,7 +508,7 @@ Done when: hiring raises income, ignoring dirt hurts income, old saves load, no 
 **Phase 4: Storefront**
 | Step | Work | Model |
 |---|---|---|
-| 4a | Scene switcher with shared camera and lighting, street path to the door. | Opus |
+| 4a | Scene switcher with shared camera and lighting, street path to the door. Done (see 3.1). | Opus |
 | 4b | Facade drawn in code: building, door, windows, sign with the shop name. | Sonnet |
 | 4c | Exterior decor slots, build-mode shop for them, next free save version (v7 is the latest: trash from 3c). | Sonnet |
 | 4d | `curbAppeal` and `nightBonus` feed the appeal formula. | Haiku |

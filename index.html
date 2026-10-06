@@ -294,6 +294,17 @@
   .tab[aria-selected="true"] { background: var(--cream); color: var(--text); box-shadow: 0 3px 8px -4px rgba(108, 72, 104, .55); }
   .panel { display: flex; gap: 4px; }
   .panel[hidden] { display: none; }
+  /* scene switch beside the tabs; outside, the tabs and panels give way to a short note */
+  .tb-head { display: flex; align-items: center; gap: 4px; }
+  .tb-head .tabs { flex: 1 1 auto; min-width: 0; }
+  .scene-btn { flex: none; background: var(--blush); }
+  .scene-btn:hover { background: #f9c6bc; }
+  .front-panel { display: none; margin: 0; padding: 2px 8px 6px; font-size: 12.5px; font-weight: 700; color: var(--text-2); text-align: center; }
+  .toolbar.is-front .tabs, .toolbar.is-front .panel { display: none; }
+  .toolbar.is-front .front-panel { display: block; }
+  .toolbar.is-front .scene-btn { flex: 1 1 auto; }
+  .toolbar.is-front .scene-btn .txt { display: inline; }
+  body.scene-front .context, body.scene-front .sheet { display: none; }
   .decor-panel { display: grid; gap: 8px; padding: 2px 2px 4px; }
   .decor-panel .sw-row { flex-wrap: nowrap; gap: 6px; justify-content: center; }
   .tool {
@@ -675,11 +686,18 @@
     </div>
   </div>
   <nav class="card toolbar" id="toolbar" aria-label="Decorating tools">
+    <div class="tb-head">
     <div class="tabs" role="tablist" aria-label="Tool categories">
       <button type="button" class="tab" role="tab" id="tab-furniture" data-tab="furniture" aria-selected="true" aria-controls="panel-furniture">Furniture</button>
       <button type="button" class="tab" role="tab" id="tab-decor" data-tab="decor" aria-selected="false" aria-controls="panel-decor" tabindex="-1">Decor</button>
       <button type="button" class="tab" role="tab" id="tab-tools" data-tab="tools" aria-selected="false" aria-controls="panel-tools" tabindex="-1">Tools</button>
     </div>
+    <button type="button" class="chip scene-btn" id="scene-btn" aria-label="Go outside to the storefront (O)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 14V6.6a4 4 0 0 1 8 0V14z" fill="currentColor" opacity=".3"/><path d="M4 14V6.6a4 4 0 0 1 8 0V14M2.4 14h11.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.9" cy="10" r="1" fill="currentColor"/></svg>
+      <span class="txt" id="scene-lbl">Outside</span>
+    </button>
+    </div>
+    <p class="front-panel" id="panel-front">Your shop from the street. Tap the door to step back inside.</p>
     <div class="panel" id="panel-furniture" role="tabpanel" aria-labelledby="tab-furniture">
     <button type="button" class="tool" data-tool="table_01" aria-pressed="false" aria-label="Table (2)">
       <svg viewBox="0 0 40 34" aria-hidden="true">
@@ -1403,14 +1421,22 @@
      ================================================================ */
   let W = 0, H = 0, DPR = 1;
   const cam = { x: 0, y: 0, zoom: 1, fit: 1 };
-  /* Fit the room into the space between the top card and the toolbar, measured
+  let scene = 'interior';            // scene on screen: 'interior' (iso room) or 'front' (storefront); both use this camera
+  /* world box of the scene on screen; slope is how fast its top edge falls away from the middle (the iso room's back corner) */
+  function sceneBounds() {
+    if (scene === 'front') {
+      const g = frontGeom();
+      return { left: -g.half - 6, right: g.half + 6, top: -(g.wallH + g.roofH) - 8, bottom: g.bottom + 26, slope: 0 };
+    }
+    return { left: -(N + WALL_T) * TW, right: (N + WALL_T) * TW, top: -WALL_H - WALL_T * TH * 2 - 4, bottom: 2 * N * TH + SLAB + 6, slope: TH / TW };
+  }
+  /* Fit the scene into the space between the top card and the toolbar, measured
      from the live layout. With animate, glide there unless the player has
      panned or zoomed since the last fit. */
   const hudEl = document.getElementById('hud');
   const toolbarEl = document.getElementById('toolbar');
   function fitCamera(animate) {
-    const left = -(N + WALL_T) * TW, right = (N + WALL_T) * TW, mid = (left + right) / 2;
-    const top = -WALL_H - WALL_T * TH * 2 - 4, bottom = 2 * N * TH + SLAB + 6;
+    const { left, right, top, bottom, slope } = sceneBounds(), mid = (left + right) / 2;
     const worldW = right - left, worldH = bottom - top;
     const narrow = W < 640;
     const gap = narrow ? 6 : 12, padX = narrow ? 8 : 32;
@@ -1426,7 +1452,7 @@
       const cornerX = cx - mid * z, half = (worldW / 2) * z;
       const p = clamp(cornerX, hud.left, hud.right);
       if (p < cx - half || p > cx + half) return gap;
-      return Math.max(gap, hud.bottom + gap - Math.abs(p - cornerX) * (TH / TW));
+      return Math.max(gap, hud.bottom + gap - Math.abs(p - cornerX) * slope);
     };
     const fits = (z) => ceilingFor(z) + worldH * z <= floorY;
     let lo = 0.35, hi = clamp((xMax - padX) / worldW, 0.35, 3.2);
@@ -2142,6 +2168,209 @@
     const k = [u1 - 0.12, 0, 30];
     ctx.fillStyle = lit(P.gold, 1);
     ctx.beginPath(); ctx.arc(PX(k[0], k[1]), PY(k[0], k[1], k[2]), 1.8, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ===== STOREFRONT =====
+  /* ================================================================
+     Storefront scene (Phase 4a): the shop seen from the street, a flat
+     2D side view on its own floating island. It shares the camera, the
+     sky and the light with the room. World units are px: x to the
+     right, y down, the foot of the facade at y = 0, and the ground in
+     front of it seen as bands (planting strip, sidewalk, verge).
+     ================================================================ */
+  const FRONT_P = {
+    wall: rgb('#f9e4d6'), wallLo: rgb('#f0d0bf'), base: rgb('#e6bcae'), trim: rgb('#fff3e4'),
+    roof: rgb('#cdb4db'), roofHi: rgb('#e3d4ee'), roofDeep: rgb('#a98fc0'),
+    grass: rgb('#a8d5a2'), grassHi: rgb('#bde0b6'), grassDeep: rgb('#8cc185'),
+    path: rgb('#d6d0c4'), pathHi: rgb('#e3ddd2'), pathLine: rgb('#c2b9aa'), curb: rgb('#ece4d8'),
+    flowers: [rgb('#ffb5a7'), rgb('#f6d27a'), rgb('#cdb4db'), rgb('#fff1e2')]
+  };
+  /* The shop front grows with the room, like the storefront slots in project.md 4. */
+  function frontGeom() {
+    const bw = 64 + 40 * N;
+    return {
+      bw, half: bw / 2 + 84,              // island half width: street on both sides of the shop
+      wallH: 112, roofH: 18,
+      doorX: 0, doorW: 38, doorH: 64,
+      walk0: 12, walk1: 40,               // the sidewalk band; walkers keep to its middle line
+      edge: 58, bottom: 76                // grass ends at edge, island soil below
+    };
+  }
+  /* screen point -> storefront world point */
+  const frontAt = (sx, sy) => [(sx - cam.x) / cam.zoom, (sy - cam.y) / cam.zoom];
+  function onFrontDoor(sx, sy) {
+    const g = frontGeom(), [x, y] = frontAt(sx, sy);
+    return Math.abs(x - g.doorX) <= g.doorW / 2 + 8 && y >= -g.doorH - 8 && y <= g.walk0;
+  }
+  let frontHover = false;
+  const focusVisible = (el) => { try { return el.matches(':focus-visible'); } catch (e) { return document.activeElement === el; } };
+
+  function drawFront(now) {
+    const g = frontGeom(), L = -g.half, Wd = g.half * 2;
+    const bx0 = -g.bw / 2, bx1 = g.bw / 2, dx0 = g.doorX - g.doorW / 2, dx1 = g.doorX + g.doorW / 2;
+
+    // soft shadow under the island
+    const sy = g.bottom + 12, rx = g.half * 1.05;
+    const sg = ctx.createRadialGradient(0, sy, 0, 0, sy, rx);
+    sg.addColorStop(0, css(mix3([104, 78, 128], light.top, 0.25), 0.24));
+    sg.addColorStop(1, css([104, 78, 128], 0));
+    ctx.save();
+    ctx.translate(0, sy); ctx.scale(1, 16 / rx); ctx.translate(0, -sy);
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(0, sy, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // island: soil block, grass on top with a darker front lip
+    rrect(L, 0, Wd, g.bottom, 16);
+    let gr = ctx.createLinearGradient(0, g.edge, 0, g.bottom);
+    gr.addColorStop(0, lit(P.slab, 1));
+    gr.addColorStop(1, lit(P.slabDeep, 0.92));
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.fillStyle = lit(P.slabDeep, 0.96, 0.5);
+    ctx.fillRect(L + 10, g.edge + 7, Wd - 20, 1.5);
+    rrect(L, 0, Wd, g.edge, 14);
+    gr = ctx.createLinearGradient(0, 0, 0, g.edge);
+    gr.addColorStop(0, lit(FRONT_P.grass, 0.94));
+    gr.addColorStop(1, lit(FRONT_P.grassHi, 1));
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.fillStyle = lit(FRONT_P.grassDeep, 1);
+    ctx.fillRect(L + 6, g.edge - 4, Wd - 12, 4);
+
+    // sidewalk: two rows of staggered slabs, a light far edge, a curb on the near side
+    const s0 = L + 14, s1 = -L - 14, mid = (g.walk0 + g.walk1) / 2;
+    rrect(s0, g.walk0, s1 - s0, g.walk1 - g.walk0, 5);
+    ctx.fillStyle = lit(FRONT_P.path, 1.02);
+    ctx.fill();
+    ctx.fillStyle = lit(FRONT_P.pathHi, 1.02);
+    ctx.fillRect(s0 + 4, g.walk0, s1 - s0 - 8, 2);
+    ctx.fillStyle = lit(FRONT_P.pathLine, 1, 0.7);
+    ctx.fillRect(s0 + 3, mid - 0.5, s1 - s0 - 6, 1);
+    for (let row = 0; row < 2; row++) {
+      const y0 = row ? mid : g.walk0 + 2, y1 = row ? g.walk1 - 1 : mid;
+      for (let x = s0 + (row ? 13 : 26); x < s1 - 6; x += 26) ctx.fillRect(x, y0 + 1, 1, y1 - y0 - 2);
+    }
+    ctx.fillStyle = lit(FRONT_P.curb, 1.02);
+    ctx.fillRect(s0 + 2, g.walk1, s1 - s0 - 4, 3);
+    ctx.fillStyle = lit(FRONT_P.pathLine, 0.95, 0.8);
+    ctx.fillRect(s0 + 2, g.walk1 + 3, s1 - s0 - 4, 1.2);
+
+    // little flowers in the planting strip and on the verge (fixed places, none on the door path)
+    for (let q = 0; q < 46; q++) {
+      const strip = q % 2 === 0;
+      const x = L + 20 + noise(q, 31) * (Wd - 40);
+      if (strip && Math.abs(x - g.doorX) < g.doorW / 2 + 12) continue;
+      const y = strip ? 3 + noise(q, 32) * (g.walk0 - 6) : g.walk1 + 7 + noise(q, 33) * (g.edge - g.walk1 - 13);
+      ctx.fillStyle = lit(FRONT_P.grassDeep, 0.95);
+      ctx.beginPath(); ctx.ellipse(x, y + 1, 2.6, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lit(FRONT_P.flowers[q % 4], 1);
+      ctx.beginPath(); ctx.arc(x, y - 0.6, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // path from the sidewalk to the door, with a mat
+    ctx.fillStyle = lit(FRONT_P.path, 1.02);
+    ctx.fillRect(dx0 - 4, 2, g.doorW + 8, g.walk0);
+    ctx.fillStyle = lit(FRONT_P.pathLine, 1, 0.7);
+    ctx.fillRect(g.doorX - 0.5, 4, 1, g.walk0 - 4);
+    rrect(dx0 + 3, 4.5, g.doorW - 6, 5.5, 2.5);
+    ctx.fillStyle = lit(P.mat, 1);
+    ctx.fill();
+    rrect(dx0 + 6, 5.6, g.doorW - 12, 3.3, 1.6);
+    ctx.fillStyle = lit(P.matHi, 1);
+    ctx.fill();
+
+    // contact shadow along the foot of the shop
+    gr = ctx.createLinearGradient(0, 0, 0, 7);
+    gr.addColorStop(0, 'rgba(122,82,118,0.2)');
+    gr.addColorStop(1, 'rgba(122,82,118,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(bx0 - 4, 0, g.bw + 8, 7);
+
+    // the shop: wall with a base band and corner pilasters, a parapet roof that shades the wall under it
+    gr = ctx.createLinearGradient(0, -g.wallH, 0, 0);
+    gr.addColorStop(0, lit(FRONT_P.wall, 1.02));
+    gr.addColorStop(1, lit(FRONT_P.wallLo, 0.95));
+    ctx.fillStyle = gr;
+    ctx.fillRect(bx0, -g.wallH, g.bw, g.wallH);
+    ctx.fillStyle = lit(FRONT_P.base, 0.97);
+    ctx.fillRect(bx0, -10, g.bw, 10);
+    ctx.fillStyle = lit(FRONT_P.trim, 0.98);
+    ctx.fillRect(bx0, -g.wallH, 9, g.wallH);
+    ctx.fillStyle = lit(FRONT_P.trim, 0.86);
+    ctx.fillRect(bx1 - 9, -g.wallH, 9, g.wallH);
+    gr = ctx.createLinearGradient(0, -g.wallH, 0, -g.wallH + 10);
+    gr.addColorStop(0, css(FRONT_P.roofDeep, 0.35));
+    gr.addColorStop(1, css(FRONT_P.roofDeep, 0));
+    ctx.fillStyle = gr;
+    ctx.fillRect(bx0, -g.wallH, g.bw, 10);
+    const rTop = -g.wallH - g.roofH;
+    rrect(bx0 - 8, rTop, g.bw + 16, g.roofH, 4);
+    gr = ctx.createLinearGradient(0, rTop, 0, -g.wallH);
+    gr.addColorStop(0, lit(FRONT_P.roof, 1.02));
+    gr.addColorStop(1, lit(FRONT_P.roof, 0.88));
+    ctx.fillStyle = gr;
+    ctx.fill();
+    rrect(bx0 - 8, rTop, g.bw + 16, 4, 2);
+    ctx.fillStyle = lit(FRONT_P.roofHi, 1.04);
+    ctx.fill();
+
+    // door: trim frame, panel, round window, knob, then a step
+    const dTop = -g.doorH;
+    ctx.fillStyle = lit(FRONT_P.trim, 1);
+    rrect(dx0 - 4, dTop - 4, g.doorW + 8, g.doorH + 4, 3); ctx.fill();
+    gr = ctx.createLinearGradient(0, dTop, 0, 0);
+    gr.addColorStop(0, lit(P.door, 1));
+    gr.addColorStop(1, lit(P.doorDeep, 0.95));
+    ctx.fillStyle = gr;
+    ctx.fillRect(dx0, dTop, g.doorW, g.doorH);
+    ctx.fillStyle = lit(P.doorDeep, 0.98, 0.6);
+    ctx.fillRect(dx0 + 5, -26, g.doorW - 10, 18);
+    const wy = dTop + 18, n = light.night;
+    ctx.fillStyle = lit(FRONT_P.trim, 1);
+    ctx.beginPath(); ctx.arc(g.doorX, wy, 8, 0, Math.PI * 2); ctx.fill();
+    // the round window shows the room behind it: pale by day, warm lamplight at night (not multiplied)
+    ctx.fillStyle = css(mix3(mix3(P.glass, light.low, 0.4), [255, 222, 168], n), 1);
+    ctx.beginPath(); ctx.arc(g.doorX, wy, 6.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,252,244,' + (0.55 * (1 - n * 0.6)).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(g.doorX - 2, wy - 2, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit(P.gold, 1);
+    ctx.beginPath(); ctx.arc(dx1 - 6, -30, 1.9, 0, Math.PI * 2); ctx.fill();
+    rrect(dx0 - 8, -2, g.doorW + 16, 5, 2);
+    ctx.fillStyle = lit(FRONT_P.curb, 1);
+    ctx.fill();
+    ctx.fillStyle = lit(FRONT_P.trim, 1.04);
+    ctx.fillRect(dx0 - 6, -2, g.doorW + 12, 1.2);
+
+    // night: the door window glows and spills a warm pool on the step
+    if (n > 0.03) {
+      ctx.globalCompositeOperation = 'lighter';
+      let rg = ctx.createRadialGradient(g.doorX, wy, 0, g.doorX, wy, 26);
+      rg.addColorStop(0, 'rgba(255,214,150,' + (0.5 * n).toFixed(3) + ')');
+      rg.addColorStop(1, 'rgba(255,214,150,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(g.doorX - 26, wy - 26, 52, 52);
+      ctx.save();
+      ctx.translate(g.doorX, 5); ctx.scale(1, 0.25);
+      rg = ctx.createRadialGradient(0, 0, 0, 0, 0, 40);
+      rg.addColorStop(0, 'rgba(255,200,130,' + (0.32 * n).toFixed(3) + ')');
+      rg.addColorStop(1, 'rgba(255,200,130,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // the door is the way in: a dashed outline when pointed at or when the scene has keyboard focus
+    if (frontHover || focusVisible(world)) {
+      rrect(dx0 - 6, dTop - 6, g.doorW + 12, g.doorH + 9, 5);
+      ctx.setLineDash([5, 4]);
+      ctx.lineDashOffset = reduced ? 0 : -now * 0.02;
+      ctx.strokeStyle = 'rgba(255,250,240,0.95)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 
   // ===== SKY =====
@@ -4103,10 +4332,23 @@
     ctx.restore();
   }
 
+  /* one sky and one camera for both scenes; while switching, the sky is laid over the old scene and lifted off the new one */
   function frame(now, dt) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     drawSky(now, dt);
     ctx.setTransform(DPR * cam.zoom, 0, 0, DPR * cam.zoom, DPR * cam.x, DPR * cam.y);
+    if (scene === 'front') drawFront(now);
+    else drawInterior(now);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const veil = sceneVeil();
+    if (veil > 0.001) {
+      ctx.globalAlpha = veil;
+      drawSky(now, 0);
+      ctx.globalAlpha = 1;
+    }
+    drawCoinFlights();
+  }
+  function drawInterior(now) {
     glows.length = 0;
     pools.length = 0;
     drawRoomShadow();
@@ -4236,9 +4478,6 @@
       ctx.stroke();
       ctx.setLineDash([]);
     }
-
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    drawCoinFlights();
   }
 
   // ===== ACTIONS =====
@@ -5041,6 +5280,64 @@
     lvUp.disabled = level >= MAX_LEVEL;
   }
 
+  // ===== SCENES =====
+  /* ================================================================
+     Scene switch: interior (iso room) and storefront (street view).
+     Both share the camera, sky and light; the switch dissolves through
+     the sky (instant with reduced motion). The sim keeps running in
+     both. Which scene is shown is a view preference, not shop data.
+     ================================================================ */
+  const SCENE_KEY = 'cozy-restaurant-scene';
+  const SWAP_TIME = 0.34;              // seconds for the whole dissolve, out and in
+  const sceneBtn = document.getElementById('scene-btn');
+  const sceneLbl = document.getElementById('scene-lbl');
+  const ROOM_LABEL = world.getAttribute('aria-label');
+  const FRONT_LABEL = 'Storefront, seen from the street. Tap the door, or press Enter, to go back inside. Drag to pan, scroll or pinch to zoom. O switches scenes.';
+  let swap = null;                     // { to, t }: t runs 0..1, the scene changes at 0.5
+  const sceneVeil = () => (swap ? 1 - Math.abs(swap.t * 2 - 1) : 0);
+
+  function switchScene(to) {
+    if (swap ? swap.to === to : scene === to) return;
+    if (reduced) { swap = null; applyScene(to); return; }
+    // turning back mid-dissolve keeps the veil where it is
+    swap = { to, t: !swap ? 0 : swap.t < 0.5 ? swap.t : 1 - swap.t };
+  }
+  function updateScene(dt) {
+    if (!swap) return;
+    const was = swap.t;
+    swap.t = Math.min(1, swap.t + dt / SWAP_TIME);
+    if (was < 0.5 && swap.t >= 0.5) applyScene(swap.to);
+    if (swap.t >= 1) swap = null;
+  }
+  function applyScene(to, quiet) {
+    if (to === scene) return;
+    scene = to;
+    const front = to === 'front';
+    if (front) {
+      // room tools wait inside: drop a drag, the selection and any open sheet
+      if (drag) { drag = null; world.classList.remove('grabbing'); }
+      if (gesture && gesture.mode === 'drag') gesture.mode = 'pan';
+      clearTimeout(longTimer);
+      selected = null;
+      updateContext();
+      setSheet('');
+    }
+    frontHover = false;
+    hover.show = false; kbd.show = false; hoverWall.show = false; kwall.show = false;
+    document.body.classList.toggle('scene-front', front);
+    toolbarEl.classList.toggle('is-front', front);
+    sceneLbl.textContent = front ? 'Inside' : 'Outside';
+    sceneBtn.setAttribute('aria-label', front ? 'Go back inside the restaurant (O)' : 'Go outside to the storefront (O)');
+    world.setAttribute('aria-label', front ? FRONT_LABEL : ROOM_LABEL);
+    store.set(SCENE_KEY, to);
+    cam.user = false;
+    fitCamera(false);
+    placeToast();
+    if (!quiet) announce(front ? 'Outside, at the storefront.' : 'Inside the restaurant.');
+  }
+  const toggleScene = () => switchScene((swap ? swap.to : scene) === 'front' ? 'interior' : 'front');
+  sceneBtn.addEventListener('click', toggleScene);
+
   // ===== LOOP =====
   /* ================================================================
      Loop
@@ -5051,6 +5348,7 @@
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60;
     last = now;
     updateLight(dt);
+    updateScene(dt);
     updateCamera(dt);
     updateEffects(dt);
     simUpdate(dt);
@@ -5114,6 +5412,7 @@
     }
     if (pointers.size > 2) return;
     gesture = { mode: 'tap', sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, button: e.button, hit: null, done: false };
+    if (scene !== 'interior') return;      // outside, a drag only pans and a tap only finds the door
     if (tool === 'move' && e.button === 0) gesture.hit = itemAt(e.clientX, e.clientY);
     if (e.pointerType !== 'mouse' && tool !== 'paint') {
       longTimer = setTimeout(() => {
@@ -5125,7 +5424,8 @@
     }
   });
   world.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'mouse') {
+    if (e.pointerType === 'mouse' && scene === 'front') frontHover = !swap && onFrontDoor(e.clientX, e.clientY);
+    else if (e.pointerType === 'mouse') {
       const t = tileAt(e.clientX, e.clientY);
       hover.show = !!t;
       if (t) { hover.x = t[0]; hover.y = t[1]; }
@@ -5188,6 +5488,11 @@
     }
   }
   function handleTap(sx, sy, button, hit) {
+    if (swap) return;
+    if (scene === 'front') {
+      if (button === 0 && onFrontDoor(sx, sy)) switchScene('interior');
+      return;
+    }
     if (button === 2) {
       if (tool === 'paint') return;
       const h = itemAt(sx, sy);
@@ -5229,7 +5534,7 @@
   }
   world.addEventListener('pointerup', endPointer);
   world.addEventListener('pointercancel', endPointer);
-  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover.show = false; hoverWall.show = false; } });
+  world.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover.show = false; hoverWall.show = false; frontHover = false; } });
   world.addEventListener('contextmenu', (e) => e.preventDefault());
   world.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -5262,6 +5567,19 @@
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
+    if (k === 'o' || k === 'O') { toggleScene(); return; }
+    if (scene === 'front' || swap) {
+      // outside there are no room tools: zoom, close panels, and Enter on the scene walks in through the door
+      if (k === '+' || k === '=') zoomAt(W / 2, H / 2, 1.15);
+      else if (k === '-' || k === '_') zoomAt(W / 2, H / 2, 1 / 1.15);
+      else if (k === 'Escape') {
+        if (!breakdownEl.hidden) { setBreakdown(false); statsBtn.focus(); }
+      } else if ((k === 'Enter' || k === ' ') && document.activeElement === world && scene === 'front') {
+        e.preventDefault();
+        switchScene('interior');
+      }
+      return;
+    }
     if (k >= '1' && k <= '7') {
       const name = TOOL_ORDER[+k - 1];
       selectTool(name, true);
@@ -5359,12 +5677,17 @@
           meanDirt: dirtSum / n, maxDirt, trashEnd: trash.length, levelStart: lv0, levelEnd: level };
       },
       screenOf: (x, y, z) => [cam.x + PX(x, y) * cam.zoom, cam.y + PY(x, y, z || 0) * cam.zoom],
+      // storefront: switch at once (no dissolve), its geometry, and a storefront world point (px, y down from the facade foot) on screen
+      setScene: (s) => { swap = null; applyScene(s === 'front' ? 'front' : 'interior', true); },
+      frontGeom: () => frontGeom(),
+      frontScreen: (x, y) => [cam.x + x * cam.zoom, cam.y + y * cam.zoom],
       // centre of a wall piece on screen: side 'A' (right wall, along x) or 'B' (left wall, along y)
       wallScreen: (side, i) => {
         const p = side === 'A' ? [i + 0.5, 0] : [0, i + 0.5];
         return [cam.x + PX(p[0], p[1]) * cam.zoom, cam.y + PY(p[0], p[1], 40) * cam.zoom];
       },
       state: () => ({
+        scene, swapping: !!swap, cam: { x: cam.x, y: cam.y, zoom: cam.zoom, fit: cam.fit },
         name: shopName, decor: decorSnapshot(), tool, paint: paint && Object.assign({}, paint), bill: Object.assign({}, bill), devMode: DEV_MODE, menu: menu.map((m) => Object.assign({}, m)), slots: menuSlots(), N, level, xp, xpNeed: xpNeed(level), coins, rating, recent: recent.slice(), topReason: topReason(), economy: economy(),
         stats: Object.assign({}, stats), orders: orders.length, ready: ready.length, dirtLevel, trash: trash.map((t) => ({ x: t.x, y: t.y, kind: t.kind })),
         staff: staff.map((p) => ({ id: p.id, role: p.role, tier: p.tier, name: p.name, speed: speedOf(p), wage: wageOf(p), busy: +(p.busy || 0).toFixed(2),
@@ -5398,6 +5721,7 @@
   setTab(tabBtns.some((b) => b.dataset.tab === savedTab) ? savedTab : 'furniture');
   fitCamera();
   selectTool('move', false);
+  if (store.get(SCENE_KEY) === 'front') applyScene('front', true);
   updateLight(0);
   updateClock();
   start();

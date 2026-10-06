@@ -82,6 +82,8 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 
 **Trash** (Phase 3c): small pastel pieces lying flat on floor tiles, drawn after the floor and before furniture and people, 1.3 times their base size so they read next to a 45px person: a crumpled paper ball (cream, lighter left and darker right, a few creases), a fruit peel curl in peach with a leaf bit, and a flat spill puddle in butter yellow with a soft highlight. Each has a soft contact shadow (not the spill), pops in with a small squash (a plain fade with reduced motion) and takes the night tint like everything else.
 
+**Storefront** (Phase 4a): a flat side view, at the same px scale as the room (door 64px, a person about 45px). The shop stands on its own floating island with rounded ends: grass top with a darker front lip, then the soil block, and a soft oval shadow below. From the facade outward: a planting strip with small pastel flowers, a sidewalk of staggered pale slabs with a light far edge and a cream curb, then a grass verge. A path with a peach mat and a cream step leads from the sidewalk to the door. The 4a shell is a blush plaster wall that darkens toward the ground, a base band, cream corner pilasters (the right one darker), and a lavender parapet roof that shades the wall under it. The door matches the room's door, and its round window is pale by day and warm at night, with a glow and a light pool on the step. Everything takes the same `lit()` night tint as the room.
+
 ## 7. Characters and Behavior
 
 - Customer cycle: arrive, walk to a free seat, order, wait, eat, pay (coin pop), leave.
@@ -139,7 +141,7 @@ Each object: simple box/rounded primitives, 2 to 3 palette colors, soft AO, a sm
 | Drag | Pan camera |
 | Scroll / pinch | Zoom around pointer |
 | Hover | Dashed tile cursor + translucent ghost preview |
-| Keyboard | 1 to 7 select tools, arrows move cursor, Enter places, Delete removes, +/- zoom |
+| Keyboard | 1 to 7 select tools, arrows move cursor, Enter places, Delete removes, +/- zoom, O switches between the room and the storefront (outside, Enter goes in through the door) |
 
 ## 12. Game Systems
 
