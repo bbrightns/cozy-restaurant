@@ -187,7 +187,9 @@
       const lz = i === 1 ? lift : 0;
       box(bx - 0.1, by - 0.12, bx + 0.1, by + 0.12, 18.5 + lz, 23.5 + lz, '#e9c46a');
       ctx.strokeStyle = K.peach; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(...P(bx, by - 0.1, 23 + lz)); ctx.lineTo(...P(bx, by - 0.36, 32 + lz)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(...P(bx, by + 0.12, 21.5 + lz)); ctx.lineTo(...P(bx, by + 0.46, 26 + lz)); ctx.stroke();
+      ctx.lineCap = 'butt'; ctx.strokeStyle = K.cream; ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.moveTo(...P(bx, by + 0.34, 24.6 + lz)); ctx.lineTo(...P(bx, by + 0.46, 26 + lz)); ctx.stroke();
     });
     if (cooking) steam(0.19, 0.02, 27 + lift, t, 3);
   }

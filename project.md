@@ -520,6 +520,8 @@ Why: decorating is the main pillar, but the catalog is 5 furniture types with co
 | 3g6 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper). Save v8 stores the cabinet state; add the `migrate()` step. | Sonnet |
 | 3g7 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Re-run the 3f balance runs with the new stations. Update design.md. | Sonnet |
 
+Free-form rule: stations, partitions and tables go anywhere the player likes. There is no kitchen zone, no required wall and no required divider; the only rules are the existing ones (a station's front tile stays clear for its chef, and every seat keeps a walkable path from the door). Station fronts and handles face the chef's tile, and rotation mirrors them like the current stove.
+
 Order notes: 3g0 to 3g3 are looks and need no save change; 3g4 to 3g6 change gameplay and save. Phase 3 polish C3 (staff portrait) stays optional and can be done any time.
 
 Not part of 3g: the outdoor lot (fence, garden plots, path pieces), wall-mounted items and the trophy wall. They come with Phase 4 or later.
