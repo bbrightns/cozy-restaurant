@@ -416,7 +416,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
-| 3g Decor variety | Planned, runs before 4b (see 12.3) |
+| 3g Decor variety | Planned (3g0 to 3g7, see 12.3), runs before 4b. Next: 3g0 mockup |
 | 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -512,11 +512,15 @@ Why: decorating is the main pillar, but the catalog is 5 furniture types with co
 | Step | Work | Model |
 |---|---|---|
 | 3g0 | Mockup first (scratch file, not `index.html`): gas stove row, fryer, drink machine, 3 to 4 chair and table styles, a partition, an arcade cabinet and 4 floor tile patterns, at game scale. The user picks the looks. | Sonnet |
-| 3g1 | Floor and wallpaper designs with real patterns (checker, kitchen tile, carpet with a border motif, wood planks), drawn in code. Per-tile painting already supports zoned floors. Optional: a patterned border strip above a plain lower wall band. | Sonnet |
-| 3g2 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet |
-| 3g3 | Kitchen stations: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide first whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks) and how that changes the 8.1 kitchen formula. Write the decision here before coding. | Opus |
-| 3g4 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper; save v8 for its state). | Sonnet |
-| 3g5 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Update design.md. | Sonnet |
+| 3g1 | Catalog structure: category tabs in the build bar, designs that carry their own drawing function (so a design can change the shape, not only the colour), a hover or focus label on items. No new items yet; existing ones move over unchanged. Cross-cutting (CATALOG, build bar, picking), so one careful pass. | Opus |
+| 3g2 | Floor and wallpaper designs with real patterns (checker, kitchen tile, carpet with a border motif, wood planks), drawn in code. Per-tile painting already supports zoned floors. Optional: a patterned border strip above a plain lower wall band. | Sonnet |
+| 3g3 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet |
+| 3g4 | Kitchen station design, text only: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks), how the 8.1 kitchen formula changes, the hint wording and the dish list. Write the decision into 7.1 and 8.1 before any code. | Opus |
+| 3g5 | Build the stations from the 3g4 spec: fryer and drink machine drawn with cooking and idle states, chef work spots, station-aware cooking in the sim. | Sonnet |
+| 3g6 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper). Save v8 stores the cabinet state; add the `migrate()` step. | Sonnet |
+| 3g7 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Re-run the 3f balance runs with the new stations. Update design.md. | Sonnet |
+
+Order notes: 3g0 to 3g3 are looks and need no save change; 3g4 to 3g6 change gameplay and save. Phase 3 polish C3 (staff portrait) stays optional and can be done any time.
 
 Not part of 3g: the outdoor lot (fence, garden plots, path pieces), wall-mounted items and the trophy wall. They come with Phase 4 or later.
 
@@ -526,10 +530,11 @@ Done when: the catalog offers several clearly different styles per furniture typ
 | Step | Work | Model |
 |---|---|---|
 | 4a | Scene switcher with shared camera and lighting, street path to the door. Done (see 3.1). | Opus |
-| 4b | Facade drawn in code: building, door, windows, sign with the shop name. | Sonnet |
-| 4c | Exterior decor slots, build-mode shop for them, next free save version (v7 is the latest: trash from 3c). | Sonnet |
-| 4d | `curbAppeal` and `nightBonus` feed the appeal formula. | Haiku |
+| 4b | Facade drawn in code: building, door, windows, sign with the shop name. Roof and window styles come as choosable designs, using the 3g1 catalog structure. | Sonnet |
+| 4c | Exterior decor slots and a build-mode shop for them (sign, awning, lanterns, plants, statues, bench). Design the data model first, then build; next free save version (v8 is taken by 3g6, so this is v9). | Opus |
+| 4d | `curbAppeal` and `nightBonus` feed the appeal formula (today `curbAppeal` is fixed at 0 in `economy()`). | Haiku |
 | 4e | Customers walk in from the street to the door. | Sonnet |
+| 4f | Later, optional: the outdoor lot (fence, garden plots, path pieces) and a skyline backdrop behind the street. | Sonnet |
 
 Done when: it looks right at 360px, exterior decor measurably raises arrivals, day and night work in both scenes.
 
