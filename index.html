@@ -1036,7 +1036,9 @@
       { name: 'Lavender gingham', price: 55, cloth: '#cdb4db', clothHi: '#ece0f3', woodDeep: '#b39cc6', pattern: 'gingham' },
       { name: 'Butter dots', price: 50, cloth: '#f6d27a', clothHi: '#fbe7b8', pattern: 'dots' },
       { name: 'Sky', price: 35, cloth: '#a9cfe8', clothHi: '#d3e8f5', woodDeep: '#a98f80' },
-      { name: 'Rose gingham', price: 55, cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' }
+      { name: 'Rose gingham', price: 55, cloth: '#f4a6b8', clothHi: '#fcd5de', pattern: 'gingham' },
+      { name: 'Round pedestal', price: 45, draw: drawTableRound, scale: 1, h: 30, half: 0.44 },
+      { name: 'Diner', price: 40, draw: drawTableDiner, scale: 1, h: 28, half: 0.47, mint: '#8fd6bd' }
     ] },
     chair_01: { list: [
       { name: 'Mint', price: 15, cushion: '#b8e0d2', cushionHi: '#cfeadf' },
@@ -1044,7 +1046,11 @@
       { name: 'Lavender', price: 18, cushion: '#cdb4db', cushionHi: '#e2d3ec' },
       { name: 'Butter', price: 18, cushion: '#f6dc93', cushionHi: '#fbeabc' },
       { name: 'Sky', price: 24, cushion: '#b2d6ec', cushionHi: '#d3e8f5', wood: '#cdbcae', woodDeep: '#a98f80' },
-      { name: 'Cocoa', price: 28, cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' }
+      { name: 'Cocoa', price: 28, cushion: '#e8c4a8', cushionHi: '#f3dcc8', wood: '#b88a6a', woodDeep: '#9a7055' },
+      // shaped designs (3g3): they draw at scale 1 and say how tall they are (h), how wide (half, in tiles), and where a guest sits (sit)
+      { name: 'Stool', price: 14, draw: drawStool, scale: 1, h: 18, half: 0.27, sit: 12.7, cushion: '#9fd6c4', cushionHi: '#bfe6d9', woodDeep: '#8a6f7e' },
+      { name: 'High back', price: 32, draw: drawHighBack, scale: 1, h: 36, half: 0.3, sit: 10.2, cushion: '#cdb4db', cushionHi: '#e2d3ec', woodDeep: '#8a6f7e', gold: '#f6d27a' },
+      { name: 'Booth seat', price: 40, draw: drawBooth, scale: 1, h: 33, half: 0.46, sit: 12.2, cushion: '#f4a99b', cushionHi: '#f9c3b8' }
     ] },
     counter_01: { list: [
       { name: 'Lavender', price: 60, lav: '#cdb4db', lavDeep: '#b39cc6', blush: '#fcd5ce' },
@@ -1167,8 +1173,11 @@
   const CHAIR_TUCK = 0.37;
   function tucked(fn) {
     return (it, now) => {
-      if (!seatTable(it)) { fn(it, now); return; }
-      const [dx, dy] = DIRS[it.rot], t = CHAIR_TUCK;
+      const tbl = seatTable(it);
+      if (!tbl) { fn(it, now); return; }
+      // designs that say how wide they are (half, in tiles) keep the same small gap to the table; the original pair uses CHAIR_TUCK
+      const hc = designOf(it).half, ht = designOf(tbl).half;
+      const [dx, dy] = DIRS[it.rot], t = !hc && !ht ? CHAIR_TUCK : clamp(1 - (hc || 0.18) - (ht || 0.334) - 0.12, 0, 0.5);
       const mx = PX(it.x + dx * t, it.y + dy * t) - PX(it.x, it.y), my = PY(it.x + dx * t, it.y + dy * t, 0) - PY(it.x, it.y, 0);
       ctx.save();
       ctx.translate(mx, my);
@@ -1682,6 +1691,26 @@
       ctx.stroke();
     }
   }
+  /* a round column centred on tile point (x, y): a side shaded left to right and an elliptical top */
+  function cyl(x, y, r, z0, z1, col, top) {
+    const cx = PX(x, y), cy = PY(x, y, 0), rx = r * TW * 1.414, ry = r * TH * 1.414, yb = cy - z0, yt = cy - z1;
+    const fl = 0.9 - 0.04 * light.sun, fr = 0.77 + 0.04 * light.sun;
+    const g = ctx.createLinearGradient(cx - rx, 0, cx + rx, 0);
+    g.addColorStop(0, lit(col, 1));
+    g.addColorStop(0.55, lit(col, fl));
+    g.addColorStop(1, lit(col, fr));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, yb, rx, ry, 0, 0, Math.PI);
+    ctx.lineTo(cx - rx, yt);
+    ctx.ellipse(cx, yt, rx, ry, 0, Math.PI, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, yt, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = lit(top || col, 1.04);
+    ctx.fill();
+  }
   function contact(cx, cy, r, a) {
     ctx.fillStyle = 'rgba(122,82,118,' + (a || 0.18) + ')';
     ctx.beginPath();
@@ -1752,6 +1781,37 @@
     for (const c of seats) if (near(c)) drawPlate(c);
   }
 
+  /* plates of the seats facing a table (far ones before what stands on it, near ones after), drawn at table-top height z */
+  function tablePlates(it, z) {
+    const seats = items.filter((c) => c.id === 'chair_01' && c.plate && seatTable(c) === it);
+    const near = (c) => -DIRS[c.rot][0] - DIRS[c.rot][1] > 0;
+    return { far: () => { for (const c of seats) if (!near(c)) drawPlate(c, z); }, near: () => { for (const c of seats) if (near(c)) drawPlate(c, z); } };
+  }
+  function drawTableRound(it, now) {
+    const C = pal(it), cx = it.x + 0.5, cy = it.y + 0.5, pl = tablePlates(it, 16.8);
+    contact(cx, cy, 0.5);
+    cyl(cx, cy, 0.2, 0, 2, C.wood);
+    cyl(cx, cy, 0.07, 2, 14, C.wood);
+    cyl(cx, cy, 0.44, 14, 16.5, C.slab);
+    pl.far();
+    cyl(cx, cy, 0.03, 16.5, 21, C.cream);
+    const fl = reduced ? 1 : 1 + Math.sin(now * 0.012) * 0.15;
+    ctx.fillStyle = lit(C.gold, 1.05);
+    ctx.beginPath(); ctx.ellipse(PX(cx, cy), PY(cx, cy, 23), 1.5, 2.6 * fl, 0, 0, Math.PI * 2); ctx.fill();
+    pl.near();
+  }
+  function drawTableDiner(it) {
+    const C = pal(it), cx = it.x + 0.5, cy = it.y + 0.5, pl = tablePlates(it, 16.3);
+    contact(cx, cy, 0.52);
+    for (const [a, b] of [[-0.42, -0.42], [0.37, -0.42], [-0.42, 0.37], [0.37, 0.37]]) box(cx + a, cy + b, cx + a + 0.05, cy + b + 0.05, 0, 13, C.mint);
+    box(cx - 0.47, cy - 0.47, cx + 0.47, cy + 0.47, 13, 14.4, C.gold);
+    box(cx - 0.43, cy - 0.43, cx + 0.43, cy + 0.43, 14.4, 16, C.lav);
+    pl.far();
+    box(cx - 0.1, cy - 0.08, cx + 0.1, cy + 0.08, 16, 19.5, C.cream);
+    cyl(cx + 0.25, cy - 0.2, 0.04, 16, 21, C.cloth);
+    pl.near();
+  }
+
   function drawChair(it, now) {
     const C = pal(it);
     const x = it.x, y = it.y;
@@ -1777,17 +1837,69 @@
     if (backFar) drawBack();
     box(x + a, y + a, x + b, y + b, 9, 12, C.wood);
     box(x + a + 0.03, y + a + 0.03, x + b - 0.03, y + b - 0.03, 12, 14, C.cushion, { top: C.cushionHi });
-    const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
-    if (sitter) {
-      // the guest is not shrunk with the chair: undo the scale around the same pivot and lift by the scaled seat height
-      const s = scaleOf(it), [cx, cy] = pivotOf(it);
-      ctx.save();
-      ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
-      sitter.fdx = dx; sitter.fdy = dy;   // seated guests face their table
-      drawPerson(sitter, x + 0.5 - dx * 0.06, y + 0.5 - dy * 0.06, 13 * s - SIT_DROP, true, now);
-      ctx.restore();
-    }
+    seatSitter(it, now);
     if (!backFar) drawBack();
+  }
+  /* the guest is not shrunk with the chair: undo the scale around the same pivot and lift by the design's seat height (`sit`) */
+  function seatSitter(it, now) {
+    const sitter = it.occupant && it.occupant.seated ? it.occupant : null;
+    if (!sitter) return;
+    const [dx, dy] = DIRS[it.rot], s = scaleOf(it), [cx, cy] = pivotOf(it);
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(1 / s, 1 / s); ctx.translate(-cx, -cy);
+    sitter.fdx = dx; sitter.fdy = dy;   // seated guests face their table
+    drawPerson(sitter, it.x + 0.5 - dx * 0.06, it.y + 0.5 - dy * 0.06, (designOf(it).sit || 13) * s - SIT_DROP, true, now);
+    ctx.restore();
+  }
+  /* A chair frame for the shaped designs (3g3): fb() places a box by `a` along the seat's width and `b` across it, b growing
+     toward the way the chair faces, both measured from the tile centre. backFar: the backrest sits on the far side of the seat. */
+  function chairFrame(it) {
+    const [dx, dy] = DIRS[it.rot], cx = it.x + 0.5, cy = it.y + 0.5;
+    const fb = (a0, a1, b0, b1, z0, z1, col, o) => {
+      const xa = dy ? cx + a0 : cx + b0 * dx, xb = dy ? cx + a1 : cx + b1 * dx;
+      const ya = dy ? cy + b0 * dy : cy + a0, yb = dy ? cy + b1 * dy : cy + a1;
+      box(Math.min(xa, xb), Math.min(ya, yb), Math.max(xa, xb), Math.max(ya, yb), z0, z1, col, o);
+    };
+    return { fb, cx, cy, backFar: dy === 1 || dx === 1 };
+  }
+  const sameAt = (it, ox, oy) => items.some((c) => c.id === it.id && c.variant === it.variant && c.rot === it.rot && c.x === it.x + ox && c.y === it.y + oy);
+  function drawStool(it, now) {
+    const C = pal(it), { cx, cy } = chairFrame(it);
+    contact(cx, cy, 0.36);
+    for (const [lx, ly] of [[-0.16, -0.12], [0.16, -0.12], [0, 0.18]]) cyl(cx + lx, cy + ly, 0.035, 0, 10, C.woodDeep);
+    cyl(cx, cy, 0.2, 4, 5, C.woodDeep);
+    cyl(cx, cy, 0.27, 10, 13.5, C.cushion, C.cushionHi);
+    seatSitter(it, now);
+  }
+  function drawHighBack(it, now) {
+    const C = pal(it), { fb, cx, cy, backFar } = chairFrame(it);
+    contact(cx, cy, 0.4);
+    for (const [a, b] of [[-0.28, -0.28], [0.23, -0.28], [-0.28, 0.23], [0.23, 0.23]]) fb(a, a + 0.05, b, b + 0.05, 0, 8, C.woodDeep);
+    const back = () => {
+      fb(-0.3, 0.3, -0.3, -0.21, 11, 33, C.cushion, { top: C.cushionHi });
+      fb(-0.22, 0.22, -0.21, -0.17, 14, 29, C.gold);
+    };
+    if (backFar) back();
+    fb(-0.3, 0.3, -0.3, 0.3, 8, 11, C.cushion, { top: C.cushionHi });
+    seatSitter(it, now);
+    if (!backFar) back();
+  }
+  /* A booth seat: a wooden base, a cushion and a tall tufted back. Neighbours of the same design, rotation and row join into
+     one long seat; the free ends get an arm. */
+  function drawBooth(it, now) {
+    const C = pal(it), { fb, cx, cy, backFar } = chairFrame(it);
+    const [dx, dy] = DIRS[it.rot];
+    const lo = (dy ? sameAt(it, -1, 0) : sameAt(it, 0, -1)), hi = (dy ? sameAt(it, 1, 0) : sameAt(it, 0, 1));
+    const a0 = lo ? -0.5 : -0.46, a1 = hi ? 0.5 : 0.46;
+    contact(cx, cy, 0.5);
+    fb(a0, a1, -0.46, 0.46, 0, 9, C.wood);
+    const back = () => { fb(a0, a1, -0.46, -0.26, 9, 31, C.cushion, { top: C.cushionHi }); };
+    if (backFar) back();
+    fb(a0, a1, -0.3, 0.46, 9, 13, C.cushionHi, { top: C.cushionHi });
+    if (!lo) fb(-0.5, a0 + 0.1, -0.46, 0.46, 9, 21, C.wood);
+    seatSitter(it, now);
+    if (!hi) fb(a1 - 0.1, 0.5, -0.46, 0.46, 9, 21, C.wood);
+    if (!backFar) back();
   }
 
   /* ---------- the kitchen: a stove, one tile per chef (the item id stays counter_01 so older saves still load) ----------
@@ -3221,9 +3333,9 @@
   /* ---------------- drawing guests, plates, bubbles ---------------- */
   const drawPerson = (c, fx, fy, z, sitting, now) => drawChibi(c, fx, fy, z, sitting, now);
 
-  function drawPlate(ch) {
+  function drawPlate(ch, z) {
     const [px, py] = plateSpot(ch);
-    const sx = PX(px, py), sy = PY(px, py, 18.3);
+    const sx = PX(px, py), sy = PY(px, py, z === undefined ? 18.3 : z);
     ctx.fillStyle = lit(PLATE, 1);
     ctx.beginPath(); ctx.ellipse(sx, sy, 6.4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = lit(P.cream, 1.02);
