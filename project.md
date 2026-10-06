@@ -154,7 +154,7 @@ Each customer ends their visit satisfied or unsatisfied. This feeds the shop rat
 - One chef per counter. A chef without a free counter waits politely off to the side or helps with dishes. The UI hint says "Add a stove" when chefs outnumber counters.
 - A waiter walks to the pickup spot, takes the plate, and carries it to the customer's table.
 - With no chef, a counter still cooks but slower, so a new player is never blocked. Chef speed multiplies the counter's cook time.
-- Different stove types per dish (wok, pot, grill) are a later option, not part of Phase 3.
+- Different stove types per dish (wok, pot, grill) are not part of Phase 3; they are planned in Phase 3g (fryer, drink machine).
 
 **Staff model (Phase 3a).** These rules are in use from Phase 3a on.
 
@@ -403,7 +403,8 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 3b | Staff on the floor | Staff drawn and walking (A*), waiters carry plates and clear tables |
 | 3c | Trash and dirt | Trash spawns, dirt level, `cleanFactor` in income, trash sprites and bubbles |
 | 3d | Cleaning | Tap-to-clean for the player, idle staff and helpers clean |
-| **4** | Storefront | 2D facade scene, sign and exterior decor, curb appeal |
+| **3g** | Decor variety | Kitchen stations (gas stove, fryer, drink machine), chair and table styles with different shapes, partitions, arcade cabinet, patterned floor tiles |
+| **4** | Storefront | 2D facade scene, sign and exterior decor, curb appeal. The outdoor lot (fence, garden plots) comes after the facade, as a later step |
 | **5** | Offline earnings | Server time, welcome-back popup, cap and efficiency settings |
 | **6** | Social | Firebase login, friend code, visit shops, likes, guestbook, help-friend cleaning, daily gift, achievements |
 | **7** | Polish and live ops | Sound, tutorial, events, leaderboard, photo mode |
@@ -415,6 +416,7 @@ Each achievement has 3 tiers (bronze, silver, gold) with a small coin or cosmeti
 | 1 Decorate sandbox (incl. polish 1 to 7) | Done |
 | 2 Customers and money | Done |
 | 3 Staff and cleanliness | Done: 3a to 3f and polish A, B and C1/C2 (C3, the optional staff portrait pass, is still open). 3c trash and dirt (save v7), 3d tap-to-clean tip and staff sweeping, 3e trash hint, 3f balance pass (seat blocking, dirt matches cleanFactor). Next: Phase 4 |
+| 3g Decor variety | Planned, runs before 4b (see 12.3) |
 | 4 Storefront | In progress: 4a done (scene switch with shared camera and light, storefront island with the street path to the door; no save change). Next: 4b facade |
 | 5 Offline earnings | Planned |
 | 7a Playable polish | Planned |
@@ -504,6 +506,21 @@ Done when: hiring raises income, ignoring dirt hurts income, old saves load, no 
 - Stop and report instead of continuing if a step needs a change to CLAUDE.md, a save format change not planned here, or an error that cannot be fixed.
 - Never push to GitHub unless asked. Do not commit unrelated pending changes (other chats may edit `project.md` or add reference files).
 - Switch to the model in the Model column when the user changes it with `/model`; the assistant cannot change it itself.
+
+**Phase 3g: Decor variety** (inspired by the user's gameplay reference; general ideas only, all art drawn fresh in code, CLAUDE.md rule 3 applies)
+Why: decorating is the main pillar, but the catalog is 5 furniture types with colour swaps. Players want pieces that change the style of the room, not just its colour.
+| Step | Work | Model |
+|---|---|---|
+| 3g0 | Mockup first (scratch file, not `index.html`): gas stove row, fryer, drink machine, 3 to 4 chair and table styles, a partition, an arcade cabinet and 4 floor tile patterns, at game scale. The user picks the looks. | Sonnet |
+| 3g1 | Floor and wallpaper designs with real patterns (checker, kitchen tile, carpet with a border motif, wood planks), drawn in code. Per-tile painting already supports zoned floors. Optional: a patterned border strip above a plain lower wall band. | Sonnet |
+| 3g2 | Chair and table styles that differ in shape and silhouette, not only colour (for example stool, high back, cushioned bench, booth seat, round and square tables), each with its own price. Same footprint and seat rules, so no save change. Connected seating (benches, booths) joins neighbours visually. | Sonnet |
+| 3g3 | Kitchen stations: gas stove (the current stove, renamed), fryer and drink machine as 1x1 stations, one chef each. Decide first whether dishes carry a `station` tag (a fryer cooks fried dishes, the drink machine pours drinks) and how that changes the 8.1 kitchen formula. Write the decision here before coding. | Opus |
+| 3g4 | Partition (1x1 panel that blocks its tile, placement still checks the path to every seat) and arcade cabinet (tap to collect coins, wears out and needs a repair tap or a helper; save v8 for its state). | Sonnet |
+| 3g5 | Sweep: day and night, 360px, drag, place, rotate and remove, save and reload, old saves load, console clean. Update design.md. | Sonnet |
+
+Not part of 3g: the outdoor lot (fence, garden plots, path pieces), wall-mounted items and the trophy wall. They come with Phase 4 or later.
+
+Done when: the catalog offers several clearly different styles per furniture type, the kitchen has more than one kind of station, and nothing breaks at 360px.
 
 **Phase 4: Storefront**
 | Step | Work | Model |
